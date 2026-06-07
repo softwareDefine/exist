@@ -1,36 +1,31 @@
-/* 한글: 네이버 나눔스퀘어네오 (공식 웹폰트, 웨이트별 매핑) */
+/* 한글: 네이버 나눔스퀘어네오 — 셀프호스팅 (CDN은 CORS 차단, OFL 라이선스라 동봉 가능) */
 @font-face {
   font-family: 'NanumSquareNeo';
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aLt.woff')
-    format('woff');
+  src: url('/fonts/NanumSquareNeoTTF-aLt.woff') format('woff');
   font-weight: 300;
   font-display: swap;
 }
 @font-face {
   font-family: 'NanumSquareNeo';
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aRg.woff')
-    format('woff');
+  src: url('/fonts/NanumSquareNeoTTF-bRg.woff') format('woff');
   font-weight: 400;
   font-display: swap;
 }
 @font-face {
   font-family: 'NanumSquareNeo';
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aBd.woff')
-    format('woff');
+  src: url('/fonts/NanumSquareNeoTTF-cBd.woff') format('woff');
   font-weight: 700;
   font-display: swap;
 }
 @font-face {
   font-family: 'NanumSquareNeo';
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aEb.woff')
-    format('woff');
+  src: url('/fonts/NanumSquareNeoTTF-dEb.woff') format('woff');
   font-weight: 800;
   font-display: swap;
 }
 @font-face {
   font-family: 'NanumSquareNeo';
-  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aHv.woff')
-    format('woff');
+  src: url('/fonts/NanumSquareNeoTTF-eHv.woff') format('woff');
   font-weight: 900;
   font-display: swap;
 }
