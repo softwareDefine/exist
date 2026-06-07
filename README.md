@@ -45,4 +45,6 @@ cd client && npm run dev   # http://localhost:5173
 2. ✅ 투두/일정 CRUD + nowbar 카운트다운
 3. ✅ SFU 화상회의 (mediasoup)
 4. ✅ AI agent (브리핑 + 회의 리마인더 푸시)
-5. 동시편집 작업공간 (tldraw + Yjs)
+5. ✅ 동시편집 작업공간 (tldraw 공식 sync)
+
+다음: 회의실 권한, 화면공유, 회의 내 채팅, 보안 강화(rate limit·세션 만료), 배포 준비
