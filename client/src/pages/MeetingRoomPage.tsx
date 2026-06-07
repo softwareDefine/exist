@@ -431,7 +431,9 @@ export default function MeetingRoomPage() {
               )}
             </div>
           )}
-          <div className={`video-grid${hasScreen ? ' filmstrip' : ''}`}>
+          <div
+            className={`video-grid${hasScreen ? ' filmstrip' : ''} count-${peers.length + 1}`}
+          >
             <VideoTile track={localTrack} username={user?.username ?? '나'} muted isLocal />
             {peers.map((p) => (
               <div key={p.peerId}>

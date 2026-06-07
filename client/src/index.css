@@ -1364,6 +1364,26 @@ input:focus {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   align-content: center;
   min-height: 0;
+  overflow: hidden;
+}
+
+/* 1인: 높이 기준 16:9 — 화면 밖으로 삐져나가지 않게 */
+.video-grid.count-1:not(.filmstrip) {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.video-grid.count-1:not(.filmstrip) .video-tile {
+  aspect-ratio: 16 / 9;
+  height: min(100%, 74vh);
+  width: auto;
+  max-width: 100%;
+}
+
+/* 2인: 타일 높이가 영역을 넘지 않게 상한 */
+.video-grid.count-2:not(.filmstrip) .video-tile {
+  max-height: calc(100vh - 220px);
 }
 
 .video-grid.filmstrip {
