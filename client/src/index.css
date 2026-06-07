@@ -1,0 +1,337 @@
+:root {
+  /* exist 디자인 토큰 (피그마 기준) */
+  --green: #2db400;
+  --green-dark: #249200;
+  --green-bg: #2db400;
+  --text: #111111;
+  --text-sub: #9a9a9a;
+  --border: #e2e2e2;
+  --bg: #ffffff;
+  --radius: 14px;
+
+  font-family: 'Pretendard', -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+}
+
+/* ───── 공용 ───── */
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.logo::before {
+  content: '';
+  width: 22px;
+  height: 22px;
+  border: 6px solid var(--green);
+  border-radius: 50%;
+}
+
+/* ───── nowbar ───── */
+.nowbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 28px;
+}
+
+.nowbar-pill {
+  flex: 1;
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 10px 18px;
+  box-shadow: 0 3px 0 -1px #f0f0f0;
+  background: #fff;
+}
+
+.nowbar-meeting .title {
+  font-weight: 700;
+}
+
+.nowbar-meeting .tag {
+  color: var(--text-sub);
+  font-size: 14px;
+  margin-left: 6px;
+}
+
+.nowbar-meeting .countdown {
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.nowbar-meeting .countdown b {
+  color: var(--green);
+}
+
+.nowbar-todos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.nowbar-todo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nowbar-todo.done {
+  color: var(--text-sub);
+  text-decoration: line-through;
+}
+
+.nowbar-clock {
+  font-size: 22px;
+  font-weight: 600;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.nowbar-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #dfe8f2;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+/* ───── 대시보드 ───── */
+.dashboard {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 32px;
+  padding: 12px 36px 36px;
+  height: calc(100vh - 90px);
+}
+
+.join-card {
+  background: var(--green-bg);
+  color: #fff;
+  border-radius: var(--radius);
+  padding: 22px;
+}
+
+.join-card .head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.join-card h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.join-card .new-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: #d9d9d9;
+  color: #555;
+  font-size: 22px;
+}
+
+.join-card form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.join-card input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 15px;
+}
+
+.join-card .join-btn {
+  border: none;
+  background: none;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--green);
+  font-size: 24px;
+  font-weight: 800;
+  margin: 28px 0 14px;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recent-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  min-height: 48px;
+}
+
+.recent-card .thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: #d9d9d9;
+  flex-shrink: 0;
+}
+
+.recent-card .name {
+  font-weight: 700;
+}
+
+.recent-card .actions {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.recent-card .actions button {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 14px;
+}
+
+.workspace-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  overflow: auto;
+}
+
+.workspace-panel .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--green);
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.workspace-empty {
+  height: 80%;
+  display: grid;
+  place-items: center;
+  color: var(--text-sub);
+}
+
+/* ───── 로그인 ───── */
+.login-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+
+.login-hero {
+  background: #cfdcec;
+  display: grid;
+  place-items: center;
+  font-size: 120px;
+}
+
+.login-form-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.login-form {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-form .logo {
+  margin: 0 auto 16px;
+}
+
+.login-form input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 15px;
+}
+
+.login-form .submit {
+  border: none;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.login-form .submit:hover {
+  background: var(--green-dark);
+}
+
+.login-form .meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.login-form .meta button {
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  padding: 0;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
+.login-form .error {
+  color: #d33;
+  font-size: 13px;
+  text-align: center;
+}
