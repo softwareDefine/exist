@@ -6,6 +6,7 @@ import NotificationToasts from '../components/NotificationToasts';
 import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspacePanel';
 import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, ClockIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
+import MeetingSettingsModal from '../components/MeetingSettingsModal';
 
 export default function DashboardPage() {
   const location = useLocation();
@@ -20,6 +21,9 @@ export default function DashboardPage() {
 
   // 회의 탭 열기 요청 (우측 패널로 전달)
   const [meetingRequest, setMeetingRequest] = useState<MeetingTabRequest | null>(null);
+
+  // 회의 설정 모달 (일정/설정 버튼)
+  const [settingsMeeting, setSettingsMeeting] = useState<Meeting | null>(null);
 
   function openMeetingTab(code: string, title: string) {
     setMeetingRequest({ code, title, ts: Date.now() });
@@ -116,13 +120,13 @@ export default function DashboardPage() {
                     <button title="통화" onClick={() => openMeetingTab(m.code, m.title)}>
                       <PhoneIcon size={17} />
                     </button>
-                    <button title="채팅">
+                    <button title="채팅" onClick={() => openMeetingTab(m.code, m.title)}>
                       <ChatIcon size={17} />
                     </button>
-                    <button title="일정">
+                    <button title="일정" onClick={() => setSettingsMeeting(m)}>
                       <CalendarIcon size={17} />
                     </button>
-                    <button title="설정">
+                    <button title="설정" onClick={() => setSettingsMeeting(m)}>
                       <GearIcon size={17} />
                     </button>
                   </div>
@@ -148,6 +152,12 @@ export default function DashboardPage() {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={() => void refresh()}
+      />
+
+      <MeetingSettingsModal
+        meeting={settingsMeeting}
+        onClose={() => setSettingsMeeting(null)}
+        onChanged={() => void refresh()}
       />
     </>
   );

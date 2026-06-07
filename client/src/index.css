@@ -974,6 +974,31 @@ input:focus {
   color: var(--green);
 }
 
+.modal-danger {
+  width: 100%;
+  margin-top: 14px;
+  border: 1px solid #f3c8c8;
+  border-radius: 10px;
+  background: #fff;
+  color: #d33;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.modal-danger:hover,
+.modal-danger.confirm {
+  background: #fdf0f0;
+  border-color: #d33;
+}
+
+.modal-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-sub);
+  text-align: center;
+}
+
 .meeting-code-box {
   font-family: 'Inter', monospace;
   font-size: 28px;

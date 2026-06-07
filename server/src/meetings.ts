@@ -105,6 +105,48 @@ router.get('/:code', (req: AuthedRequest, res) => {
   });
 });
 
+/** 회의 수정 (호스트만) — 제목/시작/종료 */
+router.patch('/:code', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  if (meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트만 수정할 수 있어요' });
+  }
+  const { title, starts_at, ends_at } = req.body ?? {};
+  if (title !== undefined && !String(title).trim()) {
+    return res.status(400).json({ error: '회의 이름을 입력하세요' });
+  }
+  db.prepare(
+    `UPDATE meetings SET
+       title = COALESCE(?, title),
+       starts_at = ?,
+       ends_at = ?
+     WHERE id = ?`,
+  ).run(title ?? null, starts_at ?? null, ends_at ?? null, meeting.id);
+  res.json({ ok: true });
+});
+
+/** 회의 삭제 (호스트만) — 참가 기록/채팅도 함께 */
+router.delete('/:code', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  if (meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트만 삭제할 수 있어요' });
+  }
+  db.prepare('DELETE FROM messages WHERE meeting_id = ?').run(meeting.id);
+  db.prepare('DELETE FROM meeting_participants WHERE meeting_id = ?').run(meeting.id);
+  db.prepare('DELETE FROM meetings WHERE id = ?').run(meeting.id);
+  res.json({ ok: true });
+});
+
 /** 회의 채팅 히스토리 (최근 100개) */
 router.get('/:code/messages', (req: AuthedRequest, res) => {
   const meeting = db
