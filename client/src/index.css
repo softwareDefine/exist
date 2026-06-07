@@ -871,9 +871,15 @@ input:focus {
   align-items: center;
   gap: 10px;
   color: var(--green);
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 900;
   margin: 26px 0 12px;
+}
+
+/* PDF 디자인: 텍스트는 녹색, 아이콘은 검정 */
+.section-title svg {
+  flex-shrink: 0;
+  color: var(--text);
 }
 
 .recent-list {
@@ -926,8 +932,10 @@ input:focus {
   border: none;
   background: none;
   padding: 2px;
-  font-size: 14px;
-  opacity: 0.65;
+  color: #2b2b2b;
+  display: grid;
+  place-items: center;
+  opacity: 0.75;
 }
 
 .recent-card .actions button:hover {
@@ -1072,6 +1080,9 @@ input:focus {
 }
 
 .ws-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 10px 10px 0 0;
@@ -1419,7 +1430,21 @@ input:focus {
   border-radius: 50%;
   background: #2a2e37;
   color: #fff;
-  font-size: 21px;
+  display: grid;
+  place-items: center;
+}
+
+.meeting-controls .slash {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.chat-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .meeting-controls button:hover {

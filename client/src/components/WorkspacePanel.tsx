@@ -4,6 +4,7 @@ import { useSync } from '@tldraw/sync';
 import 'tldraw/tldraw.css';
 import { api } from '../api';
 import { useAuthStore } from '../store';
+import { FolderIcon } from './Icons';
 
 interface Workspace {
   id: number;
@@ -95,7 +96,7 @@ export default function WorkspacePanel() {
             className={`ws-tab${ws.id === activeId ? ' active' : ''}`}
             onClick={() => setActiveId(ws.id)}
           >
-            🗂️ {ws.name}
+            <FolderIcon size={15} /> {ws.name}
           </button>
         ))}
       </div>

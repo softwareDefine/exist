@@ -4,6 +4,7 @@ import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import NotificationToasts from '../components/NotificationToasts';
 import WorkspacePanel from '../components/WorkspacePanel';
+import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, ClockIcon } from '../components/Icons';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -142,7 +143,9 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="section-title">🕘 최근 회의</div>
+          <div className="section-title">
+            <ClockIcon size={22} /> 최근 회의
+          </div>
           <div className="recent-list">
             {recent.map((m) => (
               <div key={m.id} className="recent-card">
@@ -158,11 +161,17 @@ export default function DashboardPage() {
                   <div className="name">{m.title}</div>
                   <div className="actions">
                     <button title="통화" onClick={() => navigate(`/meeting/${m.code}`)}>
-                      📞
+                      <PhoneIcon size={15} />
                     </button>
-                    <button title="채팅">💬</button>
-                    <button title="일정">📅</button>
-                    <button title="설정">⚙️</button>
+                    <button title="채팅">
+                      <ChatIcon size={15} />
+                    </button>
+                    <button title="일정">
+                      <CalendarIcon size={15} />
+                    </button>
+                    <button title="설정">
+                      <GearIcon size={15} />
+                    </button>
                   </div>
                 </div>
               </div>

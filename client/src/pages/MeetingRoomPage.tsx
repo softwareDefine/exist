@@ -6,6 +6,7 @@ import { getSocket, request } from '../lib/socket';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import Logo from '../components/Logo';
+import { MicIcon, CamIcon, ScreenIcon, ChatIcon, SlashIcon } from '../components/Icons';
 
 interface RemotePeer {
   peerId: string;
@@ -452,7 +453,9 @@ export default function MeetingRoomPage() {
         {chatOpen && (
           <aside className="chat-panel">
             <div className="chat-head">
-              💬 채팅
+              <span className="chat-head-title">
+                <ChatIcon size={16} /> 채팅
+              </span>
               <button onClick={() => setChatOpen(false)}>×</button>
             </div>
             <div className="chat-messages">
@@ -482,17 +485,27 @@ export default function MeetingRoomPage() {
 
       <footer className="meeting-controls">
         <button className={micOn ? '' : 'off'} onClick={toggleMic} title="마이크">
-          {micOn ? '🎙️' : '🔇'}
+          <MicIcon size={21} />
+          {!micOn && (
+            <span className="slash">
+              <SlashIcon size={21} />
+            </span>
+          )}
         </button>
         <button className={camOn ? '' : 'off'} onClick={toggleCam} title="카메라">
-          {camOn ? '📷' : '🚫'}
+          <CamIcon size={21} />
+          {!camOn && (
+            <span className="slash">
+              <SlashIcon size={21} />
+            </span>
+          )}
         </button>
         <button
           className={localScreen ? 'active' : ''}
           onClick={toggleScreenShare}
           title="화면 공유"
         >
-          🖥️
+          <ScreenIcon size={21} />
         </button>
         <button
           className={chatOpen ? 'active' : ''}
@@ -502,7 +515,7 @@ export default function MeetingRoomPage() {
           }}
           title="채팅"
         >
-          💬
+          <ChatIcon size={20} />
           {unread > 0 && <span className="badge">{unread}</span>}
         </button>
         <button className="leave" onClick={() => navigate('/')} title="나가기">
