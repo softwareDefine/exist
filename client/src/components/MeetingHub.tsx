@@ -89,6 +89,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     function onMessage(msg: ChatMessage) {
       if (msg.code && msg.code !== code.toUpperCase()) return;
       setMessages((prev) => [...prev, msg]);
+      // 회의 탭 안읽음 배지용 (WorkspacePanel이 수신)
+      window.dispatchEvent(new CustomEvent('meeting:message', { detail: { code: code.toUpperCase() } }));
     }
     socket.on('chat:message', onMessage);
     return () => {
@@ -232,9 +234,13 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           </div>
         )}
 
-        {/* 통화 — 입장하면 서브탭 옮겨도 마운트 유지 (display 토글) */}
+        {/* 통화 — 입장하면 서브탭 옮겨도 마운트 유지. 다른 서브탭에선 우하단 미니 PiP */}
         {inCall && (
-          <div className="hub-call" style={{ display: subtab === 'call' ? 'block' : 'none' }}>
+          <div
+            className={`hub-call${subtab === 'call' ? '' : ' mini'}`}
+            onClick={subtab !== 'call' ? () => setSubtab('call') : undefined}
+            title={subtab !== 'call' ? '클릭하면 통화 화면으로' : undefined}
+          >
             <MeetingView
               code={code}
               embedded

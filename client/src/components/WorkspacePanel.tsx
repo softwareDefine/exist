@@ -29,6 +29,26 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null); // 오버레이 전체화면 회의 코드
   const [renaming, setRenaming] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [unread, setUnread] = useState<Map<string, number>>(new Map());
+
+  // 회의 채팅 수신 → 비활성 탭이면 안읽음 배지
+  useEffect(() => {
+    function onMsg(e: Event) {
+      const { code } = (e as CustomEvent<{ code: string }>).detail;
+      setActive((cur) => {
+        if (!(cur?.kind === 'meeting' && cur.code === code)) {
+          setUnread((prev) => {
+            const next = new Map(prev);
+            next.set(code, (next.get(code) ?? 0) + 1);
+            return next;
+          });
+        }
+        return cur;
+      });
+    }
+    window.addEventListener('meeting:message', onMsg);
+    return () => window.removeEventListener('meeting:message', onMsg);
+  }, []);
 
   // ESC로 전체화면 축소
   useEffect(() => {
@@ -139,8 +159,18 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             className={`ws-tab meeting${
               active?.kind === 'meeting' && active.code === t.code ? ' active' : ''
             }`}
-            onClick={() => setActive({ kind: 'meeting', code: t.code })}
+            onClick={() => {
+              setActive({ kind: 'meeting', code: t.code });
+              setUnread((prev) => {
+                const next = new Map(prev);
+                next.delete(t.code);
+                return next;
+              });
+            }}
           >
+            {(unread.get(t.code) ?? 0) > 0 && (
+              <span className="tab-badge">{unread.get(t.code)}</span>
+            )}
             <PhoneIcon size={14} /> {t.title}
             <span
               className="tab-close"

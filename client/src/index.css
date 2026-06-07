@@ -1698,6 +1698,98 @@ input:focus {
   height: 100vh;
 }
 
+/* 확대 중엔 서브탭 숨김 — 통화만 풀스크린 */
+.meeting-tab-host.fullscreen .hub-tabs {
+  display: none;
+}
+
+/* 통화 미니 PiP — 다른 서브탭 보는 동안 우하단에 */
+.hub-body {
+  position: relative;
+}
+
+.hub-call.mini {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 320px;
+  height: 190px;
+  z-index: 60;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  border: 1px solid #2a2e37;
+}
+
+.hub-call.mini .meeting-header,
+.hub-call.mini .chat-panel,
+.hub-call.mini .kick-btn {
+  display: none;
+}
+
+.hub-call.mini .meeting-room.embedded .meeting-body {
+  padding: 0 6px;
+  pointer-events: none; /* 클릭은 통화 탭 이동 */
+}
+
+.hub-call.mini .meeting-room.embedded .meeting-controls {
+  padding: 6px;
+  gap: 6px;
+}
+
+.hub-call.mini .meeting-room.embedded .meeting-controls button {
+  width: 34px;
+  height: 34px;
+}
+
+.hub-call.mini .meeting-room.embedded .meeting-controls button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.hub-call.mini .meeting-room.embedded .meeting-controls .leave {
+  width: auto;
+  padding: 0 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.hub-call.mini .video-grid {
+  gap: 6px;
+}
+
+.hub-call.mini .video-name {
+  font-size: 10px;
+  padding: 2px 6px;
+  left: 6px;
+  bottom: 5px;
+}
+
+.hub-call.mini .avatar-circle {
+  width: 36px;
+  height: 36px;
+  font-size: 15px;
+}
+
+.hub-call.mini .cam-off-label {
+  display: none;
+}
+
+/* 회의 탭 안읽음 배지 */
+.tab-badge {
+  background: #d33;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  min-width: 17px;
+  height: 17px;
+  border-radius: 9px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 4px;
+}
+
 .expand-btn {
   margin-left: auto;
   border: 1px solid #3a3f4a;
