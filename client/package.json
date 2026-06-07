@@ -16,11 +16,13 @@
     "vite": "^8.0.12"
   },
   "dependencies": {
+    "@tldraw/sync": "^5.1.0",
     "mediasoup-client": "^3.20.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.17.0",
     "socket.io-client": "^4.8.3",
+    "tldraw": "^5.1.0",
     "zustand": "^5.0.14"
   }
 }

@@ -9,6 +9,8 @@ import todosRouter from './todos.js';
 import db from './db.js';
 import { startMediasoup, attachSfu } from './sfu.js';
 import agentRouter, { getUserContext } from './agent.js';
+import workspacesRouter from './workspaces.js';
+import { attachSync } from './sync.js';
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:5173' }));
@@ -19,6 +21,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/meetings', meetingsRouter);
 app.use('/api/todos', todosRouter);
 app.use('/api/agent', agentRouter);
+app.use('/api/workspaces', workspacesRouter);
 
 const server = http.createServer(app);
 
@@ -44,6 +47,7 @@ io.use((socket, next) => {
 });
 
 attachSfu(io);
+attachSync(server);
 
 // ── AI agent 푸시 알림: 회의 시작 30분/10분 전 리마인더 ──
 const notified = new Set<string>(); // `${userId}:${meetingTitle}:${threshold}`

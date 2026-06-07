@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import NotificationToasts from '../components/NotificationToasts';
+import WorkspacePanel from '../components/WorkspacePanel';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -195,13 +196,10 @@ export default function DashboardPage() {
           </div>
         </aside>
 
-        <section className="workspace-panel">
-          <h2 className="panel-title">🗂️ 작업 공간</h2>
-          <div className="workspace-empty">
-            {/* TODO(step 5): tldraw + Yjs 캔버스 */}
-            {message || '작업 공간은 step 5에서 tldraw 캔버스로 채워집니다'}
-          </div>
-        </section>
+        <div className="workspace-col">
+          {message && <div className="dash-message">{message}</div>}
+          <WorkspacePanel />
+        </div>
       </main>
     </>
   );

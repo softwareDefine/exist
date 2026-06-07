@@ -11,3 +11,6 @@ build/
 .DS_Store
 docs/기획.pdf
 docs/design-pages/
+
+server/rooms/
+server/uploads/
