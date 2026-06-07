@@ -15,15 +15,15 @@ function generateCode(): string {
 }
 
 router.post('/', (req: AuthedRequest, res) => {
-  const { title } = req.body ?? {};
+  const { title, starts_at, ends_at } = req.body ?? {};
   if (!title) return res.status(400).json({ error: '회의 이름을 입력하세요' });
 
   let code = generateCode();
   while (db.prepare('SELECT id FROM meetings WHERE code = ?').get(code)) code = generateCode();
 
   const info = db
-    .prepare('INSERT INTO meetings (code, title, host_id) VALUES (?, ?, ?)')
-    .run(code, title, req.userId);
+    .prepare('INSERT INTO meetings (code, title, host_id, starts_at, ends_at) VALUES (?, ?, ?, ?, ?)')
+    .run(code, title, req.userId, starts_at ?? null, ends_at ?? null);
   db.prepare('INSERT INTO meeting_participants (meeting_id, user_id) VALUES (?, ?)').run(
     info.lastInsertRowid,
     req.userId,
@@ -49,7 +49,7 @@ router.post('/join', (req: AuthedRequest, res) => {
 router.get('/recent', (req: AuthedRequest, res) => {
   const rows = db
     .prepare(
-      `SELECT m.id, m.code, m.title, mp.joined_at FROM meetings m
+      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, mp.joined_at FROM meetings m
        JOIN meeting_participants mp ON mp.meeting_id = m.id
        WHERE mp.user_id = ? ORDER BY mp.joined_at DESC LIMIT 7`,
     )

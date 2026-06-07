@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import NowBar, { type Todo } from '../components/NowBar';
-
-interface Meeting {
-  id: number;
-  code: string;
-  title: string;
-}
+import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 
 export default function DashboardPage() {
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [message, setMessage] = useState('');
+
+  // 회의 생성 폼
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newStart, setNewStart] = useState('');
+  const [newEnd, setNewEnd] = useState('');
+
+  // 투두 입력
+  const [todoTitle, setTodoTitle] = useState('');
 
   async function refresh() {
     try {
@@ -44,23 +47,60 @@ export default function DashboardPage() {
     }
   }
 
-  async function createMeeting() {
-    const title = prompt('회의 이름을 입력하세요');
-    if (!title) return;
-    const m = await api<Meeting>('/api/meetings', { method: 'POST', body: { title } });
-    setMessage(`회의 생성됨 — 코드: ${m.code}`);
+  async function createMeeting(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+    try {
+      const m = await api<{ code: string }>('/api/meetings', {
+        method: 'POST',
+        body: {
+          title: newTitle,
+          starts_at: newStart || null,
+          ends_at: newEnd || null,
+        },
+      });
+      setMessage(`회의 생성됨 — 코드: ${m.code}`);
+      setShowCreate(false);
+      setNewTitle('');
+      setNewStart('');
+      setNewEnd('');
+      void refresh();
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : '생성 실패');
+    }
+  }
+
+  async function addTodo(e: React.FormEvent) {
+    e.preventDefault();
+    if (!todoTitle.trim()) return;
+    await api('/api/todos', { method: 'POST', body: { title: todoTitle } });
+    setTodoTitle('');
+    void refresh();
+  }
+
+  async function toggleTodo(todo: Todo) {
+    await api(`/api/todos/${todo.id}`, { method: 'PATCH', body: { done: !todo.done } });
+    void refresh();
+  }
+
+  async function deleteTodo(id: number) {
+    await api(`/api/todos/${id}`, { method: 'DELETE' });
     void refresh();
   }
 
   return (
     <>
-      <NowBar todos={todos} />
+      <NowBar todos={todos} meetings={recent} />
       <main className="dashboard">
         <aside>
           <div className="join-card">
             <div className="head">
               <h2>회의 입장</h2>
-              <button className="new-btn" onClick={createMeeting} title="새 회의 만들기">
+              <button
+                className="new-btn"
+                onClick={() => setShowCreate((v) => !v)}
+                title="새 회의 만들기"
+              >
                 +
               </button>
             </div>
@@ -74,6 +114,36 @@ export default function DashboardPage() {
                 참여
               </button>
             </form>
+
+            {showCreate && (
+              <form className="create-form" onSubmit={createMeeting}>
+                <input
+                  placeholder="회의 이름"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  autoFocus
+                />
+                <label>
+                  시작
+                  <input
+                    type="datetime-local"
+                    value={newStart}
+                    onChange={(e) => setNewStart(e.target.value)}
+                  />
+                </label>
+                <label>
+                  종료
+                  <input
+                    type="datetime-local"
+                    value={newEnd}
+                    onChange={(e) => setNewEnd(e.target.value)}
+                  />
+                </label>
+                <button type="submit" className="create-btn">
+                  만들기
+                </button>
+              </form>
+            )}
           </div>
 
           <div className="section-title">🕘 최근 회의</div>
@@ -97,6 +167,27 @@ export default function DashboardPage() {
                 <div>아직 회의가 없어요. + 버튼으로 만들어보세요.</div>
               </div>
             )}
+          </div>
+
+          <div className="section-title">✅ 할 일</div>
+          <form className="todo-add" onSubmit={addTodo}>
+            <input
+              placeholder="할 일 추가"
+              value={todoTitle}
+              onChange={(e) => setTodoTitle(e.target.value)}
+            />
+            <button type="submit">+</button>
+          </form>
+          <div className="todo-list">
+            {todos.map((todo) => (
+              <div key={todo.id} className={`todo-item${todo.done ? ' done' : ''}`}>
+                <input type="checkbox" checked={!!todo.done} onChange={() => toggleTodo(todo)} />
+                <span className="todo-title">{todo.title}</span>
+                <button className="todo-del" onClick={() => deleteTodo(todo.id)} title="삭제">
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
         </aside>
 

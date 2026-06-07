@@ -1,3 +1,12 @@
+/* 한글: 네이버 나눔스퀘어네오 (variable woff2) */
+@font-face {
+  font-family: 'NanumSquareNeo';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_11-01@1.0/NanumSquareNeo-Variable.woff2')
+    format('woff2-variations');
+  font-weight: 300 900;
+  font-display: swap;
+}
+
 :root {
   /* exist 디자인 토큰 (피그마 기준) */
   --green: #2db400;
@@ -9,7 +18,8 @@
   --bg: #ffffff;
   --radius: 14px;
 
-  font-family: 'Pretendard', -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
+  /* 라틴(로고·숫자)은 Inter, 한글은 NanumSquareNeo로 폴백 */
+  font-family: 'Inter', 'NanumSquareNeo', -apple-system, 'Malgun Gothic', sans-serif;
   color: var(--text);
 }
 
@@ -36,6 +46,7 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-family: 'Inter', sans-serif;
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.5px;
@@ -185,6 +196,97 @@ input {
   color: #fff;
   font-size: 16px;
   font-weight: 600;
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.create-form label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.create-form label input {
+  flex: 1;
+}
+
+.create-form .create-btn {
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--green);
+  font-weight: 700;
+  padding: 10px;
+  font-size: 15px;
+}
+
+/* ───── 할 일 ───── */
+.todo-add {
+  display: flex;
+  gap: 8px;
+}
+
+.todo-add input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.todo-add button {
+  width: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  font-size: 18px;
+}
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.todo-item.done .todo-title {
+  color: var(--text-sub);
+  text-decoration: line-through;
+}
+
+.todo-item .todo-title {
+  flex: 1;
+}
+
+.todo-item .todo-del {
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 16px;
+  padding: 0 4px;
+}
+
+.todo-item .todo-del:hover {
+  color: #d33;
 }
 
 .section-title {
