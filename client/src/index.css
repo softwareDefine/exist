@@ -94,7 +94,7 @@ input:focus {
 
 /* ───── 공용 ───── */
 .logo-img {
-  height: 32px;
+  height: 38px;
   user-select: none;
   flex-shrink: 0;
 }
