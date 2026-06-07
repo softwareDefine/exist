@@ -1012,6 +1012,29 @@ input:focus {
   font-size: 16px;
 }
 
+/* ───── 전역 에러 토스트 (우상단) ───── */
+.error-toast-stack {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 2000;
+}
+
+.error-toast {
+  background: #2b2b2b;
+  color: #fff;
+  border-left: 4px solid #d33;
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  padding: 12px 16px;
+  font-size: 14px;
+  max-width: 340px;
+  animation: toast-in 0.25s ease-out;
+}
+
 /* ───── 로그인 ───── */
 .login-page {
   display: grid;

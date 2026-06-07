@@ -3,6 +3,7 @@ import { useAuthStore } from './store';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import MeetingRoomPage from './pages/MeetingRoomPage';
+import ErrorToasts from './components/ErrorToasts';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -12,6 +13,7 @@ function Protected({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <ErrorToasts />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route

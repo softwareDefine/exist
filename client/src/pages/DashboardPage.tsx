@@ -47,8 +47,8 @@ export default function DashboardPage() {
     try {
       const m = await api<Meeting>('/api/meetings/join', { method: 'POST', body: { code } });
       navigate(`/meeting/${m.code}`);
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : '참여 실패');
+    } catch {
+      /* 전역 에러 토스트가 표시 */
     }
   }
 
@@ -70,8 +70,8 @@ export default function DashboardPage() {
       setNewStart('');
       setNewEnd('');
       void refresh();
-    } catch (err) {
-      setMessage(err instanceof Error ? err.message : '생성 실패');
+    } catch {
+      /* 전역 에러 토스트가 표시 */
     }
   }
 
