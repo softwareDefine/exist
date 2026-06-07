@@ -90,7 +90,13 @@ function currentMeeting(meetings: Meeting[], now: Date): CurrentCtx | null {
 }
 
 /** 모드 카드 공통 — 왼쪽 현재 회의 블록 */
-function CurrentBlock({ ctx }: { ctx: CurrentCtx | null }) {
+function CurrentBlock({
+  ctx,
+  onOpen,
+}: {
+  ctx: CurrentCtx | null;
+  onOpen?: (m: Meeting) => void;
+}) {
   if (!ctx) {
     return (
       <div className="nb-current">
@@ -103,7 +109,11 @@ function CurrentBlock({ ctx }: { ctx: CurrentCtx | null }) {
     );
   }
   return (
-    <div className="nb-current">
+    <div
+      className={`nb-current${onOpen ? ' clickable' : ''}`}
+      onClick={onOpen ? () => onOpen(ctx.meeting) : undefined}
+      title={onOpen ? '클릭하면 회의 공간이 열려요' : undefined}
+    >
       <div className="nb-thumb" style={thumbStyle(ctx.meeting.id)}>
         {ctx.meeting.title.slice(0, 1)}
       </div>
@@ -181,6 +191,8 @@ interface Props {
   meetings?: Meeting[];
   onToggleTodo?: (todo: Todo) => void;
   onAddTodo?: (title: string) => void;
+  /** 일정 클릭 → 회의 탭 열기 */
+  onOpenMeeting?: (m: Meeting) => void;
 }
 
 const CARD_COUNT = 3;
@@ -214,7 +226,13 @@ function ProfileMenu({
   );
 }
 
-export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddTodo }: Props) {
+export default function NowBar({
+  todos = [],
+  meetings = [],
+  onToggleTodo,
+  onAddTodo,
+  onOpenMeeting,
+}: Props) {
   const [newTodo, setNewTodo] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [brief, setBrief] = useState('');
@@ -331,11 +349,16 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
       <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">
         {/* 카드 1 — 다음/이전 일정 모드 */}
         <div className={`nowbar-card${stackCls(0)}`}>
-          <CurrentBlock ctx={ctx} />
+          <CurrentBlock ctx={ctx} onOpen={onOpenMeeting} />
           <div className="nowbar-divider" />
           <div className="nb-next-list">
             {nexts.map((m) => (
-              <div key={m.id} className="nb-next-row">
+              <div
+                key={m.id}
+                className={`nb-next-row${onOpenMeeting ? ' clickable' : ''}`}
+                onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
+                title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
+              >
                 <div className="nb-mini-thumb" style={thumbStyle(m.id)} />
                 <span className="nb-next-title">{m.title}</span>
                 <span className="nb-next-start">
@@ -349,7 +372,7 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
 
         {/* 카드 2 — todo list 모드 */}
         <div className={`nowbar-card${stackCls(1)}`}>
-          <CurrentBlock ctx={ctx} />
+          <CurrentBlock ctx={ctx} onOpen={onOpenMeeting} />
           <div className="nowbar-divider" />
           <div className="nowbar-todos">
             {shownTodos.map((todo) => (
@@ -364,7 +387,7 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
 
         {/* 카드 3 — 시간 보는 모드 (타임라인) */}
         <div className={`nowbar-card${stackCls(2)}`}>
-          <CurrentBlock ctx={ctx} />
+          <CurrentBlock ctx={ctx} onOpen={onOpenMeeting} />
           <div className="nowbar-divider" />
           {timeline ? (
             <div className="nb-timeline">
@@ -410,7 +433,12 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
                     )
                     .slice(0, 5)
                     .map((m) => (
-                      <div key={m.id} className="nb-next-row">
+                      <div
+                        key={m.id}
+                        className={`nb-next-row${onOpenMeeting ? ' clickable' : ''}`}
+                        onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
+                        title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
+                      >
                         <div className="nb-mini-thumb" style={thumbStyle(m.id)} />
                         <span className="nb-next-title">{m.title}</span>
                         <span className="nb-next-start">

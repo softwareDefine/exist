@@ -72,7 +72,13 @@ export default function DashboardPage() {
 
   return (
     <>
-      <NowBar todos={todos} meetings={recent} onToggleTodo={toggleTodo} onAddTodo={addTodo} />
+      <NowBar
+        todos={todos}
+        meetings={recent}
+        onToggleTodo={toggleTodo}
+        onAddTodo={addTodo}
+        onOpenMeeting={(m) => openMeetingTab(m.code, m.title)}
+      />
       <NotificationToasts />
       <main className="dashboard">
         <aside>

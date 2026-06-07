@@ -229,6 +229,25 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                 <button className="hub-join" onClick={joinCall}>
                   <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여하기'}
                 </button>
+
+                {/* 최근 채팅 미리보기 */}
+                {messages.length > 0 && (
+                  <div className="hub-preview">
+                    <div className="hub-preview-head">
+                      <span>
+                        <ChatIcon size={13} /> 최근 채팅
+                      </span>
+                      <button className="hub-preview-more" onClick={() => setSubtab('chat')}>
+                        더 보기 ›
+                      </button>
+                    </div>
+                    {messages.slice(-3).map((m, i) => (
+                      <div key={i} className="hub-preview-msg">
+                        <b>{m.from}</b> {m.text}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -1643,6 +1643,67 @@ input:focus {
   background: var(--green-dark);
 }
 
+/* 허브 대시보드 — 최근 채팅 미리보기 */
+.hub-preview {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.hub-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--green);
+  margin-bottom: 8px;
+}
+
+.hub-preview-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hub-preview-more {
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 12px;
+}
+
+.hub-preview-more:hover {
+  color: var(--green);
+}
+
+.hub-preview-msg {
+  font-size: 13px;
+  color: #555;
+  padding: 3px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hub-preview-msg b {
+  color: var(--text);
+  margin-right: 6px;
+}
+
+/* nowbar 일정 클릭 → 회의 탭 */
+.nb-current.clickable,
+.nb-next-row.clickable {
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.nb-current.clickable:hover,
+.nb-next-row.clickable:hover {
+  background: rgba(33, 200, 24, 0.08);
+}
+
 /* ───── 회의실 ───── */
 .meeting-room {
   display: flex;
