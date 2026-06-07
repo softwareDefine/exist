@@ -5,6 +5,7 @@ import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import NotificationToasts from '../components/NotificationToasts';
 import WorkspacePanel from '../components/WorkspacePanel';
 import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, ClockIcon } from '../components/Icons';
+import CreateMeetingModal from '../components/CreateMeetingModal';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -12,15 +13,11 @@ export default function DashboardPage() {
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [message, setMessage] = useState(
-    (location.state as { message?: string } | null)?.message ?? '',
-  );
+  // 강퇴 등 라우팅으로 전달된 안내 메시지
+  const message = (location.state as { message?: string } | null)?.message ?? '';
 
-  // 회의 생성 폼
+  // 회의 생성 모달
   const [showCreate, setShowCreate] = useState(false);
-  const [newTitle, setNewTitle] = useState('');
-  const [newStart, setNewStart] = useState('');
-  const [newEnd, setNewEnd] = useState('');
 
 
   async function refresh() {
@@ -51,29 +48,6 @@ export default function DashboardPage() {
     }
   }
 
-  async function createMeeting(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newTitle.trim()) return;
-    try {
-      const m = await api<{ code: string }>('/api/meetings', {
-        method: 'POST',
-        body: {
-          title: newTitle,
-          starts_at: newStart || null,
-          ends_at: newEnd || null,
-        },
-      });
-      setMessage(`회의 생성됨 — 코드: ${m.code}`);
-      setShowCreate(false);
-      setNewTitle('');
-      setNewStart('');
-      setNewEnd('');
-      void refresh();
-    } catch {
-      /* 전역 에러 토스트가 표시 */
-    }
-  }
-
   async function toggleTodo(todo: Todo) {
     await api(`/api/todos/${todo.id}`, { method: 'PATCH', body: { done: !todo.done } });
     void refresh();
@@ -93,11 +67,7 @@ export default function DashboardPage() {
           <div className="join-card">
             <div className="head">
               <h2>회의 입장</h2>
-              <button
-                className="new-btn"
-                onClick={() => setShowCreate((v) => !v)}
-                title="새 회의 만들기"
-              >
+              <button className="new-btn" onClick={() => setShowCreate(true)} title="새 회의 만들기">
                 +
               </button>
             </div>
@@ -111,36 +81,6 @@ export default function DashboardPage() {
                 참여
               </button>
             </form>
-
-            {showCreate && (
-              <form className="create-form" onSubmit={createMeeting}>
-                <input
-                  placeholder="회의 이름"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  autoFocus
-                />
-                <label>
-                  시작
-                  <input
-                    type="datetime-local"
-                    value={newStart}
-                    onChange={(e) => setNewStart(e.target.value)}
-                  />
-                </label>
-                <label>
-                  종료
-                  <input
-                    type="datetime-local"
-                    value={newEnd}
-                    onChange={(e) => setNewEnd(e.target.value)}
-                  />
-                </label>
-                <button type="submit" className="create-btn">
-                  만들기
-                </button>
-              </form>
-            )}
           </div>
 
           <div className="section-title">
@@ -190,6 +130,12 @@ export default function DashboardPage() {
           <WorkspacePanel />
         </div>
       </main>
+
+      <CreateMeetingModal
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={() => void refresh()}
+      />
     </>
   );
 }
