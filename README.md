@@ -33,10 +33,16 @@ cd server && npm run dev   # http://localhost:4000
 cd client && npm run dev   # http://localhost:5173
 ```
 
+## AI agent
+
+`server/.env`에 `ANTHROPIC_API_KEY`를 넣으면 Claude(claude-opus-4-8)가 일정·투두 상태를
+분석해 nowbar 브리핑을 생성한다. 키가 없으면 규칙 기반 폴백으로 동작한다.
+회의 시작 30분/10분 전 리마인더는 Socket.IO 푸시(`agent:notify`)로 전달된다.
+
 ## 빌드 로드맵
 
 1. ✅ 스켈레톤 (로그인 + 대시보드 레이아웃 + nowbar)
-2. 투두/일정 CRUD + nowbar 연동
-3. SFU 화상회의 (mediasoup)
-4. AI agent (Claude API 알림 생성)
+2. ✅ 투두/일정 CRUD + nowbar 카운트다운
+3. ✅ SFU 화상회의 (mediasoup)
+4. ✅ AI agent (브리핑 + 회의 리마인더 푸시)
 5. 동시편집 작업공간 (tldraw + Yjs)

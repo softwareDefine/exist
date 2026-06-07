@@ -1,9 +1,16 @@
 import { Router } from 'express';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
+import { invalidateBrief } from './agent.js';
 
 const router = Router();
 router.use(requireAuth);
+
+// 모든 변경 요청 후 AI 브리핑 캐시 무효화
+router.use((req: AuthedRequest, _res, next) => {
+  if (req.method !== 'GET') invalidateBrief(req.userId!);
+  next();
+});
 
 router.get('/', (req: AuthedRequest, res) => {
   const rows = db

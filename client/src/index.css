@@ -147,6 +147,92 @@ input {
   text-decoration: line-through;
 }
 
+.nowbar-brief {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #555;
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: auto;
+}
+
+.nowbar-brief .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+/* ───── 알림 토스트 (디자인 page 8 알림 카드) ───── */
+.toast-stack {
+  position: fixed;
+  top: 90px;
+  left: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.toast-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  padding: 14px 16px;
+  width: 300px;
+  animation: toast-in 0.25s ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #eef6ee;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.toast-from {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.toast-text {
+  font-size: 13px;
+  color: #444;
+  margin-top: 4px;
+}
+
+.toast-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 16px;
+}
+
 .nowbar-clock {
   font-size: 22px;
   font-weight: 600;

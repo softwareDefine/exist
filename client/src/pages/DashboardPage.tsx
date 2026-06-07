@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
+import NotificationToasts from '../components/NotificationToasts';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -91,6 +92,7 @@ export default function DashboardPage() {
   return (
     <>
       <NowBar todos={todos} meetings={recent} />
+      <NotificationToasts />
       <main className="dashboard">
         <aside>
           <div className="join-card">

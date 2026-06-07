@@ -2,9 +2,16 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
+import { invalidateBrief } from './agent.js';
 
 const router = Router();
 router.use(requireAuth);
+
+// 모든 변경 요청 후 AI 브리핑 캐시 무효화
+router.use((req: AuthedRequest, _res, next) => {
+  if (req.method !== 'GET') invalidateBrief(req.userId!);
+  next();
+});
 
 /** 6자리 회의 코드 생성 (예: "X4K9PQ") */
 function generateCode(): string {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { api } from '../api';
 import { useAuthStore } from '../store';
 
 export interface Todo {
@@ -80,11 +81,31 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [now, setNow] = useState(() => new Date());
+  const [brief, setBrief] = useState('');
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 10_000);
     return () => clearInterval(t);
   }, []);
+
+  // AI 브리핑 — 2분마다 갱신
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      try {
+        const b = await api<{ text: string }>('/api/agent/brief');
+        if (alive) setBrief(b.text);
+      } catch {
+        /* 로그인 풀림 등 — 무시 */
+      }
+    }
+    void load();
+    const t = setInterval(load, 120_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [todos, meetings]);
 
   const ctx = meetingContext(meetings, now);
   // 미완료 우선, 최대 2개 (피그마: 미완 1 + 완료 1 형태)
@@ -117,6 +138,13 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
             </>
           )}
         </div>
+
+        {brief && (
+          <div className="nowbar-brief" title={brief}>
+            <span className="dot" />
+            {brief}
+          </div>
+        )}
 
         <div className="nowbar-todos">
           {shown.map((todo) => (
