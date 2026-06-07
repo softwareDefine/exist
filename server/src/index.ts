@@ -37,7 +37,8 @@ io.use((socket, next) => {
   const row = db
     .prepare(
       `SELECT s.user_id, u.username FROM sessions s
-       JOIN users u ON u.id = s.user_id WHERE s.token = ?`,
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token = ? AND s.created_at > datetime('now', '-30 days')`,
     )
     .get(token) as { user_id: number; username: string } | undefined;
   if (!row) return next(new Error('unauthorized'));
