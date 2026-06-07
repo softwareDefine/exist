@@ -86,10 +86,17 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     let alive = true;
     const socket = getSocket();
 
-    void api<ChatMessage[]>(`/api/meetings/${code}/messages`).then((history) => {
-      if (alive) setMessages(history);
-    });
-    void request(socket, 'chat:join', { code }).catch(() => {});
+    function join() {
+      // 재연결 시 놓친 메시지까지 복구 (히스토리 재로드 + 룸 재가입)
+      void api<ChatMessage[]>(`/api/meetings/${code}/messages`).then((history) => {
+        if (alive) setMessages(history);
+      });
+      void request(socket, 'chat:join', { code }).catch(() => {});
+    }
+    join();
+    // 서버 재시작/네트워크 단절 후 socket.io가 자동 재연결되면 룸 멤버십이
+    // 사라지므로 다시 join해야 메시지를 계속 받는다
+    socket.on('connect', join);
 
     function onMessage(msg: ChatMessage) {
       if (msg.code && msg.code !== code.toUpperCase()) return;
@@ -100,6 +107,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     socket.on('chat:message', onMessage);
     return () => {
       alive = false;
+      socket.off('connect', join);
       socket.off('chat:message', onMessage);
     };
   }, [code, inCall]);
