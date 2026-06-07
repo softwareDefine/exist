@@ -182,7 +182,7 @@ interface Props {
   onAddTodo?: (title: string) => void;
 }
 
-const CARD_COUNT = 4;
+const CARD_COUNT = 3;
 
 export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddTodo }: Props) {
   const [newTodo, setNewTodo] = useState('');
@@ -263,6 +263,39 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
     return rel === 0 ? ' front' : rel === 1 ? ' next' : ' hidden';
   };
 
+  // 아무 데이터도 없으면 온보딩 카드만
+  const isEmpty = meetings.filter((m) => m.starts_at).length === 0 && todos.length === 0;
+
+  if (isEmpty) {
+    return (
+      <header className="nowbar">
+        <Logo />
+        <div className="nowbar-pill">
+          <div className="nowbar-card front nb-onboard">
+            ✨ 일정이나 할 일을 추가해 <b>nowbar</b>를 사용해보세요
+          </div>
+        </div>
+        <span className="nowbar-clock">{formatNow(now)}</span>
+        <div className="nowbar-profile">
+          <div className="nowbar-avatar">🐧</div>
+          <div className="profile-menu">
+            <div className="profile-menu-box">
+              <div className="profile-name">
+                🐧 <b>{user?.username}</b>
+              </div>
+              <button className="profile-item" disabled>
+                ⚙️ 설정 <span className="soon">준비 중</span>
+              </button>
+              <button className="profile-item danger" onClick={logout}>
+                🚪 로그아웃
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="nowbar">
       <Logo />
@@ -317,17 +350,6 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
           ) : (
             <div className="nb-next-empty">진행 중인 회의가 없어요</div>
           )}
-        </div>
-
-        {/* 카드 4 — AI 브리핑 */}
-        <div className={`nowbar-card${stackCls(3)}`}>
-          <div className="nowbar-ai">
-            <span className="ai-badge">
-              <span className="dot" />
-              exist AI
-            </span>
-            <span className="ai-text">{brief || '상황을 분석하는 중이에요…'}</span>
-          </div>
         </div>
 
         {/* 카드 위치 점 */}
@@ -436,13 +458,14 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
               </div>
             )}
 
-            {card === 3 && (
-              <div className="nb-expand-ai">
-                <div className="nb-expand-title">exist AI 브리핑</div>
-                <p className="nb-ai-full">{brief || '상황을 분석하는 중이에요…'}</p>
-                <span className="nb-ai-caption">일정·할 일 데이터를 기반으로 2분마다 갱신돼요</span>
-              </div>
-            )}
+            {/* 공통 푸터 — exist AI 브리핑 */}
+            <div className="nb-expand-footer">
+              <span className="ai-badge">
+                <span className="dot" />
+                exist AI
+              </span>
+              <span className="ai-text">{brief || '상황을 분석하는 중이에요…'}</span>
+            </div>
           </div>
         </div>
       </div>

@@ -195,6 +195,17 @@ input:focus {
   pointer-events: none;
 }
 
+/* 빈 상태 온보딩 카드 */
+.nb-onboard {
+  justify-content: center;
+  color: var(--text-sub);
+  font-size: 15px;
+}
+
+.nb-onboard b {
+  color: var(--green);
+}
+
 /* hover 확장 패널 */
 .nowbar-expand {
   position: absolute;
@@ -355,16 +366,15 @@ input:focus {
   height: 46px;
 }
 
-/* 확장 — AI */
-.nb-ai-full {
-  margin: 0 0 8px;
-  font-size: 15px;
-  line-height: 1.6;
-}
-
-.nb-ai-caption {
-  font-size: 12px;
-  color: var(--text-sub);
+/* 확장 — 공통 AI 푸터 */
+.nb-expand-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  min-width: 0;
 }
 
 /* 카드 2 — AI 브리핑 */
