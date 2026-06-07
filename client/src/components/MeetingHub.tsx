@@ -152,6 +152,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
         >
           <PhoneIcon size={13} /> 통화
           {inCall && <i className="live-dot" />}
+          {(detail?.online ?? 0) > 0 && <span className="hub-tab-count">{detail!.online}</span>}
         </button>
         <button
           className={`hub-tab${subtab === 'chat' ? ' active' : ''}`}
