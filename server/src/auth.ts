@@ -12,6 +12,14 @@ function hashPassword(password: string, salt: string): string {
   return crypto.scryptSync(password, salt, 64).toString('hex');
 }
 
+/** 복구 코드 생성 — "XXXX-XXXX-XXXX-XXXX" (혼동 문자 제외) */
+function generateRecoveryCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const group = () =>
+    Array.from({ length: 4 }, () => chars[crypto.randomInt(chars.length)]).join('');
+  return `${group()}-${group()}-${group()}-${group()}`;
+}
+
 const SESSION_TTL_DAYS = 30;
 
 /** Bearer 토큰 검사 미들웨어 (30일 만료) */
@@ -66,13 +74,74 @@ router.post('/register', (req, res) => {
     return res.status(409).json({ error: '이미 존재하는 아이디입니다' });
   }
   const salt = crypto.randomBytes(16).toString('hex');
+  const recoveryCode = generateRecoveryCode();
+  const recoverySalt = crypto.randomBytes(16).toString('hex');
   const info = db
-    .prepare('INSERT INTO users (username, pw_hash, pw_salt) VALUES (?, ?, ?)')
-    .run(username, hashPassword(password, salt), salt);
+    .prepare(
+      'INSERT INTO users (username, pw_hash, pw_salt, recovery_hash, recovery_salt) VALUES (?, ?, ?, ?, ?)',
+    )
+    .run(
+      username,
+      hashPassword(password, salt),
+      salt,
+      hashPassword(recoveryCode, recoverySalt),
+      recoverySalt,
+    );
 
   const token = crypto.randomUUID();
   db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, info.lastInsertRowid);
-  res.json({ token, user: { id: info.lastInsertRowid, username } });
+  // recoveryCode는 이 응답에서 단 한 번만 노출 — 서버는 해시만 보관
+  res.json({ token, user: { id: info.lastInsertRowid, username }, recoveryCode });
+});
+
+/** 비밀번호 재설정 — 아이디 + 복구 코드 검증 후 새 비밀번호 + 새 복구 코드 발급 */
+router.post('/reset', (req, res) => {
+  const { username, recoveryCode, newPassword } = req.body ?? {};
+  const key = `reset:${req.ip}:${username ?? ''}`;
+  if (rateLimited(key)) {
+    return res.status(429).json({ error: '시도가 너무 많습니다. 15분 뒤에 다시 해보세요' });
+  }
+  if (!username || !recoveryCode || !newPassword) {
+    return res.status(400).json({ error: '모든 항목을 입력하세요' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다' });
+  }
+  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as
+    | {
+        id: number;
+        recovery_hash: string | null;
+        recovery_salt: string | null;
+      }
+    | undefined;
+  if (!user || !user.recovery_hash || !user.recovery_salt) {
+    return res.status(401).json({ error: '아이디 또는 복구 코드가 올바르지 않습니다' });
+  }
+  const normalized = String(recoveryCode).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const grouped = normalized.match(/.{1,4}/g)?.join('-') ?? '';
+  if (hashPassword(grouped, user.recovery_salt) !== user.recovery_hash) {
+    return res.status(401).json({ error: '아이디 또는 복구 코드가 올바르지 않습니다' });
+  }
+
+  // 새 비밀번호 + 새 복구 코드 (기존 코드는 1회용)
+  const salt = crypto.randomBytes(16).toString('hex');
+  const newCode = generateRecoveryCode();
+  const newRecoverySalt = crypto.randomBytes(16).toString('hex');
+  db.prepare(
+    'UPDATE users SET pw_hash = ?, pw_salt = ?, recovery_hash = ?, recovery_salt = ? WHERE id = ?',
+  ).run(
+    hashPassword(newPassword, salt),
+    salt,
+    hashPassword(newCode, newRecoverySalt),
+    newRecoverySalt,
+    user.id,
+  );
+  db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id); // 기존 세션 전부 무효화
+  attempts.delete(key);
+
+  const token = crypto.randomUUID();
+  db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, user.id);
+  res.json({ token, user: { id: user.id, username }, recoveryCode: newCode });
 });
 
 router.post('/login', (req, res) => {

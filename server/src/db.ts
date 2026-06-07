@@ -55,4 +55,12 @@ db.exec(`
   );
 `);
 
+// 마이그레이션: 복구 코드 컬럼 (기존 DB에 없으면 추가)
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN recovery_hash TEXT`);
+  db.exec(`ALTER TABLE users ADD COLUMN recovery_salt TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 export default db;

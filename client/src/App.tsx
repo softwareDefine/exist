@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ForgotPage from './pages/ForgotPage';
 import DashboardPage from './pages/DashboardPage';
 import MeetingRoomPage from './pages/MeetingRoomPage';
 import ErrorToasts from './components/ErrorToasts';
@@ -16,6 +18,8 @@ export default function App() {
       <ErrorToasts />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot" element={<ForgotPage />} />
         <Route
           path="/"
           element={
