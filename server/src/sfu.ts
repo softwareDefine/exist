@@ -12,6 +12,7 @@ import type {
   MediaKind,
   RtpCapabilities,
 } from 'mediasoup/types';
+import db from './db.js';
 
 /*
  * exist SFU — mediasoup 기반 직접 구현.
@@ -46,6 +47,7 @@ const mediaCodecs: RtpCodecCapability[] = [
 
 interface Peer {
   socketId: string;
+  userId: number;
   username: string;
   transports: Map<string, WebRtcTransport>;
   producers: Map<string, Producer>;
@@ -56,6 +58,8 @@ interface Room {
   code: string;
   router: Router;
   peers: Map<string, Peer>;
+  hostUserId: number | null;
+  locked: boolean;
 }
 
 let worker: Worker;
@@ -77,7 +81,16 @@ async function getOrCreateRoom(code: string): Promise<Room> {
   let room = rooms.get(code);
   if (!room) {
     const router = await worker.createRouter({ mediaCodecs });
-    room = { code, router, peers: new Map() };
+    const meeting = db.prepare('SELECT host_id FROM meetings WHERE code = ?').get(code) as
+      | { host_id: number }
+      | undefined;
+    room = {
+      code,
+      router,
+      peers: new Map(),
+      hostUserId: meeting?.host_id ?? null,
+      locked: false,
+    };
     rooms.set(code, room);
     console.log(`[sfu] room created: ${code}`);
   }
@@ -122,8 +135,14 @@ export function attachSfu(io: Server) {
     socket.on('room:join', async ({ code }: { code: string }, ack) => {
       try {
         room = await getOrCreateRoom(code);
+        const userId = socket.data.userId as number;
+        if (room.locked && userId !== room.hostUserId) {
+          room = null;
+          return ack({ error: '호스트가 회의를 잠갔습니다' });
+        }
         peer = {
           socketId: socket.id,
+          userId,
           username: socket.data.username as string,
           transports: new Map(),
           producers: new Map(),
@@ -160,6 +179,8 @@ export function attachSfu(io: Server) {
           rtpCapabilities: room.router.rtpCapabilities,
           producers,
           peers: [...room.peers.values()].map((p) => ({ peerId: p.socketId, username: p.username })),
+          isHost: userId === room.hostUserId,
+          locked: room.locked,
         });
       } catch (err) {
         console.error('[sfu] room:join error', err);
@@ -235,6 +256,27 @@ export function attachSfu(io: Server) {
       if (!producer) return ack?.({ error: 'producer 없음' });
       producer.close(); // consumer.on('producerclose')가 각 수신자에게 전파
       peer!.producers.delete(producerId);
+      ack?.({ ok: true });
+    });
+
+    /** 호스트: 회의 잠금/해제 */
+    socket.on('room:lock', ({ locked }: { locked: boolean }, ack) => {
+      if (!room || !peer) return ack?.({ error: '방에 입장하지 않았습니다' });
+      if (peer.userId !== room.hostUserId) return ack?.({ error: '호스트만 가능합니다' });
+      room.locked = !!locked;
+      io.to(`room:${room.code}`).emit('room:locked', { locked: room.locked });
+      ack?.({ ok: true });
+    });
+
+    /** 호스트: 참가자 강퇴 */
+    socket.on('room:kick', ({ peerId }: { peerId: string }, ack) => {
+      if (!room || !peer) return ack?.({ error: '방에 입장하지 않았습니다' });
+      if (peer.userId !== room.hostUserId) return ack?.({ error: '호스트만 가능합니다' });
+      const target = io.sockets.sockets.get(peerId);
+      if (!target || !room.peers.has(peerId)) return ack?.({ error: '대상이 없습니다' });
+      target.emit('room:kicked');
+      // 알림 패킷 플러시 후 끊기 — disconnect 핸들러가 transport 정리 + peer:left 전파
+      setTimeout(() => target.disconnect(true), 200);
       ack?.({ ok: true });
     });
 

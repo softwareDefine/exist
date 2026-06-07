@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import NotificationToasts from '../components/NotificationToasts';
@@ -7,10 +7,13 @@ import WorkspacePanel from '../components/WorkspacePanel';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(
+    (location.state as { message?: string } | null)?.message ?? '',
+  );
 
   // 회의 생성 폼
   const [showCreate, setShowCreate] = useState(false);

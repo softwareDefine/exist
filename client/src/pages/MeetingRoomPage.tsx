@@ -55,12 +55,14 @@ function VideoTile({
   muted,
   isLocal,
   isScreen,
+  onKick,
 }: {
   track?: MediaStreamTrack;
   username: string;
   muted?: boolean;
   isLocal?: boolean;
   isScreen?: boolean;
+  onKick?: () => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -82,6 +84,11 @@ function VideoTile({
         {username}
         {isLocal && ' (나)'}
       </span>
+      {onKick && (
+        <button className="kick-btn" title="강퇴" onClick={onKick}>
+          내보내기
+        </button>
+      )}
     </div>
   );
 }
@@ -110,6 +117,8 @@ export default function MeetingRoomPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [unread, setUnread] = useState(0);
+  const [isHost, setIsHost] = useState(false);
+  const [locked, setLocked] = useState(false);
 
   const producersRef = useRef<{
     audio?: Producer;
@@ -190,7 +199,11 @@ export default function MeetingRoomPage() {
         rtpCapabilities: import('mediasoup-client/types').RtpCapabilities;
         producers: ProducerInfo[];
         peers: { peerId: string; username: string }[];
+        isHost: boolean;
+        locked: boolean;
       }>(socket, 'room:join', { code });
+      setIsHost(joined.isHost);
+      setLocked(joined.locked);
 
       // 2. Device 로드
       const device = new Device();
@@ -295,6 +308,10 @@ export default function MeetingRoomPage() {
         setMessages((prev) => [...prev, msg]);
         if (!chatOpenRef.current) setUnread((n) => n + 1);
       });
+      socket.on('room:locked', ({ locked }: { locked: boolean }) => setLocked(locked));
+      socket.on('room:kicked', () => {
+        navigate('/', { state: { message: '호스트가 회의에서 내보냈습니다' } });
+      });
 
       setStatus('');
     }
@@ -308,6 +325,8 @@ export default function MeetingRoomPage() {
       socket.off('producer:new');
       socket.off('producer:closed');
       socket.off('chat:message');
+      socket.off('room:locked');
+      socket.off('room:kicked');
       sendTransportRef.current?.close();
       recvTransport?.close();
       localStream?.getTracks().forEach((t) => t.stop());
@@ -379,8 +398,20 @@ export default function MeetingRoomPage() {
           <span className="meeting-title">{title || '회의'}</span>
           <span className="meeting-code">
             코드 <b>{code}</b> · 참가자 {peers.length + 1}명
+            {locked && ' · 🔒 잠김'}
           </span>
         </div>
+        {isHost && (
+          <button
+            className="lock-btn"
+            title={locked ? '회의 잠금 해제' : '회의 잠금 (새 참가자 차단)'}
+            onClick={() => {
+              void request(getSocket(), 'room:lock', { locked: !locked });
+            }}
+          >
+            {locked ? '🔒 잠김' : '🔓 열림'}
+          </button>
+        )}
         {status && <span className="meeting-status">{status}</span>}
       </header>
 
@@ -403,7 +434,15 @@ export default function MeetingRoomPage() {
             <VideoTile track={localTrack} username={user?.username ?? '나'} muted isLocal />
             {peers.map((p) => (
               <div key={p.peerId}>
-                <VideoTile track={p.videoTrack} username={p.username} />
+                <VideoTile
+                  track={p.videoTrack}
+                  username={p.username}
+                  onKick={
+                    isHost
+                      ? () => void request(getSocket(), 'room:kick', { peerId: p.peerId })
+                      : undefined
+                  }
+                />
                 {p.audioTrack && <AudioSink track={p.audioTrack} />}
               </div>
             ))}
