@@ -436,7 +436,7 @@ export default function MeetingRoomPage() {
           >
             <VideoTile track={localTrack} username={user?.username ?? '나'} muted isLocal />
             {peers.map((p) => (
-              <div key={p.peerId}>
+              <div key={p.peerId} className="peer-cell">
                 <VideoTile
                   track={p.videoTrack}
                   username={p.username}

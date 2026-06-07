@@ -1386,10 +1386,16 @@ input:focus {
   max-height: calc(100vh - 220px);
 }
 
+/* 원격 피어 래퍼(div+AudioSink)를 레이아웃에서 투명하게 — 로컬/원격 타일 크기 통일 */
+.peer-cell {
+  display: contents;
+}
+
 .video-grid.filmstrip {
   flex: 0 0 130px;
   display: flex;
   justify-content: center;
+  align-items: center; /* stretch 방지 — 모든 타일 동일 크기 */
   gap: 10px;
 }
 
