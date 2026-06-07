@@ -196,18 +196,17 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
             <span className="progress-pct">{progress}%</span>
           </div>
         </div>
-      </div>
-
-      {/* 카드 위치 점 — 카드 바로 오른쪽 */}
-      <div className="nowbar-dots">
-        {Array.from({ length: CARD_COUNT }, (_, i) => (
-          <button
-            key={i}
-            className={`nowbar-dot${i === card ? ' active' : ''}`}
-            onClick={() => setCard(i)}
-            aria-label={`카드 ${i + 1}`}
-          />
-        ))}
+        {/* 카드 위치 점 — 카드 오른쪽 모서리에 앵커 */}
+        <div className="nowbar-dots">
+          {Array.from({ length: CARD_COUNT }, (_, i) => (
+            <button
+              key={i}
+              className={`nowbar-dot${i === card ? ' active' : ''}`}
+              onClick={() => setCard(i)}
+              aria-label={`카드 ${i + 1}`}
+            />
+          ))}
+        </div>
       </div>
 
       <span className="nowbar-clock">{formatNow(now)}</span>
