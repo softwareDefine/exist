@@ -21,8 +21,6 @@ export default function DashboardPage() {
   const [newStart, setNewStart] = useState('');
   const [newEnd, setNewEnd] = useState('');
 
-  // 투두 입력
-  const [todoTitle, setTodoTitle] = useState('');
 
   async function refresh() {
     try {
@@ -73,24 +71,6 @@ export default function DashboardPage() {
     } catch {
       /* 전역 에러 토스트가 표시 */
     }
-  }
-
-  async function addTodo(e: React.FormEvent) {
-    e.preventDefault();
-    if (!todoTitle.trim()) return;
-    await api('/api/todos', { method: 'POST', body: { title: todoTitle } });
-    setTodoTitle('');
-    void refresh();
-  }
-
-  async function toggleTodo(todo: Todo) {
-    await api(`/api/todos/${todo.id}`, { method: 'PATCH', body: { done: !todo.done } });
-    void refresh();
-  }
-
-  async function deleteTodo(id: number) {
-    await api(`/api/todos/${id}`, { method: 'DELETE' });
-    void refresh();
   }
 
   return (
@@ -184,26 +164,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div className="section-title">✅ 할 일</div>
-          <form className="todo-add" onSubmit={addTodo}>
-            <input
-              placeholder="할 일 추가"
-              value={todoTitle}
-              onChange={(e) => setTodoTitle(e.target.value)}
-            />
-            <button type="submit">+</button>
-          </form>
-          <div className="todo-list">
-            {todos.map((todo) => (
-              <div key={todo.id} className={`todo-item${todo.done ? ' done' : ''}`}>
-                <input type="checkbox" checked={!!todo.done} onChange={() => toggleTodo(todo)} />
-                <span className="todo-title">{todo.title}</span>
-                <button className="todo-del" onClick={() => deleteTodo(todo.id)} title="삭제">
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
         </aside>
 
         <div className="workspace-col">

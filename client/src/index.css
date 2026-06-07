@@ -131,29 +131,39 @@ input:focus {
 }
 
 .nowbar-dot {
+  position: relative;
   width: 9px;
   height: 9px;
   border: none;
   border-radius: 50%;
   background: #d5d5d5;
   padding: 0;
-  transition: background 0.25s ease;
+  transition: background 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .nowbar-dot.active {
   background: var(--green);
-  animation: dot-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(1.2);
 }
 
-@keyframes dot-pop {
-  0% {
-    transform: scale(0.5);
+/* 활성 점에서 링이 퍼져나가는 리플 */
+.nowbar-dot.active::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 2px solid var(--green);
+  animation: dot-ripple 0.55s ease-out forwards;
+}
+
+@keyframes dot-ripple {
+  from {
+    transform: scale(0.7);
+    opacity: 0.9;
   }
-  60% {
-    transform: scale(1.4);
-  }
-  100% {
-    transform: scale(1);
+  to {
+    transform: scale(2.4);
+    opacity: 0;
   }
 }
 
@@ -358,6 +368,11 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
+.nowbar-profile {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .nowbar-avatar {
   width: 44px;
   height: 44px;
@@ -366,13 +381,84 @@ input:focus {
   display: grid;
   place-items: center;
   font-size: 24px;
-  flex-shrink: 0;
   cursor: pointer;
   transition: transform 0.15s ease;
 }
 
-.nowbar-avatar:hover {
+.nowbar-profile:hover .nowbar-avatar {
   transform: scale(1.08);
+}
+
+.profile-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  padding-top: 8px; /* 호버 끊김 방지 브리지 */
+  display: none;
+  z-index: 1500;
+}
+
+.nowbar-profile:hover .profile-menu {
+  display: block;
+  animation: toast-in 0.18s ease-out;
+}
+
+.profile-menu-box {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 8px;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-name {
+  font-size: 14px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.profile-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.profile-item:hover:not(:disabled) {
+  background: #f4f4f4;
+}
+
+.profile-item:disabled {
+  color: var(--text-sub);
+  cursor: default;
+}
+
+.profile-item .soon {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-sub);
+  background: #f1f1f1;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.profile-item.danger {
+  color: #d33;
+}
+
+.profile-item.danger:hover {
+  background: #fdf0f0;
 }
 
 /* ───── 대시보드 ───── */

@@ -216,8 +216,23 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
       </div>
 
       <span className="nowbar-clock">{formatNow(now)}</span>
-      <div className="nowbar-avatar" title={`${user?.username} — 클릭하면 로그아웃`} onClick={logout}>
-        🐧
+
+      {/* 프로필 — hover 시 메뉴 */}
+      <div className="nowbar-profile">
+        <div className="nowbar-avatar">🐧</div>
+        <div className="profile-menu">
+          <div className="profile-menu-box">
+            <div className="profile-name">
+              🐧 <b>{user?.username}</b>
+            </div>
+            <button className="profile-item" disabled>
+              ⚙️ 설정 <span className="soon">준비 중</span>
+            </button>
+            <button className="profile-item danger" onClick={logout}>
+              🚪 로그아웃
+            </button>
+          </div>
+        </div>
       </div>
     </header>
   );
