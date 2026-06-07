@@ -1028,6 +1028,10 @@ input:focus {
   border-color: #ccc;
 }
 
+.recent-card.clickable {
+  cursor: pointer;
+}
+
 .recent-card .thumb {
   width: 46px;
   height: 46px;
@@ -1249,6 +1253,91 @@ input:focus {
   height: 100vh;
   background: #0f1115;
   color: #fff;
+}
+
+/* 대시보드 탭 임베드 모드 */
+.meeting-room.embedded {
+  height: 100%;
+  border-radius: 0;
+}
+
+.meeting-room.embedded .meeting-header {
+  padding: 10px 16px;
+  gap: 14px;
+}
+
+.meeting-room.embedded .meeting-body {
+  padding: 0 14px;
+}
+
+.meeting-room.embedded .meeting-controls {
+  padding: 10px;
+  gap: 10px;
+}
+
+.meeting-room.embedded .meeting-controls button {
+  width: 46px;
+  height: 46px;
+}
+
+.meeting-room.embedded .meeting-controls .leave {
+  width: auto;
+  padding: 0 18px;
+}
+
+.meeting-room.embedded .meeting-status {
+  margin-left: 0;
+}
+
+.meeting-tab-host {
+  height: 100%;
+}
+
+/* 끊김 없는 확대 — 같은 컴포넌트를 fixed 오버레이로 승격 */
+.meeting-tab-host.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  height: 100vh;
+}
+
+.expand-btn {
+  margin-left: auto;
+  border: 1px solid #3a3f4a;
+  border-radius: 8px;
+  background: #20242c;
+  color: #ddd;
+  padding: 8px 10px;
+  display: grid;
+  place-items: center;
+}
+
+.expand-btn:hover {
+  background: #2a2f39;
+  color: var(--green);
+}
+
+/* 회의 탭 */
+.ws-tab.meeting {
+  color: var(--text);
+}
+
+.ws-tab.meeting.active {
+  color: var(--green);
+}
+
+.ws-tab .tab-close {
+  display: inline-grid;
+  place-items: center;
+  margin-left: 4px;
+  padding: 2px;
+  border-radius: 4px;
+  color: var(--text-sub);
+}
+
+.ws-tab .tab-close:hover {
+  background: #fdecec;
+  color: #d33;
 }
 
 .meeting-header {

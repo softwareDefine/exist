@@ -134,6 +134,47 @@ export function ScreenIcon({ size }: IconProps) {
   );
 }
 
+export function ExpandIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M14 3h7v7M10 21H3v-7M21 3l-8 8M3 21l8-8"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function ShrinkIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function CloseIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 export function SlashIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

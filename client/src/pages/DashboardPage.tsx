@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import NotificationToasts from '../components/NotificationToasts';
-import WorkspacePanel from '../components/WorkspacePanel';
+import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspacePanel';
 import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, ClockIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
@@ -18,6 +17,13 @@ export default function DashboardPage() {
 
   // 회의 생성 모달
   const [showCreate, setShowCreate] = useState(false);
+
+  // 회의 탭 열기 요청 (우측 패널로 전달)
+  const [meetingRequest, setMeetingRequest] = useState<MeetingTabRequest | null>(null);
+
+  function openMeetingTab(code: string, title: string) {
+    setMeetingRequest({ code, title, ts: Date.now() });
+  }
 
 
   async function refresh() {
@@ -42,7 +48,9 @@ export default function DashboardPage() {
     if (!code.trim()) return;
     try {
       const m = await api<Meeting>('/api/meetings/join', { method: 'POST', body: { code } });
-      navigate(`/meeting/${m.code}`);
+      openMeetingTab(m.code, m.title);
+      setCode('');
+      void refresh();
     } catch {
       /* 전역 에러 토스트가 표시 */
     }
@@ -88,7 +96,12 @@ export default function DashboardPage() {
           </div>
           <div className="recent-list">
             {recent.map((m) => (
-              <div key={m.id} className="recent-card">
+              <div
+                key={m.id}
+                className="recent-card clickable"
+                onClick={() => openMeetingTab(m.code, m.title)}
+                title="클릭하면 옆 탭에서 회의가 열려요"
+              >
                 <div
                   className="thumb"
                   style={{
@@ -99,8 +112,8 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <div className="name">{m.title}</div>
-                  <div className="actions">
-                    <button title="통화" onClick={() => navigate(`/meeting/${m.code}`)}>
+                  <div className="actions" onClick={(e) => e.stopPropagation()}>
+                    <button title="통화" onClick={() => openMeetingTab(m.code, m.title)}>
                       <PhoneIcon size={17} />
                     </button>
                     <button title="채팅">
@@ -127,7 +140,7 @@ export default function DashboardPage() {
 
         <div className="workspace-col">
           {message && <div className="dash-message">{message}</div>}
-          <WorkspacePanel />
+          <WorkspacePanel meetingRequest={meetingRequest} />
         </div>
       </main>
 
