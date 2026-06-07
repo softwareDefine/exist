@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import MeetingView from './MeetingView';
-import { PhoneIcon, CalendarIcon, ClockIcon } from './Icons';
+import { getSocket, request } from '../lib/socket';
+import { useAuthStore } from '../store';
+import MeetingView, { type ChatMessage } from './MeetingView';
+import { PhoneIcon, CalendarIcon, ClockIcon, ChatIcon } from './Icons';
 
 interface MeetingDetail {
   id: number;
@@ -37,9 +39,46 @@ interface Props {
 
 /** 회의 탭 = 회의 대시보드. 로비(정보)에서 통화 참여 → MeetingView */
 export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
+  const user = useAuthStore((s) => s.user);
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
   const [inCall, setInCall] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // 허브 채팅 — 통화 없이도 보고 보냄 (통화 중엔 MeetingView가 담당)
+  useEffect(() => {
+    if (inCall) return;
+    let alive = true;
+    const socket = getSocket();
+
+    void api<ChatMessage[]>(`/api/meetings/${code}/messages`).then((history) => {
+      if (alive) setMessages(history);
+    });
+    void request(socket, 'chat:join', { code }).catch(() => {});
+
+    function onMessage(msg: ChatMessage) {
+      if (msg.code && msg.code !== code.toUpperCase()) return;
+      setMessages((prev) => [...prev, msg]);
+    }
+    socket.on('chat:message', onMessage);
+    return () => {
+      alive = false;
+      socket.off('chat:message', onMessage);
+    };
+  }, [code, inCall]);
+
+  function sendChat(e: React.FormEvent) {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    getSocket().emit('chat:send', { code, text: chatInput });
+    setChatInput('');
+  }
 
   // 상세 + 현재 통화 인원 (10초 폴링, 통화 중엔 중단)
   useEffect(() => {
@@ -153,6 +192,33 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
         <button className="hub-join" onClick={() => setInCall(true)}>
           <PhoneIcon size={18} /> 통화 참여하기
         </button>
+      </div>
+
+      {/* 회의 채팅 — 통화 없이도 사용 가능, 통화 중 채팅과 같은 스트림 */}
+      <div className="hub-chat">
+        <div className="hub-chat-head">
+          <ChatIcon size={16} /> 회의 채팅
+        </div>
+        <div className="hub-chat-messages">
+          {messages.length === 0 && (
+            <div className="chat-empty">아직 메시지가 없어요 — 첫 메시지를 남겨보세요</div>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} className={`hub-msg${m.from === user?.username ? ' mine' : ''}`}>
+              <span className="hub-msg-from">{m.from}</span>
+              <div className="hub-bubble">{m.text}</div>
+            </div>
+          ))}
+          <div ref={chatEndRef} />
+        </div>
+        <form className="hub-chat-input" onSubmit={sendChat}>
+          <input
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            placeholder="메시지 입력"
+          />
+          <button type="submit">전송</button>
+        </form>
       </div>
     </div>
   );

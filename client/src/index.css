@@ -1250,10 +1250,119 @@ input:focus {
 .meeting-hub {
   height: 100%;
   display: grid;
-  place-items: center;
+  grid-template-columns: minmax(380px, 460px) 1fr;
+  gap: 20px;
+  align-items: stretch;
   background: #fafafa;
-  padding: 24px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.meeting-hub.loading {
+  place-items: center;
+  grid-template-columns: 1fr;
+}
+
+.hub-card {
+  align-self: center;
+}
+
+/* 허브 채팅 (라이트) */
+.hub-chat {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.hub-chat-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  font-weight: 800;
+  font-size: 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hub-chat-messages {
+  flex: 1;
   overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hub-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 78%;
+}
+
+.hub-msg.mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.hub-msg-from {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.hub-msg.mine .hub-msg-from {
+  display: none;
+}
+
+.hub-bubble {
+  background: #f1f3f5;
+  border-radius: 12px;
+  padding: 9px 13px;
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.hub-msg.mine .hub-bubble {
+  background: var(--green);
+  color: #fff;
+}
+
+.hub-chat-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.hub-chat-input input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.hub-chat-input button {
+  border: none;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  font-weight: 700;
+  padding: 0 16px;
+}
+
+.hub-chat .chat-empty {
+  color: var(--text-sub);
+  font-size: 13px;
+  text-align: center;
+  margin-top: 24px;
 }
 
 .meeting-hub.loading {

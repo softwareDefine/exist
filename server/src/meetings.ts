@@ -105,4 +105,24 @@ router.get('/:code', (req: AuthedRequest, res) => {
   });
 });
 
+/** 회의 채팅 히스토리 (최근 100개) */
+router.get('/:code/messages', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as { id: number } | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+
+  const rows = db
+    .prepare(
+      `SELECT u.username AS "from", m.text, m.created_at FROM messages m
+       JOIN users u ON u.id = m.user_id
+       WHERE m.meeting_id = ? ORDER BY m.id DESC LIMIT 100`,
+    )
+    .all(meeting.id) as { from: string; text: string; created_at: string }[];
+
+  res.json(
+    rows.reverse().map((r) => ({ from: r.from, text: r.text, ts: new Date(r.created_at + 'Z').getTime() })),
+  );
+});
+
 export default router;

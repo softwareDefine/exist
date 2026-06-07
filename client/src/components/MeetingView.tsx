@@ -24,7 +24,8 @@ interface ProducerInfo {
   source?: string;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
+  code?: string;
   from: string;
   text: string;
   ts: number;
@@ -216,6 +217,12 @@ export default function MeetingView({
       });
       setTitle(meeting.title);
 
+      // 채팅: 히스토리 로드 + 채팅 룸 구독 (허브와 공용 스트림)
+      void api<ChatMessage[]>(`/api/meetings/${code}/messages`).then((history) => {
+        if (!closed) setMessages(history);
+      });
+      void request(socket, 'chat:join', { code }).catch(() => {});
+
       // 1. SFU 방 입장
       const joined = await request<{
         rtpCapabilities: import('mediasoup-client/types').RtpCapabilities;
@@ -349,6 +356,7 @@ export default function MeetingView({
         }
       });
       socket.on('chat:message', (msg: ChatMessage) => {
+        if (msg.code && msg.code !== code.toUpperCase()) return; // 다른 회의 채팅 무시
         setMessages((prev) => [...prev, msg]);
         if (!chatOpenRef.current) setUnread((n) => n + 1);
       });
@@ -442,7 +450,7 @@ export default function MeetingView({
   function sendChat(e: React.FormEvent) {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    getSocket().emit('chat:send', { text: chatInput });
+    getSocket().emit('chat:send', { code, text: chatInput });
     setChatInput('');
   }
 

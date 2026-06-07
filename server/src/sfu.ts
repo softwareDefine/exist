@@ -300,12 +300,34 @@ export function attachSfu(io: Server) {
       ack?.({ ok: true });
     });
 
-    /** 회의 내 채팅 — 같은 방 전체에 브로드캐스트 */
-    socket.on('chat:send', ({ text }: { text: string }) => {
-      if (!room || !peer || !text?.trim()) return;
-      io.to(`room:${room.code}`).emit('chat:message', {
-        from: peer.username,
-        text: text.slice(0, 2000),
+    /** 채팅 구독 — 통화 없이도 허브에서 채팅 가능 (chat:CODE 룸) */
+    socket.on('chat:join', ({ code }: { code: string }, ack) => {
+      const meeting = db
+        .prepare('SELECT id FROM meetings WHERE code = ?')
+        .get((code ?? '').toUpperCase()) as { id: number } | undefined;
+      if (!meeting) return ack?.({ error: '존재하지 않는 회의입니다' });
+      void socket.join(`chat:${code.toUpperCase()}`);
+      ack?.({ ok: true });
+    });
+
+    /** 회의 채팅 — DB 저장 + 채팅 룸 브로드캐스트 (허브/통화 공용) */
+    socket.on('chat:send', ({ code, text }: { code: string; text: string }) => {
+      if (!code || !text?.trim()) return;
+      const upper = code.toUpperCase();
+      const meeting = db.prepare('SELECT id FROM meetings WHERE code = ?').get(upper) as
+        | { id: number }
+        | undefined;
+      if (!meeting) return;
+      const trimmed = text.slice(0, 2000);
+      db.prepare('INSERT INTO messages (meeting_id, user_id, text) VALUES (?, ?, ?)').run(
+        meeting.id,
+        socket.data.userId,
+        trimmed,
+      );
+      io.to(`chat:${upper}`).emit('chat:message', {
+        code: upper,
+        from: socket.data.username,
+        text: trimmed,
         ts: Date.now(),
       });
     });
