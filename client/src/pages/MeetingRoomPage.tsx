@@ -14,6 +14,7 @@ interface RemotePeer {
   videoTrack?: MediaStreamTrack;
   audioTrack?: MediaStreamTrack;
   screenTrack?: MediaStreamTrack;
+  videoPaused?: boolean;
 }
 
 interface ProducerInfo {
@@ -56,6 +57,7 @@ function VideoTile({
   muted,
   isLocal,
   isScreen,
+  paused,
   onKick,
 }: {
   track?: MediaStreamTrack;
@@ -63,21 +65,24 @@ function VideoTile({
   muted?: boolean;
   isLocal?: boolean;
   isScreen?: boolean;
+  paused?: boolean;
   onKick?: () => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const showVideo = !!track && !paused;
   useEffect(() => {
-    if (ref.current && track) {
+    if (ref.current && track && showVideo) {
       ref.current.srcObject = new MediaStream([track]);
     }
-  }, [track]);
+  }, [track, showVideo]);
   return (
     <div className={`video-tile${isScreen ? ' screen' : ''}`}>
-      {track ? (
+      {showVideo ? (
         <video ref={ref} autoPlay playsInline muted={muted} />
       ) : (
         <div className="video-placeholder">
           <div className="avatar-circle">{username.slice(0, 1).toUpperCase()}</div>
+          <span className="cam-off-label">카메라 꺼짐</span>
         </div>
       )}
       <span className="video-name">
@@ -148,7 +153,7 @@ export default function MeetingRoomPage() {
     function upsertPeer(
       peerId: string,
       username: string,
-      patch?: Partial<Pick<RemotePeer, 'videoTrack' | 'audioTrack' | 'screenTrack'>>,
+      patch?: Partial<Pick<RemotePeer, 'videoTrack' | 'audioTrack' | 'screenTrack' | 'videoPaused'>>,
     ) {
       setRemotePeers((prev) => {
         const next = new Map(prev);
@@ -305,6 +310,28 @@ export default function MeetingRoomPage() {
           return next;
         });
       });
+      socket.on('producer:paused', ({ producerId }: { producerId: string }) => {
+        const meta = consumerMapRef.current.get(producerId);
+        if (meta?.kind === 'video' && meta.source === 'camera') {
+          setRemotePeers((prev) => {
+            const next = new Map(prev);
+            const p = next.get(meta.peerId);
+            if (p) next.set(meta.peerId, { ...p, videoPaused: true });
+            return next;
+          });
+        }
+      });
+      socket.on('producer:resumed', ({ producerId }: { producerId: string }) => {
+        const meta = consumerMapRef.current.get(producerId);
+        if (meta?.kind === 'video' && meta.source === 'camera') {
+          setRemotePeers((prev) => {
+            const next = new Map(prev);
+            const p = next.get(meta.peerId);
+            if (p) next.set(meta.peerId, { ...p, videoPaused: false });
+            return next;
+          });
+        }
+      });
       socket.on('chat:message', (msg: ChatMessage) => {
         setMessages((prev) => [...prev, msg]);
         if (!chatOpenRef.current) setUnread((n) => n + 1);
@@ -325,6 +352,8 @@ export default function MeetingRoomPage() {
       socket.off('peer:left');
       socket.off('producer:new');
       socket.off('producer:closed');
+      socket.off('producer:paused');
+      socket.off('producer:resumed');
       socket.off('chat:message');
       socket.off('room:locked');
       socket.off('room:kicked');
@@ -338,14 +367,28 @@ export default function MeetingRoomPage() {
   function toggleMic() {
     const p = producersRef.current.audio;
     if (!p) return;
-    micOn ? p.pause() : p.resume();
+    const socket = getSocket();
+    if (micOn) {
+      p.pause();
+      void request(socket, 'producer:pause', { producerId: p.id }).catch(() => {});
+    } else {
+      p.resume();
+      void request(socket, 'producer:resume', { producerId: p.id }).catch(() => {});
+    }
     setMicOn(!micOn);
   }
 
   function toggleCam() {
     const p = producersRef.current.video;
     if (!p) return;
-    camOn ? p.pause() : p.resume();
+    const socket = getSocket();
+    if (camOn) {
+      p.pause();
+      void request(socket, 'producer:pause', { producerId: p.id }).catch(() => {});
+    } else {
+      p.resume();
+      void request(socket, 'producer:resume', { producerId: p.id }).catch(() => {});
+    }
     setCamOn(!camOn);
   }
 
@@ -445,12 +488,19 @@ export default function MeetingRoomPage() {
           <div
             className={`video-grid${hasScreen ? ' filmstrip' : ''} count-${peers.length + 1}`}
           >
-            <VideoTile track={localTrack} username={user?.username ?? '나'} muted isLocal />
+            <VideoTile
+              track={localTrack}
+              username={user?.username ?? '나'}
+              muted
+              isLocal
+              paused={!camOn}
+            />
             {peers.map((p) => (
               <div key={p.peerId} className="peer-cell">
                 <VideoTile
                   track={p.videoTrack}
                   username={p.username}
+                  paused={p.videoPaused}
                   onKick={
                     isHost
                       ? () => void request(getSocket(), 'room:kick', { peerId: p.peerId })

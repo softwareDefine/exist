@@ -250,6 +250,21 @@ export function attachSfu(io: Server) {
       },
     );
 
+    /** producer 일시정지/재개 — 서버 측 pause로 consumer들에게 producerpause 전파 */
+    socket.on('producer:pause', async ({ producerId }: { producerId: string }, ack) => {
+      const producer = peer?.producers.get(producerId);
+      if (!producer) return ack?.({ error: 'producer 없음' });
+      await producer.pause();
+      ack?.({ ok: true });
+    });
+
+    socket.on('producer:resume', async ({ producerId }: { producerId: string }, ack) => {
+      const producer = peer?.producers.get(producerId);
+      if (!producer) return ack?.({ error: 'producer 없음' });
+      await producer.resume();
+      ack?.({ ok: true });
+    });
+
     /** producer 종료 (화면공유 중단 등) — consumer들에게 producer:closed 전파 */
     socket.on('producer:close', ({ producerId }: { producerId: string }, ack) => {
       const producer = peer?.producers.get(producerId);
@@ -316,6 +331,9 @@ export function attachSfu(io: Server) {
           peer?.consumers.delete(consumer.id);
           socket.emit('producer:closed', { producerId, consumerId: consumer.id });
         });
+        // 상대가 카메라/마이크를 일시정지하면 검은 화면 대신 플레이스홀더 표시용
+        consumer.on('producerpause', () => socket.emit('producer:paused', { producerId }));
+        consumer.on('producerresume', () => socket.emit('producer:resumed', { producerId }));
         ack({
           id: consumer.id,
           producerId,
