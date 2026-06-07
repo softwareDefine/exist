@@ -132,13 +132,19 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
   const doneCount = todos.filter((t) => t.done).length;
   const progress = todos.length > 0 ? Math.round((doneCount / todos.length) * 100) : 0;
 
+  /** 스택 내 상대 위치: front(앞) / next(오른쪽 아래 겹침) / hidden */
+  const stackCls = (i: number) => {
+    const rel = (i - card + CARD_COUNT) % CARD_COUNT;
+    return rel === 0 ? ' front' : rel === 1 ? ' next' : ' hidden';
+  };
+
   return (
     <header className="nowbar">
       <Logo />
 
       <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">
         {/* 카드 1 — 회의 + 투두 (기본) */}
-        <div className={`nowbar-card${card === 0 ? ' front' : ' back'}`}>
+        <div className={`nowbar-card${stackCls(0)}`}>
           <div className="nowbar-meeting">
             {ctx ? (
               <>
@@ -174,7 +180,7 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
         </div>
 
         {/* 카드 2 — AI 브리핑 */}
-        <div className={`nowbar-card${card === 1 ? ' front' : ' back'}`}>
+        <div className={`nowbar-card${stackCls(1)}`}>
           <div className="nowbar-ai">
             <span className="ai-badge">
               <span className="dot" />
@@ -185,7 +191,7 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
         </div>
 
         {/* 카드 3 — 할 일 진행률 */}
-        <div className={`nowbar-card${card === 2 ? ' front' : ' back'}`}>
+        <div className={`nowbar-card${stackCls(2)}`}>
           <div className="nowbar-progress">
             <div className="progress-label">
               ✅ 오늘 할 일 <b>{todos.length}개 중 {doneCount}개 완료</b>

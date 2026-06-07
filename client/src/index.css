@@ -117,28 +117,6 @@ input:focus {
   height: 68px;
 }
 
-/* 뒤에 쌓여있는 덱 모서리 (정적) */
-.nowbar-pill::before,
-.nowbar-pill::after {
-  content: '';
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: -5px;
-  height: 20px;
-  background: #f4f4f4;
-  border: 1px solid var(--border);
-  border-radius: 0 0 10px 10px;
-  z-index: 0;
-}
-
-.nowbar-pill::after {
-  left: 28px;
-  right: 28px;
-  bottom: -9px;
-  background: #ececec;
-  z-index: -1;
-}
 
 /* 카드 위치 점 — 카드 오른쪽 모서리 바깥에 앵커 */
 .nowbar-dots {
@@ -189,13 +167,31 @@ input:focus {
 .nowbar-card.front {
   opacity: 1;
   transform: none;
-  z-index: 2;
+  z-index: 3;
 }
 
-.nowbar-card.back {
+/* 다음 카드 — 오른쪽 아래로 살짝 빠져나와 겹쳐 보임 */
+.nowbar-card.next {
+  opacity: 1;
+  transform: translate(7px, 7px);
+  z-index: 2;
+  background: #f6f6f6;
+  pointer-events: none;
+}
+
+.nowbar-card.next > * {
+  opacity: 0; /* 모서리만 보이고 내용은 숨김 */
+  transition: opacity 0.2s ease;
+}
+
+.nowbar-card.front > * {
+  opacity: 1;
+  transition: opacity 0.3s ease 0.12s;
+}
+
+.nowbar-card.hidden {
   opacity: 0;
-  /* 덱 쪽으로 들어가 숨는 위치 — 다음 카드는 여기서 앞으로 튀어나옴 */
-  transform: translateY(12px) scale(0.94);
+  transform: translate(7px, 7px) scale(0.96);
   z-index: 1;
   pointer-events: none;
 }
