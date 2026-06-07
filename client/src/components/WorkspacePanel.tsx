@@ -96,7 +96,7 @@ export default function WorkspacePanel() {
             className={`ws-tab${ws.id === activeId ? ' active' : ''}`}
             onClick={() => setActiveId(ws.id)}
           >
-            <FolderIcon size={15} /> {ws.name}
+            <FolderIcon size={16} /> {ws.name}
           </button>
         ))}
       </div>

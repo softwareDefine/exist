@@ -161,16 +161,16 @@ export default function DashboardPage() {
                   <div className="name">{m.title}</div>
                   <div className="actions">
                     <button title="통화" onClick={() => navigate(`/meeting/${m.code}`)}>
-                      <PhoneIcon size={15} />
+                      <PhoneIcon size={17} />
                     </button>
                     <button title="채팅">
-                      <ChatIcon size={15} />
+                      <ChatIcon size={17} />
                     </button>
                     <button title="일정">
-                      <CalendarIcon size={15} />
+                      <CalendarIcon size={17} />
                     </button>
                     <button title="설정">
-                      <GearIcon size={15} />
+                      <GearIcon size={17} />
                     </button>
                   </div>
                 </div>
