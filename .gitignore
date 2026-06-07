@@ -6,6 +6,8 @@ build/
 .env.local
 *.sqlite
 *.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
 .DS_Store
 docs/기획.pdf
 docs/design-pages/
