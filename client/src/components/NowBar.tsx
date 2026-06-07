@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import Logo from './Logo';
+import SettingsModal from './SettingsModal';
 
 export interface Todo {
   id: number;
@@ -184,14 +185,50 @@ interface Props {
 
 const CARD_COUNT = 3;
 
-export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddTodo }: Props) {
-  const [newTodo, setNewTodo] = useState('');
+function ProfileMenu({
+  avatar,
+  onOpenSettings,
+}: {
+  avatar: string;
+  onOpenSettings: () => void;
+}) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  return (
+    <div className="nowbar-profile">
+      <div className="nowbar-avatar">{avatar}</div>
+      <div className="profile-menu">
+        <div className="profile-menu-box">
+          <div className="profile-name">
+            {avatar} <b>{user?.username}</b>
+          </div>
+          <button className="profile-item" onClick={onOpenSettings}>
+            ⚙️ 설정
+          </button>
+          <button className="profile-item danger" onClick={logout}>
+            🚪 로그아웃
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddTodo }: Props) {
+  const [newTodo, setNewTodo] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [brief, setBrief] = useState('');
   const [card, setCard] = useState(0);
+  const [avatar, setAvatar] = useState('🐧');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const wheelLock = useRef(0);
+
+  // 프로필 아바타 로드
+  useEffect(() => {
+    api<{ avatar: string }>('/api/auth/me')
+      .then((m) => setAvatar(m.avatar || '🐧'))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 10_000);
@@ -276,22 +313,13 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
           </div>
         </div>
         <span className="nowbar-clock">{formatNow(now)}</span>
-        <div className="nowbar-profile">
-          <div className="nowbar-avatar">🐧</div>
-          <div className="profile-menu">
-            <div className="profile-menu-box">
-              <div className="profile-name">
-                🐧 <b>{user?.username}</b>
-              </div>
-              <button className="profile-item" disabled>
-                ⚙️ 설정 <span className="soon">준비 중</span>
-              </button>
-              <button className="profile-item danger" onClick={logout}>
-                🚪 로그아웃
-              </button>
-            </div>
-          </div>
-        </div>
+        <ProfileMenu avatar={avatar} onOpenSettings={() => setSettingsOpen(true)} />
+        <SettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          avatar={avatar}
+          onAvatarChange={setAvatar}
+        />
       </header>
     );
   }
@@ -475,23 +503,13 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
 
       <span className="nowbar-clock">{formatNow(now)}</span>
 
-      {/* 프로필 — hover 시 메뉴 */}
-      <div className="nowbar-profile">
-        <div className="nowbar-avatar">🐧</div>
-        <div className="profile-menu">
-          <div className="profile-menu-box">
-            <div className="profile-name">
-              🐧 <b>{user?.username}</b>
-            </div>
-            <button className="profile-item" disabled>
-              ⚙️ 설정 <span className="soon">준비 중</span>
-            </button>
-            <button className="profile-item danger" onClick={logout}>
-              🚪 로그아웃
-            </button>
-          </div>
-        </div>
-      </div>
+      <ProfileMenu avatar={avatar} onOpenSettings={() => setSettingsOpen(true)} />
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        avatar={avatar}
+        onAvatarChange={setAvatar}
+      />
     </header>
   );
 }

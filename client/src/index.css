@@ -974,6 +974,57 @@ input:focus {
   color: var(--green);
 }
 
+/* 설정 모달 */
+.settings-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  margin-bottom: 18px;
+}
+
+.settings-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #dfe8f2;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+}
+
+.settings-section {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--green);
+  margin: 16px 0 10px;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+.avatar-pick {
+  aspect-ratio: 1;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+}
+
+.avatar-pick:hover {
+  border-color: #bbb;
+}
+
+.avatar-pick.active {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+
 .modal-danger {
   width: 100%;
   margin-top: 14px;

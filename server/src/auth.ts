@@ -168,4 +168,50 @@ router.post('/logout', requireAuth, (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
+/** 내 정보 */
+router.get('/me', requireAuth, (req: AuthedRequest, res) => {
+  const me = db
+    .prepare('SELECT id, username, avatar FROM users WHERE id = ?')
+    .get(req.userId) as { id: number; username: string; avatar: string };
+  res.json(me);
+});
+
+/** 프로필 수정 — 아바타 이모지 */
+router.patch('/me', requireAuth, (req: AuthedRequest, res) => {
+  const { avatar } = req.body ?? {};
+  if (typeof avatar !== 'string' || avatar.length === 0 || avatar.length > 8) {
+    return res.status(400).json({ error: '올바르지 않은 아바타입니다' });
+  }
+  db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar, req.userId);
+  res.json({ ok: true });
+});
+
+/** 비밀번호 변경 — 현재 비밀번호 확인 후 */
+router.post('/password', requireAuth, (req: AuthedRequest, res) => {
+  const { currentPassword, newPassword } = req.body ?? {};
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: '모든 항목을 입력하세요' });
+  }
+  if (String(newPassword).length < 8) {
+    return res.status(400).json({ error: '새 비밀번호는 8자 이상이어야 합니다' });
+  }
+  const user = db.prepare('SELECT pw_hash, pw_salt FROM users WHERE id = ?').get(req.userId) as {
+    pw_hash: string;
+    pw_salt: string;
+  };
+  if (hashPassword(currentPassword, user.pw_salt) !== user.pw_hash) {
+    return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다' });
+  }
+  const salt = crypto.randomBytes(16).toString('hex');
+  db.prepare('UPDATE users SET pw_hash = ?, pw_salt = ? WHERE id = ?').run(
+    hashPassword(newPassword, salt),
+    salt,
+    req.userId,
+  );
+  // 현재 세션 외 전부 무효화
+  const token = req.headers.authorization!.replace(/^Bearer /, '');
+  db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(req.userId, token);
+  res.json({ ok: true });
+});
+
 export default router;

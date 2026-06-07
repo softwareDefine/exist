@@ -71,4 +71,11 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 프로필 아바타 (이모지)
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT '🐧'`);
+} catch {
+  /* 이미 존재 */
+}
+
 export default db;
