@@ -367,6 +367,8 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
         {/* hover 확장 패널 — 현재 카드 모드의 상세 */}
         <div className="nowbar-expand">
           <div className="nowbar-expand-box">
+            {/* key=card → 카드 전환 시 내용도 끌려나오는 애니메이션 재생 */}
+            <div className="nb-expand-content" key={card}>
             {card === 0 && (
               <div className="nb-expand-schedule">
                 <MonthCalendar meetings={meetings} now={now} />
@@ -457,6 +459,7 @@ export default function NowBar({ todos = [], meetings = [], onToggleTodo, onAddT
                 )}
               </div>
             )}
+            </div>
 
             {/* 공통 푸터 — exist AI 브리핑 */}
             <div className="nb-expand-footer">

@@ -257,6 +257,22 @@ input:focus {
   opacity: 0;
 }
 
+/* 카드 전환 시 확장 내용도 함께 끌려나오는 모션 */
+.nb-expand-content {
+  animation: nb-swap 0.32s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+@keyframes nb-swap {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .nb-expand-title {
   font-size: 14px;
   font-weight: 800;
