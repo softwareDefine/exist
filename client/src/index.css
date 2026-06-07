@@ -206,30 +206,55 @@ input:focus {
   color: var(--green);
 }
 
-/* hover 확장 패널 */
+/* hover 확장 — 카드가 아래로 이어져 늘어남 (별도 창 아님) */
 .nowbar-expand {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  padding-top: 10px; /* 호버 브리지 */
   display: none;
   z-index: 1400;
 }
 
 .nowbar-pill:hover .nowbar-expand {
   display: block;
-  animation: toast-in 0.2s ease-out;
+  animation: nb-grow 0.22s ease-out;
+  transform-origin: top center;
 }
 
+@keyframes nb-grow {
+  from {
+    opacity: 0;
+    transform: scaleY(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+/* 카드와 같은 테두리로 이어붙임 */
 .nowbar-expand-box {
   background: #fff;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
   box-shadow: var(--shadow-md);
-  padding: 18px;
+  padding: 14px 18px 16px;
   max-height: 420px;
   overflow-y: auto;
+}
+
+/* 펼쳐진 동안 앞 카드 아래 모서리를 직각으로 — 한 몸처럼 */
+.nowbar-pill:hover .nowbar-card.front {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow: none;
+}
+
+/* 펼쳐진 동안 뒤 카드 겹침은 숨김 (확장과 충돌 방지) */
+.nowbar-pill:hover .nowbar-card.next {
+  opacity: 0;
 }
 
 .nb-expand-title {
