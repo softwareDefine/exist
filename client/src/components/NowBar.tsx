@@ -136,18 +136,6 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
     <header className="nowbar">
       <Logo />
 
-      {/* 카드 위치 점 — 카드 밖 왼쪽 */}
-      <div className="nowbar-dots">
-        {Array.from({ length: CARD_COUNT }, (_, i) => (
-          <button
-            key={i}
-            className={`nowbar-dot${i === card ? ' active' : ''}`}
-            onClick={() => setCard(i)}
-            aria-label={`카드 ${i + 1}`}
-          />
-        ))}
-      </div>
-
       <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">
         {/* 카드 1 — 회의 + 투두 (기본) */}
         <div className={`nowbar-card${card === 0 ? ' front' : ' back'}`}>
@@ -208,6 +196,18 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
             <span className="progress-pct">{progress}%</span>
           </div>
         </div>
+      </div>
+
+      {/* 카드 위치 점 — 카드 바로 오른쪽 */}
+      <div className="nowbar-dots">
+        {Array.from({ length: CARD_COUNT }, (_, i) => (
+          <button
+            key={i}
+            className={`nowbar-dot${i === card ? ' active' : ''}`}
+            onClick={() => setCard(i)}
+            aria-label={`카드 ${i + 1}`}
+          />
+        ))}
       </div>
 
       <span className="nowbar-clock">{formatNow(now)}</span>

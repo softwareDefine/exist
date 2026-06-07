@@ -140,12 +140,13 @@ input:focus {
   z-index: -1;
 }
 
-/* 카드 위치 점 — 카드 밖 왼쪽 */
+/* 카드 위치 점 — 카드 바로 오른쪽 */
 .nowbar-dots {
   display: flex;
   flex-direction: column;
   gap: 5px;
   flex-shrink: 0;
+  margin-left: -12px; /* 카드에 바짝 붙이기 (nowbar gap 상쇄) */
 }
 
 .nowbar-dot {
