@@ -77,6 +77,34 @@ io.use((socket, next) => {
 attachSfu(io);
 attachSync(server);
 
+// ── presence: 접속 중인 사용자 (exist의 존재감 레이어) ──
+const online = new Map<number, { username: string; count: number }>();
+
+function broadcastPresence() {
+  io.emit('presence:update', { users: [...online.values()].map((u) => u.username) });
+}
+
+io.on('connection', (socket) => {
+  const userId = socket.data.userId as number;
+  const username = socket.data.username as string;
+  const entry = online.get(userId);
+  if (entry) entry.count++;
+  else online.set(userId, { username, count: 1 });
+  broadcastPresence();
+
+  socket.on('disconnect', () => {
+    const e = online.get(userId);
+    if (!e) return;
+    e.count--;
+    if (e.count <= 0) online.delete(userId);
+    broadcastPresence();
+  });
+});
+
+app.get('/api/presence', (_req, res) => {
+  res.json({ users: [...online.values()].map((u) => u.username) });
+});
+
 // ── AI agent 푸시 알림: 회의 시작 30분/10분 전 리마인더 ──
 const notified = new Set<string>(); // `${userId}:${meetingTitle}:${threshold}`
 

@@ -1,10 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Tldraw, type TLAssetStore } from 'tldraw';
-import { useSync } from '@tldraw/sync';
-import 'tldraw/tldraw.css';
+import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { useAuthStore } from '../store';
 import { FolderIcon, PhoneIcon, CloseIcon } from './Icons';
+import CanvasBoard from './CanvasBoard';
 import MeetingHub from './MeetingHub';
 
 interface Workspace {
@@ -20,39 +17,6 @@ export interface MeetingTabRequest {
 
 type ActiveTab = { kind: 'ws'; id: number } | { kind: 'meeting'; code: string };
 
-function WorkspaceCanvas({ workspaceId }: { workspaceId: number }) {
-  const token = useAuthStore((s) => s.token);
-
-  const assets = useMemo<TLAssetStore>(
-    () => ({
-      async upload(_asset, file) {
-        const res = await fetch(
-          `/api/workspaces/uploads?name=${encodeURIComponent(file.name)}`,
-          {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: file,
-          },
-        );
-        const { url } = (await res.json()) as { url: string };
-        return { src: url };
-      },
-      resolve(asset) {
-        return asset.props.src;
-      },
-    }),
-    [token],
-  );
-
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const store = useSync({
-    uri: `${proto}://${location.host}/sync?roomId=ws-${workspaceId}&token=${token}`,
-    assets,
-  });
-
-  return <Tldraw store={store} />;
-}
-
 interface Props {
   /** 최근 회의 클릭 → 회의 탭 열기 요청 */
   meetingRequest?: MeetingTabRequest | null;
@@ -63,8 +27,6 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
   const [meetingTabs, setMeetingTabs] = useState<{ code: string; title: string }[]>([]);
   const [active, setActive] = useState<ActiveTab | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null); // 오버레이 전체화면 회의 코드
-  const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState('');
   const [renaming, setRenaming] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
@@ -131,37 +93,11 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     setActive((cur) => cur ?? (list.length > 0 ? { kind: 'ws', id: list[0].id } : null));
   }
 
-  async function createWorkspace(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newName.trim()) return;
-    const ws = await api<Workspace>('/api/workspaces', {
-      method: 'POST',
-      body: { name: newName },
-    });
-    setNewName('');
-    setCreating(false);
-    await refresh();
-    setActive({ kind: 'ws', id: ws.id });
-  }
-
   const activeWs = active?.kind === 'ws' ? active.id : null;
 
   return (
     <section className="workspace-panel">
       <div className="workspace-tabs">
-        <button className="ws-add" onClick={() => setCreating((v) => !v)} title="새 작업 공간">
-          +
-        </button>
-        {creating && (
-          <form className="ws-create" onSubmit={createWorkspace}>
-            <input
-              placeholder="작업 공간 이름"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              autoFocus
-            />
-          </form>
-        )}
         {workspaces.map((ws) =>
           renaming === ws.id ? (
             <form key={ws.id} className="ws-create" onSubmit={renameWorkspace}>
@@ -221,7 +157,7 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
       </div>
 
       <div className="workspace-canvas">
-        {activeWs !== null && <WorkspaceCanvas key={activeWs} workspaceId={activeWs} />}
+        {activeWs !== null && <CanvasBoard key={activeWs} roomId={`ws-${activeWs}`} />}
 
         {/* 회의 탭은 비활성이어도 마운트 유지 (연결 보존) — display로만 전환,
             확대 시 fixed 오버레이로 승격 (리마운트 없음 = 끊김 없음) */}
@@ -243,8 +179,8 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
           );
         })}
 
-        {active === null && (
-          <div className="workspace-empty">+ 버튼으로 첫 작업 공간을 만들어보세요</div>
+        {active === null && meetingTabs.length === 0 && (
+          <div className="workspace-empty">최근 회의를 클릭하면 회의 공간이 열려요</div>
         )}
       </div>
     </section>

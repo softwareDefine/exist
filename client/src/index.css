@@ -1322,47 +1322,104 @@ input:focus {
   color: var(--text-sub);
 }
 
-/* ───── 회의 허브 (회의 탭 대시보드) ───── */
+/* ───── 회의 허브 (대시보드 메인 + 통화/채팅 서브탭) ───── */
 .meeting-hub {
   height: 100%;
-  display: grid;
-  grid-template-columns: minmax(380px, 460px) 1fr;
-  gap: 20px;
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
   background: #fafafa;
-  padding: 20px;
   overflow: hidden;
 }
 
-.meeting-hub.loading {
-  place-items: center;
-  grid-template-columns: 1fr;
+.hub-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px 0;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
 }
 
-.hub-card {
-  align-self: center;
+.hub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: none;
+  background: none;
+  padding: 10px 14px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-sub);
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -1px;
+}
+
+.hub-tab:hover {
+  color: var(--text);
+}
+
+.hub-tab.active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+
+.hub-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hub-dash {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.hub-loading {
+  color: var(--text-sub);
+}
+
+.hub-call {
+  flex: 1;
+  min-height: 0;
+}
+
+.hub-canvas {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.hub-call-lobby {
+  flex: 1;
+  display: grid;
+  place-items: center;
+}
+
+.hub-call-lobby-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: var(--text-sub);
+  text-align: center;
+  line-height: 1.7;
+}
+
+.hub-call-lobby-inner .hub-join {
+  width: 260px;
 }
 
 /* 허브 채팅 (라이트) */
 .hub-chat {
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-sm);
   overflow: hidden;
   min-height: 0;
-}
-
-.hub-chat-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 18px;
-  font-weight: 800;
-  font-size: 15px;
-  border-bottom: 1px solid var(--border);
 }
 
 .hub-chat-messages {
@@ -1538,10 +1595,33 @@ input:focus {
 }
 
 .hub-participants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   color: #555;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.hub-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-sub);
+}
+
+.hub-person .presence-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #cfcfcf;
+}
+
+.hub-person.online {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.hub-person.online .presence-dot {
+  background: var(--green);
 }
 
 .hub-join {

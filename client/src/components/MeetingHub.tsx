@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { getSocket, request } from '../lib/socket';
+import { usePresence } from '../lib/usePresence';
 import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
-import { PhoneIcon, CalendarIcon, ClockIcon, ChatIcon } from './Icons';
+import CanvasBoard from './CanvasBoard';
+import { PhoneIcon, CalendarIcon, ClockIcon, ChatIcon, FolderIcon } from './Icons';
 
 interface MeetingDetail {
   id: number;
@@ -30,6 +32,8 @@ function formatRange(starts: string | null, ends: string | null): string | null 
   return `${fmt(s)} ~ ${fmt(e)}`;
 }
 
+type SubTab = 'dash' | 'call' | 'chat' | 'canvas';
+
 interface Props {
   code: string;
   /** 통화 확대 상태 (오버레이) */
@@ -37,10 +41,12 @@ interface Props {
   onToggleExpand?: () => void;
 }
 
-/** 회의 탭 = 회의 대시보드. 로비(정보)에서 통화 참여 → MeetingView */
+/** 회의 탭 = 대시보드(메인) + 통화/채팅 서브탭 */
 export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
   const user = useAuthStore((s) => s.user);
+  const presence = usePresence();
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
+  const [subtab, setSubtab] = useState<SubTab>('dash');
   const [inCall, setInCall] = useState(false);
   const [copied, setCopied] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -49,11 +55,29 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, subtab]);
 
-  // 허브 채팅 — 통화 없이도 보고 보냄 (통화 중엔 MeetingView가 담당)
+  // 상세 + 현재 통화 인원 (10초 폴링)
   useEffect(() => {
-    if (inCall) return;
+    let alive = true;
+    async function load() {
+      try {
+        const d = await api<MeetingDetail>(`/api/meetings/${code}`);
+        if (alive) setDetail(d);
+      } catch {
+        /* 전역 토스트 */
+      }
+    }
+    void load();
+    const t = setInterval(load, 10_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [code]);
+
+  // 회의 채팅 — 통화 여부 무관 구독 (inCall 변동 시 소켓 재생성 대응 위해 재구독)
+  useEffect(() => {
     let alive = true;
     const socket = getSocket();
 
@@ -80,26 +104,6 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     setChatInput('');
   }
 
-  // 상세 + 현재 통화 인원 (10초 폴링, 통화 중엔 중단)
-  useEffect(() => {
-    let alive = true;
-    async function load() {
-      try {
-        const d = await api<MeetingDetail>(`/api/meetings/${code}`);
-        if (alive) setDetail(d);
-      } catch {
-        /* 전역 토스트 */
-      }
-    }
-    void load();
-    if (inCall) return;
-    const t = setInterval(load, 10_000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [code, inCall]);
-
   async function copyCode() {
     try {
       await navigator.clipboard.writeText(code);
@@ -110,115 +114,194 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     }
   }
 
-  if (inCall) {
-    return (
-      <MeetingView
-        code={code}
-        embedded
-        expanded={expanded}
-        onToggleExpand={onToggleExpand}
-        onLeave={(message) => {
-          // 통화만 종료하고 허브로 복귀 (탭 유지) — 확대 상태였다면 해제
-          setInCall(false);
-          if (expanded) onToggleExpand?.();
-          if (message) window.dispatchEvent(new CustomEvent('app:error', { detail: message }));
-        }}
-      />
-    );
+  function joinCall() {
+    setInCall(true);
+    setSubtab('call');
   }
 
-  if (!detail) {
-    return <div className="meeting-hub loading">회의 정보를 불러오는 중…</div>;
-  }
-
-  const range = formatRange(detail.starts_at, detail.ends_at);
+  const range = detail ? formatRange(detail.starts_at, detail.ends_at) : null;
 
   return (
     <div className="meeting-hub">
-      <div className="hub-card">
-        <div className="hub-head">
-          <div
-            className="hub-thumb"
-            style={{
-              background: `linear-gradient(135deg, hsl(${(detail.id * 67) % 360} 60% 55%), hsl(${(detail.id * 67 + 40) % 360} 60% 45%))`,
-            }}
-          >
-            {detail.title.slice(0, 1)}
-          </div>
-          <div className="hub-title-wrap">
-            <h2 className="hub-title">{detail.title}</h2>
-            <div className="hub-sub">
-              호스트 <b>{detail.host}</b>
-              {detail.isHost && ' (나)'}
-            </div>
-          </div>
-        </div>
-
-        <div className="hub-rows">
-          <div className="hub-row">
-            <span className="hub-label">코드</span>
-            <button className="hub-code" onClick={copyCode} title="클릭해서 복사">
-              {detail.code} {copied ? '✓' : ''}
-            </button>
-          </div>
-          {range && (
-            <div className="hub-row">
-              <span className="hub-label">
-                <CalendarIcon size={14} /> 일정
-              </span>
-              <span>{range}</span>
-            </div>
-          )}
-          <div className="hub-row">
-            <span className="hub-label">
-              <ClockIcon size={14} /> 통화
-            </span>
-            <span className={detail.online > 0 ? 'hub-live' : ''}>
-              {detail.online > 0 ? (
-                <>
-                  <i className="live-dot" /> 지금 {detail.online}명 통화 중
-                </>
-              ) : (
-                '아직 아무도 없어요'
-              )}
-            </span>
-          </div>
-          <div className="hub-row">
-            <span className="hub-label">참가자</span>
-            <span className="hub-participants">{detail.participants.join(', ')}</span>
-          </div>
-        </div>
-
-        <button className="hub-join" onClick={() => setInCall(true)}>
-          <PhoneIcon size={18} /> 통화 참여하기
+      {/* 서브탭 — 대시보드가 메인 */}
+      <div className="hub-tabs">
+        <button
+          className={`hub-tab${subtab === 'dash' ? ' active' : ''}`}
+          onClick={() => setSubtab('dash')}
+        >
+          <FolderIcon size={14} /> 대시보드
+        </button>
+        <button
+          className={`hub-tab${subtab === 'call' ? ' active' : ''}`}
+          onClick={() => setSubtab('call')}
+        >
+          <PhoneIcon size={13} /> 통화
+          {inCall && <i className="live-dot" />}
+        </button>
+        <button
+          className={`hub-tab${subtab === 'chat' ? ' active' : ''}`}
+          onClick={() => setSubtab('chat')}
+        >
+          <ChatIcon size={13} /> 채팅
+        </button>
+        <button
+          className={`hub-tab${subtab === 'canvas' ? ' active' : ''}`}
+          onClick={() => setSubtab('canvas')}
+        >
+          <FolderIcon size={13} /> 캔버스
         </button>
       </div>
 
-      {/* 회의 채팅 — 통화 없이도 사용 가능, 통화 중 채팅과 같은 스트림 */}
-      <div className="hub-chat">
-        <div className="hub-chat-head">
-          <ChatIcon size={16} /> 회의 채팅
-        </div>
-        <div className="hub-chat-messages">
-          {messages.length === 0 && (
-            <div className="chat-empty">아직 메시지가 없어요 — 첫 메시지를 남겨보세요</div>
-          )}
-          {messages.map((m, i) => (
-            <div key={i} className={`hub-msg${m.from === user?.username ? ' mine' : ''}`}>
-              <span className="hub-msg-from">{m.from}</span>
-              <div className="hub-bubble">{m.text}</div>
+      <div className="hub-body">
+        {/* 대시보드 (메인) */}
+        {subtab === 'dash' && (
+          <div className="hub-dash">
+            {!detail ? (
+              <div className="hub-loading">회의 정보를 불러오는 중…</div>
+            ) : (
+              <div className="hub-card">
+                <div className="hub-head">
+                  <div
+                    className="hub-thumb"
+                    style={{
+                      background: `linear-gradient(135deg, hsl(${(detail.id * 67) % 360} 60% 55%), hsl(${(detail.id * 67 + 40) % 360} 60% 45%))`,
+                    }}
+                  >
+                    {detail.title.slice(0, 1)}
+                  </div>
+                  <div className="hub-title-wrap">
+                    <h2 className="hub-title">{detail.title}</h2>
+                    <div className="hub-sub">
+                      호스트 <b>{detail.host}</b>
+                      {detail.isHost && ' (나)'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="hub-rows">
+                  <div className="hub-row">
+                    <span className="hub-label">코드</span>
+                    <button className="hub-code" onClick={copyCode} title="클릭해서 복사">
+                      {detail.code} {copied ? '✓' : ''}
+                    </button>
+                  </div>
+                  {range && (
+                    <div className="hub-row">
+                      <span className="hub-label">
+                        <CalendarIcon size={14} /> 일정
+                      </span>
+                      <span>{range}</span>
+                    </div>
+                  )}
+                  <div className="hub-row">
+                    <span className="hub-label">
+                      <ClockIcon size={14} /> 통화
+                    </span>
+                    <span className={detail.online > 0 ? 'hub-live' : ''}>
+                      {detail.online > 0 ? (
+                        <>
+                          <i className="live-dot" /> 지금 {detail.online}명 통화 중
+                        </>
+                      ) : (
+                        '아직 아무도 없어요'
+                      )}
+                    </span>
+                  </div>
+                  <div className="hub-row">
+                    <span className="hub-label">참가자</span>
+                    <span className="hub-participants">
+                      {detail.participants.map((p) => (
+                        <span
+                          key={p}
+                          className={`hub-person${presence.has(p) ? ' online' : ''}`}
+                          title={presence.has(p) ? '접속 중' : '오프라인'}
+                        >
+                          <i className="presence-dot" />
+                          {p}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                </div>
+
+                <button className="hub-join" onClick={joinCall}>
+                  <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여하기'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 통화 — 입장하면 서브탭 옮겨도 마운트 유지 (display 토글) */}
+        {inCall && (
+          <div className="hub-call" style={{ display: subtab === 'call' ? 'block' : 'none' }}>
+            <MeetingView
+              code={code}
+              embedded
+              expanded={expanded}
+              onToggleExpand={onToggleExpand}
+              onLeave={(message) => {
+                setInCall(false);
+                setSubtab('dash');
+                if (expanded) onToggleExpand?.();
+                if (message)
+                  window.dispatchEvent(new CustomEvent('app:error', { detail: message }));
+              }}
+            />
+          </div>
+        )}
+        {!inCall && subtab === 'call' && (
+          <div className="hub-call-lobby">
+            <div className="hub-call-lobby-inner">
+              <PhoneIcon size={36} />
+              <p>
+                아직 통화에 참여하지 않았어요
+                {detail && detail.online > 0 && (
+                  <>
+                    <br />
+                    <b className="hub-live">지금 {detail.online}명이 통화 중이에요</b>
+                  </>
+                )}
+              </p>
+              <button className="hub-join" onClick={joinCall}>
+                <PhoneIcon size={18} /> 통화 참여하기
+              </button>
             </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
-        <form className="hub-chat-input" onSubmit={sendChat}>
-          <input
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            placeholder="메시지 입력"
-          />
-          <button type="submit">전송</button>
-        </form>
+          </div>
+        )}
+
+        {/* 캔버스 — 회의마다 자동으로 생기는 공동편집 보드 */}
+        {subtab === 'canvas' && (
+          <div className="hub-canvas">
+            <CanvasBoard roomId={`mt-${code.toUpperCase()}`} />
+          </div>
+        )}
+
+        {/* 채팅 */}
+        {subtab === 'chat' && (
+          <div className="hub-chat">
+            <div className="hub-chat-messages">
+              {messages.length === 0 && (
+                <div className="chat-empty">아직 메시지가 없어요 — 첫 메시지를 남겨보세요</div>
+              )}
+              {messages.map((m, i) => (
+                <div key={i} className={`hub-msg${m.from === user?.username ? ' mine' : ''}`}>
+                  <span className="hub-msg-from">{m.from}</span>
+                  <div className="hub-bubble">{m.text}</div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            <form className="hub-chat-input" onSubmit={sendChat}>
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="메시지 입력"
+              />
+              <button type="submit">전송</button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
