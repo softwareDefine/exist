@@ -353,8 +353,7 @@ input:focus {
 
 .nowbar-clock {
   font-size: 22px;
-  font-weight: 600;
-  font-style: italic;
+  font-weight: 700;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
