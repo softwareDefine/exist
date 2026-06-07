@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Device } from 'mediasoup-client';
-import type { Transport } from 'mediasoup-client/types';
+import type { Transport, Producer } from 'mediasoup-client/types';
 import { getSocket, request } from '../lib/socket';
+import { api } from '../api';
 import { useAuthStore } from '../store';
 
 interface RemotePeer {
@@ -10,6 +11,7 @@ interface RemotePeer {
   username: string;
   videoTrack?: MediaStreamTrack;
   audioTrack?: MediaStreamTrack;
+  screenTrack?: MediaStreamTrack;
 }
 
 interface ProducerInfo {
@@ -17,6 +19,13 @@ interface ProducerInfo {
   peerId: string;
   username: string;
   kind: 'audio' | 'video';
+  source?: string;
+}
+
+interface ChatMessage {
+  from: string;
+  text: string;
+  ts: number;
 }
 
 /** 카메라가 없을 때 쓰는 캔버스 기반 가짜 비디오 (개발·데모용) */
@@ -44,11 +53,13 @@ function VideoTile({
   username,
   muted,
   isLocal,
+  isScreen,
 }: {
   track?: MediaStreamTrack;
   username: string;
   muted?: boolean;
   isLocal?: boolean;
+  isScreen?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -57,18 +68,29 @@ function VideoTile({
     }
   }, [track]);
   return (
-    <div className="video-tile">
+    <div className={`video-tile${isScreen ? ' screen' : ''}`}>
       {track ? (
         <video ref={ref} autoPlay playsInline muted={muted} />
       ) : (
-        <div className="video-placeholder">🎤</div>
+        <div className="video-placeholder">
+          <div className="avatar-circle">{username.slice(0, 1).toUpperCase()}</div>
+        </div>
       )}
       <span className="video-name">
+        {isScreen && '🖥️ '}
         {username}
         {isLocal && ' (나)'}
       </span>
     </div>
   );
+}
+
+function AudioSink({ track }: { track: MediaStreamTrack }) {
+  const ref = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.srcObject = new MediaStream([track]);
+  }, [track]);
+  return <audio ref={ref} autoPlay />;
 }
 
 export default function MeetingRoomPage() {
@@ -77,28 +99,50 @@ export default function MeetingRoomPage() {
   const user = useAuthStore((s) => s.user);
 
   const [status, setStatus] = useState('연결 중…');
+  const [title, setTitle] = useState('');
   const [localTrack, setLocalTrack] = useState<MediaStreamTrack>();
+  const [localScreen, setLocalScreen] = useState<MediaStreamTrack>();
   const [remotePeers, setRemotePeers] = useState<Map<string, RemotePeer>>(new Map());
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [unread, setUnread] = useState(0);
 
-  const producersRef = useRef<{ audio?: { pause(): void; resume(): void }; video?: { pause(): void; resume(): void } }>({});
+  const producersRef = useRef<{
+    audio?: Producer;
+    video?: Producer;
+    screen?: Producer;
+  }>({});
+  const sendTransportRef = useRef<Transport | null>(null);
+  const consumerMapRef = useRef<Map<string, { peerId: string; kind: string; source: string }>>(
+    new Map(),
+  );
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatOpenRef = useRef(chatOpen);
+  chatOpenRef.current = chatOpen;
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, chatOpen]);
 
   useEffect(() => {
     if (!code) return;
     const socket = getSocket();
-    let sendTransport: Transport | null = null;
     let recvTransport: Transport | null = null;
     let localStream: MediaStream | null = null;
     let closed = false;
 
-    function upsertPeer(peerId: string, username: string, kind?: string, track?: MediaStreamTrack) {
+    function upsertPeer(
+      peerId: string,
+      username: string,
+      patch?: Partial<Pick<RemotePeer, 'videoTrack' | 'audioTrack' | 'screenTrack'>>,
+    ) {
       setRemotePeers((prev) => {
         const next = new Map(prev);
         const p = next.get(peerId) ?? { peerId, username };
-        if (kind === 'video') p.videoTrack = track;
-        if (kind === 'audio') p.audioTrack = track;
-        next.set(peerId, { ...p, username });
+        next.set(peerId, { ...p, username, ...patch });
         return next;
       });
     }
@@ -117,11 +161,30 @@ export default function MeetingRoomPage() {
       });
       const consumer = await recvTransport.consume(params);
       await request(socket, 'consumer:resume', { consumerId: consumer.id });
-      upsertPeer(info.peerId, info.username, info.kind, consumer.track);
+      const source = info.source ?? 'camera';
+      consumerMapRef.current.set(info.producerId, {
+        peerId: info.peerId,
+        kind: info.kind,
+        source,
+      });
+      if (info.kind === 'audio') {
+        upsertPeer(info.peerId, info.username, { audioTrack: consumer.track });
+      } else if (source === 'screen') {
+        upsertPeer(info.peerId, info.username, { screenTrack: consumer.track });
+      } else {
+        upsertPeer(info.peerId, info.username, { videoTrack: consumer.track });
+      }
     }
 
     async function run() {
-      // 1. 방 입장
+      // 0. 회의 참여 등록 (코드 = 입장 권한) + 제목 표시
+      const meeting = await api<{ title: string }>('/api/meetings/join', {
+        method: 'POST',
+        body: { code },
+      });
+      setTitle(meeting.title);
+
+      // 1. SFU 방 입장
       const joined = await request<{
         rtpCapabilities: import('mediasoup-client/types').RtpCapabilities;
         producers: ProducerInfo[];
@@ -139,17 +202,19 @@ export default function MeetingRoomPage() {
         iceCandidates: import('mediasoup-client/types').IceCandidate[];
         dtlsParameters: import('mediasoup-client/types').DtlsParameters;
       }>(socket, 'transport:create', {});
-      sendTransport = device.createSendTransport(sendParams);
+      const sendTransport = device.createSendTransport(sendParams);
+      sendTransportRef.current = sendTransport;
       sendTransport.on('connect', ({ dtlsParameters }, cb, eb) => {
-        request(socket, 'transport:connect', { transportId: sendTransport!.id, dtlsParameters })
+        request(socket, 'transport:connect', { transportId: sendTransport.id, dtlsParameters })
           .then(() => cb())
           .catch(eb);
       });
-      sendTransport.on('produce', ({ kind, rtpParameters }, cb, eb) => {
+      sendTransport.on('produce', ({ kind, rtpParameters, appData }, cb, eb) => {
         request<{ id: string }>(socket, 'produce', {
-          transportId: sendTransport!.id,
+          transportId: sendTransport.id,
           kind,
           rtpParameters,
+          appData,
         })
           .then(({ id }) => cb({ id }))
           .catch(eb);
@@ -182,13 +247,19 @@ export default function MeetingRoomPage() {
       const audioTrack = localStream.getAudioTracks()[0];
       if (videoTrack) {
         setLocalTrack(videoTrack);
-        producersRef.current.video = await sendTransport.produce({ track: videoTrack });
+        producersRef.current.video = await sendTransport.produce({
+          track: videoTrack,
+          appData: { source: 'camera' },
+        });
       }
       if (audioTrack) {
-        producersRef.current.audio = await sendTransport.produce({ track: audioTrack });
+        producersRef.current.audio = await sendTransport.produce({
+          track: audioTrack,
+          appData: { source: 'camera' },
+        });
       }
 
-      // 6. 기존 참가자 표시 + producer consume
+      // 6. 기존 참가자 + producer consume
       for (const p of joined.peers) {
         if (p.peerId !== socket.id) upsertPeer(p.peerId, p.username);
       }
@@ -204,6 +275,25 @@ export default function MeetingRoomPage() {
         });
       });
       socket.on('producer:new', (info: ProducerInfo) => void consume(device, info));
+      socket.on('producer:closed', ({ producerId }: { producerId: string }) => {
+        const meta = consumerMapRef.current.get(producerId);
+        if (!meta) return;
+        consumerMapRef.current.delete(producerId);
+        setRemotePeers((prev) => {
+          const next = new Map(prev);
+          const p = next.get(meta.peerId);
+          if (!p) return prev;
+          if (meta.kind === 'audio') next.set(meta.peerId, { ...p, audioTrack: undefined });
+          else if (meta.source === 'screen')
+            next.set(meta.peerId, { ...p, screenTrack: undefined });
+          else next.set(meta.peerId, { ...p, videoTrack: undefined });
+          return next;
+        });
+      });
+      socket.on('chat:message', (msg: ChatMessage) => {
+        setMessages((prev) => [...prev, msg]);
+        if (!chatOpenRef.current) setUnread((n) => n + 1);
+      });
 
       setStatus('');
     }
@@ -215,7 +305,9 @@ export default function MeetingRoomPage() {
       socket.off('peer:joined');
       socket.off('peer:left');
       socket.off('producer:new');
-      sendTransport?.close();
+      socket.off('producer:closed');
+      socket.off('chat:message');
+      sendTransportRef.current?.close();
       recvTransport?.close();
       localStream?.getTracks().forEach((t) => t.stop());
       socket.disconnect();
@@ -236,26 +328,116 @@ export default function MeetingRoomPage() {
     setCamOn(!camOn);
   }
 
+  const stopScreenShare = useCallback(() => {
+    const p = producersRef.current.screen;
+    if (!p) return;
+    const socket = getSocket();
+    void request(socket, 'producer:close', { producerId: p.id }).catch(() => {});
+    p.close();
+    producersRef.current.screen = undefined;
+    setLocalScreen(undefined);
+  }, []);
+
+  async function toggleScreenShare() {
+    if (producersRef.current.screen) {
+      stopScreenShare();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const track = stream.getVideoTracks()[0];
+      const producer = await sendTransportRef.current!.produce({
+        track,
+        appData: { source: 'screen' },
+      });
+      producersRef.current.screen = producer;
+      setLocalScreen(track);
+      // 브라우저 UI의 "공유 중지"로 끝났을 때도 정리
+      track.addEventListener('ended', stopScreenShare);
+    } catch {
+      /* 사용자가 화면 선택 취소 — 무시 */
+    }
+  }
+
+  function sendChat(e: React.FormEvent) {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    getSocket().emit('chat:send', { text: chatInput });
+    setChatInput('');
+  }
+
   const peers = [...remotePeers.values()];
+  const screenPeers = peers.filter((p) => p.screenTrack);
+  const hasScreen = screenPeers.length > 0 || !!localScreen;
 
   return (
     <div className="meeting-room">
       <header className="meeting-header">
         <span className="logo">exist</span>
-        <span className="meeting-code">
-          회의 코드: <b>{code}</b>
-        </span>
+        <div className="meeting-info">
+          <span className="meeting-title">{title || '회의'}</span>
+          <span className="meeting-code">
+            코드 <b>{code}</b> · 참가자 {peers.length + 1}명
+          </span>
+        </div>
         {status && <span className="meeting-status">{status}</span>}
       </header>
 
-      <div className={`video-grid count-${peers.length + 1}`}>
-        <VideoTile track={localTrack} username={user?.username ?? '나'} muted isLocal />
-        {peers.map((p) => (
-          <div key={p.peerId}>
-            <VideoTile track={p.videoTrack} username={p.username} />
-            {p.audioTrack && <AudioSink track={p.audioTrack} />}
+      <div className="meeting-body">
+        <div className={`video-area${hasScreen ? ' with-screen' : ''}`}>
+          {hasScreen && (
+            <div className="screen-stage">
+              {localScreen ? (
+                <VideoTile track={localScreen} username={user?.username ?? '나'} muted isLocal isScreen />
+              ) : (
+                <VideoTile
+                  track={screenPeers[0].screenTrack}
+                  username={screenPeers[0].username}
+                  isScreen
+                />
+              )}
+            </div>
+          )}
+          <div className={`video-grid${hasScreen ? ' filmstrip' : ''}`}>
+            <VideoTile track={localTrack} username={user?.username ?? '나'} muted isLocal />
+            {peers.map((p) => (
+              <div key={p.peerId}>
+                <VideoTile track={p.videoTrack} username={p.username} />
+                {p.audioTrack && <AudioSink track={p.audioTrack} />}
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {chatOpen && (
+          <aside className="chat-panel">
+            <div className="chat-head">
+              💬 채팅
+              <button onClick={() => setChatOpen(false)}>×</button>
+            </div>
+            <div className="chat-messages">
+              {messages.length === 0 && <div className="chat-empty">아직 메시지가 없어요</div>}
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className={`chat-msg${m.from === user?.username ? ' mine' : ''}`}
+                >
+                  <span className="chat-from">{m.from}</span>
+                  <div className="chat-bubble">{m.text}</div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+            <form className="chat-input" onSubmit={sendChat}>
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="메시지 입력"
+              />
+              <button type="submit">전송</button>
+            </form>
+          </aside>
+        )}
       </div>
 
       <footer className="meeting-controls">
@@ -265,18 +447,28 @@ export default function MeetingRoomPage() {
         <button className={camOn ? '' : 'off'} onClick={toggleCam} title="카메라">
           {camOn ? '📷' : '🚫'}
         </button>
+        <button
+          className={localScreen ? 'active' : ''}
+          onClick={toggleScreenShare}
+          title="화면 공유"
+        >
+          🖥️
+        </button>
+        <button
+          className={chatOpen ? 'active' : ''}
+          onClick={() => {
+            setChatOpen((v) => !v);
+            setUnread(0);
+          }}
+          title="채팅"
+        >
+          💬
+          {unread > 0 && <span className="badge">{unread}</span>}
+        </button>
         <button className="leave" onClick={() => navigate('/')} title="나가기">
           나가기
         </button>
       </footer>
     </div>
   );
-}
-
-function AudioSink({ track }: { track: MediaStreamTrack }) {
-  const ref = useRef<HTMLAudioElement>(null);
-  useEffect(() => {
-    if (ref.current) ref.current.srcObject = new MediaStream([track]);
-  }, [track]);
-  return <audio ref={ref} autoPlay />;
 }

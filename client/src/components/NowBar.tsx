@@ -139,12 +139,15 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
           )}
         </div>
 
+        {brief && <div className="nowbar-divider" />}
         {brief && (
           <div className="nowbar-brief" title={brief}>
             <span className="dot" />
             {brief}
           </div>
         )}
+
+        <div className="nowbar-divider" />
 
         <div className="nowbar-todos">
           {shown.map((todo) => (

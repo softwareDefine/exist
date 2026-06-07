@@ -153,7 +153,14 @@ export default function DashboardPage() {
           <div className="recent-list">
             {recent.map((m) => (
               <div key={m.id} className="recent-card">
-                <div className="thumb" />
+                <div
+                  className="thumb"
+                  style={{
+                    background: `linear-gradient(135deg, hsl(${(m.id * 67) % 360} 60% 55%), hsl(${(m.id * 67 + 40) % 360} 60% 45%))`,
+                  }}
+                >
+                  {m.title.slice(0, 1)}
+                </div>
                 <div>
                   <div className="name">{m.title}</div>
                   <div className="actions">

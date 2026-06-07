@@ -26,7 +26,30 @@ export default function LoginPage() {
 
   return (
     <div className="login-page">
-      <div className="login-hero">🧑‍💻</div>
+      <div className="login-hero">
+        <div className="hero-scene">
+          <div className="hero-call">
+            <div className="hero-lock">🔒</div>
+            <div className="hero-tile" style={{ background: '#ffe7d6' }}>
+              🧑‍🦰
+            </div>
+            <div className="hero-tile" style={{ background: '#d6e8ff' }}>
+              👨‍💻
+            </div>
+            <div className="hero-tile" style={{ background: '#e3f6d9' }}>
+              👩🏽‍💼
+            </div>
+            <div className="hero-tile" style={{ background: '#f3e2ff' }}>
+              🧑🏿‍💻
+            </div>
+          </div>
+          <div className="hero-caption">
+            완전한 대면근무의 대체.
+            <br />
+            팀의 존재감이 살아있는 재택근무 플랫폼
+          </div>
+        </div>
+      </div>
       <div className="login-form-wrap">
         <form
           className="login-form"

@@ -133,7 +133,13 @@ export function attachSfu(io: Server) {
         await socket.join(`room:${code}`);
 
         // 기존 참가자의 producer 목록 (신규 입장자가 consume)
-        const producers: { producerId: string; peerId: string; username: string; kind: MediaKind }[] = [];
+        const producers: {
+          producerId: string;
+          peerId: string;
+          username: string;
+          kind: MediaKind;
+          source: string;
+        }[] = [];
         for (const p of room.peers.values()) {
           if (p.socketId === socket.id) continue;
           for (const producer of p.producers.values()) {
@@ -142,6 +148,7 @@ export function attachSfu(io: Server) {
               peerId: p.socketId,
               username: p.username,
               kind: producer.kind,
+              source: (producer.appData as { source?: string })?.source ?? 'camera',
             });
           }
         }
@@ -197,23 +204,49 @@ export function attachSfu(io: Server) {
           transportId,
           kind,
           rtpParameters,
-        }: { transportId: string; kind: MediaKind; rtpParameters: RtpParameters },
+          appData,
+        }: {
+          transportId: string;
+          kind: MediaKind;
+          rtpParameters: RtpParameters;
+          appData?: { source?: string };
+        },
         ack,
       ) => {
         if (!room || !peer) return ack({ error: '방에 입장하지 않았습니다' });
         const transport = peer.transports.get(transportId);
         if (!transport) return ack({ error: 'transport 없음' });
-        const producer = await transport.produce({ kind, rtpParameters });
+        const producer = await transport.produce({ kind, rtpParameters, appData });
         peer.producers.set(producer.id, producer);
         socket.to(`room:${room.code}`).emit('producer:new', {
           producerId: producer.id,
           peerId: socket.id,
           username: peer.username,
           kind,
+          source: appData?.source ?? 'camera',
         });
         ack({ id: producer.id });
       },
     );
+
+    /** producer 종료 (화면공유 중단 등) — consumer들에게 producer:closed 전파 */
+    socket.on('producer:close', ({ producerId }: { producerId: string }, ack) => {
+      const producer = peer?.producers.get(producerId);
+      if (!producer) return ack?.({ error: 'producer 없음' });
+      producer.close(); // consumer.on('producerclose')가 각 수신자에게 전파
+      peer!.producers.delete(producerId);
+      ack?.({ ok: true });
+    });
+
+    /** 회의 내 채팅 — 같은 방 전체에 브로드캐스트 */
+    socket.on('chat:send', ({ text }: { text: string }) => {
+      if (!room || !peer || !text?.trim()) return;
+      io.to(`room:${room.code}`).emit('chat:message', {
+        from: peer.username,
+        text: text.slice(0, 2000),
+        ts: Date.now(),
+      });
+    });
 
     socket.on(
       'consume',
