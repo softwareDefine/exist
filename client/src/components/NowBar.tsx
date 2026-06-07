@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
+import Logo from './Logo';
 
 export interface Todo {
   id: number;
@@ -113,7 +114,7 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
 
   return (
     <header className="nowbar">
-      <span className="logo">exist</span>
+      <Logo />
 
       <div className="nowbar-pill">
         <div className="nowbar-meeting">

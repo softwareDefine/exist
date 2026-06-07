@@ -5,6 +5,7 @@ import type { Transport, Producer } from 'mediasoup-client/types';
 import { getSocket, request } from '../lib/socket';
 import { api } from '../api';
 import { useAuthStore } from '../store';
+import Logo from '../components/Logo';
 
 interface RemotePeer {
   peerId: string;
@@ -373,7 +374,7 @@ export default function MeetingRoomPage() {
   return (
     <div className="meeting-room">
       <header className="meeting-header">
-        <span className="logo">exist</span>
+        <Logo light />
         <div className="meeting-info">
           <span className="meeting-title">{title || '회의'}</span>
           <span className="meeting-code">
