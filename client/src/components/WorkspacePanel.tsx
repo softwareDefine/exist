@@ -65,6 +65,8 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null); // 오버레이 전체화면 회의 코드
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [renaming, setRenaming] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   // ESC로 전체화면 축소
   useEffect(() => {
@@ -112,6 +114,23 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     if (message) window.dispatchEvent(new CustomEvent('app:error', { detail: message }));
   }
 
+  async function renameWorkspace(e: React.FormEvent) {
+    e.preventDefault();
+    if (renaming === null || !renameValue.trim()) return setRenaming(null);
+    await api(`/api/workspaces/${renaming}`, { method: 'PATCH', body: { name: renameValue } });
+    setRenaming(null);
+    await refresh();
+  }
+
+  async function deleteWorkspace(id: number) {
+    if (!window.confirm('작업공간을 삭제할까요? 캔버스 내용은 서버에 보존돼요.')) return;
+    await api(`/api/workspaces/${id}`, { method: 'DELETE' });
+    setActive((cur) => (cur?.kind === 'ws' && cur.id === id ? null : cur));
+    const list = await api<Workspace[]>('/api/workspaces');
+    setWorkspaces(list);
+    setActive((cur) => cur ?? (list.length > 0 ? { kind: 'ws', id: list[0].id } : null));
+  }
+
   async function createWorkspace(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
@@ -143,15 +162,41 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             />
           </form>
         )}
-        {workspaces.map((ws) => (
-          <button
-            key={ws.id}
-            className={`ws-tab${activeWs === ws.id ? ' active' : ''}`}
-            onClick={() => setActive({ kind: 'ws', id: ws.id })}
-          >
-            <FolderIcon size={16} /> {ws.name}
-          </button>
-        ))}
+        {workspaces.map((ws) =>
+          renaming === ws.id ? (
+            <form key={ws.id} className="ws-create" onSubmit={renameWorkspace}>
+              <input
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onBlur={renameWorkspace}
+                autoFocus
+              />
+            </form>
+          ) : (
+            <button
+              key={ws.id}
+              className={`ws-tab${activeWs === ws.id ? ' active' : ''}`}
+              onClick={() => setActive({ kind: 'ws', id: ws.id })}
+              onDoubleClick={() => {
+                setRenaming(ws.id);
+                setRenameValue(ws.name);
+              }}
+              title="더블클릭으로 이름 변경"
+            >
+              <FolderIcon size={16} /> {ws.name}
+              <span
+                className="tab-close"
+                title="작업공간 삭제"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void deleteWorkspace(ws.id);
+                }}
+              >
+                <CloseIcon size={12} />
+              </span>
+            </button>
+          ),
+        )}
         {meetingTabs.map((t) => (
           <button
             key={t.code}

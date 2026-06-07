@@ -64,4 +64,22 @@ router.post('/uploads', (req: AuthedRequest, res) => {
   });
 });
 
+/** 작업공간 이름 변경 */
+router.patch('/:id', (req: AuthedRequest, res) => {
+  const { name } = req.body ?? {};
+  if (!name?.trim()) return res.status(400).json({ error: '이름을 입력하세요' });
+  const ws = db.prepare('SELECT id FROM workspaces WHERE id = ?').get(req.params.id);
+  if (!ws) return res.status(404).json({ error: '없는 작업공간입니다' });
+  db.prepare('UPDATE workspaces SET name = ? WHERE id = ?').run(name.trim(), req.params.id);
+  res.json({ ok: true });
+});
+
+/** 작업공간 삭제 (캔버스 스냅샷은 보존 — 복구 여지) */
+router.delete('/:id', (req: AuthedRequest, res) => {
+  const ws = db.prepare('SELECT id FROM workspaces WHERE id = ?').get(req.params.id);
+  if (!ws) return res.status(404).json({ error: '없는 작업공간입니다' });
+  db.prepare('DELETE FROM workspaces WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 export default router;

@@ -1650,6 +1650,12 @@ input:focus {
   padding: 2px;
   border-radius: 4px;
   color: var(--text-sub);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.ws-tab:hover .tab-close {
+  opacity: 1;
 }
 
 .ws-tab .tab-close:hover {
