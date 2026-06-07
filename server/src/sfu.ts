@@ -127,6 +127,11 @@ async function createWebRtcTransport(router: Router): Promise<WebRtcTransport> {
   });
 }
 
+/** 회의 허브용 — 현재 통화 참여 인원 */
+export function getRoomSize(code: string): number {
+  return rooms.get(code)?.peers.size ?? 0;
+}
+
 export function attachSfu(io: Server) {
   io.on('connection', (socket: Socket) => {
     let room: Room | null = null;

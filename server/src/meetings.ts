@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { invalidateBrief } from './agent.js';
+import { getRoomSize } from './sfu.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -62,6 +63,46 @@ router.get('/recent', (req: AuthedRequest, res) => {
     )
     .all(req.userId);
   res.json(rows);
+});
+
+/** 회의 상세 (허브 탭용) — 제목/일정/호스트/현재 통화 인원 */
+router.get('/:code', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare(
+      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, u.username AS host
+       FROM meetings m JOIN users u ON u.id = m.host_id WHERE m.code = ?`,
+    )
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | {
+        id: number;
+        code: string;
+        title: string;
+        starts_at: string | null;
+        ends_at: string | null;
+        host_id: number;
+        host: string;
+      }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+
+  const participants = db
+    .prepare(
+      `SELECT u.username FROM meeting_participants mp
+       JOIN users u ON u.id = mp.user_id WHERE mp.meeting_id = ? ORDER BY mp.joined_at`,
+    )
+    .all(meeting.id) as { username: string }[];
+
+  res.json({
+    id: meeting.id,
+    code: meeting.code,
+    title: meeting.title,
+    starts_at: meeting.starts_at,
+    ends_at: meeting.ends_at,
+    host: meeting.host,
+    isHost: meeting.host_id === req.userId,
+    online: getRoomSize(meeting.code),
+    participants: participants.map((p) => p.username),
+  });
 });
 
 export default router;

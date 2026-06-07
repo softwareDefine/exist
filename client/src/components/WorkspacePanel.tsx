@@ -5,7 +5,7 @@ import 'tldraw/tldraw.css';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { FolderIcon, PhoneIcon, CloseIcon } from './Icons';
-import MeetingView from './MeetingView';
+import MeetingHub from './MeetingHub';
 
 interface Workspace {
   id: number;
@@ -189,12 +189,10 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
               className={`meeting-tab-host${isExpanded ? ' fullscreen' : ''}`}
               style={{ display: isActive || isExpanded ? 'block' : 'none' }}
             >
-              <MeetingView
+              <MeetingHub
                 code={t.code}
-                embedded
                 expanded={isExpanded}
                 onToggleExpand={() => setExpanded((cur) => (cur === t.code ? null : t.code))}
-                onLeave={(message) => closeMeetingTab(t.code, message)}
               />
             </div>
           );
