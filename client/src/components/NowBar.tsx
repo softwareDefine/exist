@@ -136,79 +136,77 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
     <header className="nowbar">
       <Logo />
 
+      {/* 카드 위치 점 — 카드 밖 왼쪽 */}
+      <div className="nowbar-dots">
+        {Array.from({ length: CARD_COUNT }, (_, i) => (
+          <button
+            key={i}
+            className={`nowbar-dot${i === card ? ' active' : ''}`}
+            onClick={() => setCard(i)}
+            aria-label={`카드 ${i + 1}`}
+          />
+        ))}
+      </div>
+
       <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">
-        <div className="nowbar-track" style={{ transform: `translateY(-${card * 100}%)` }}>
-          {/* 카드 1 — 회의 + 투두 (기본) */}
-          <div className="nowbar-card">
-            <div className="nowbar-meeting">
-              {ctx ? (
-                <>
-                  <div>
-                    <span className="title">{ctx.title}</span>
-                    <span className="tag">{ctx.tag}</span>
-                  </div>
-                  <div className="countdown">
-                    <b>{ctx.countdown}</b> {ctx.diff}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <span className="title">회의 없음</span>
-                  </div>
-                  <div className="countdown">
-                    <span className="tag">예정된 회의가 없습니다</span>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="nowbar-divider" />
-            <div className="nowbar-todos">
-              {shown.map((todo) => (
-                <div key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
-                  <input type="checkbox" checked={!!todo.done} readOnly />
-                  {todo.title}
+        {/* 카드 1 — 회의 + 투두 (기본) */}
+        <div className={`nowbar-card${card === 0 ? ' front' : ' back'}`}>
+          <div className="nowbar-meeting">
+            {ctx ? (
+              <>
+                <div>
+                  <span className="title">{ctx.title}</span>
+                  <span className="tag">{ctx.tag}</span>
                 </div>
-              ))}
-              {todos.length === 0 && <div className="nowbar-todo">투두를 추가해보세요</div>}
-            </div>
+                <div className="countdown">
+                  <b>{ctx.countdown}</b> {ctx.diff}
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="title">회의 없음</span>
+                </div>
+                <div className="countdown">
+                  <span className="tag">예정된 회의가 없습니다</span>
+                </div>
+              </>
+            )}
           </div>
-
-          {/* 카드 2 — AI 브리핑 */}
-          <div className="nowbar-card">
-            <div className="nowbar-ai">
-              <span className="ai-badge">
-                <span className="dot" />
-                exist AI
-              </span>
-              <span className="ai-text">{brief || '상황을 분석하는 중이에요…'}</span>
-            </div>
-          </div>
-
-          {/* 카드 3 — 할 일 진행률 */}
-          <div className="nowbar-card">
-            <div className="nowbar-progress">
-              <div className="progress-label">
-                ✅ 오늘 할 일 <b>{todos.length}개 중 {doneCount}개 완료</b>
+          <div className="nowbar-divider" />
+          <div className="nowbar-todos">
+            {shown.map((todo) => (
+              <div key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
+                <input type="checkbox" checked={!!todo.done} readOnly />
+                {todo.title}
               </div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${progress}%` }} />
-              </div>
-              <span className="progress-pct">{progress}%</span>
-            </div>
+            ))}
+            {todos.length === 0 && <div className="nowbar-todo">투두를 추가해보세요</div>}
           </div>
         </div>
 
-        {/* 위치 인디케이터 — 점 3개 */}
-        <div className="nowbar-dots">
-          {Array.from({ length: CARD_COUNT }, (_, i) => (
-            <button
-              key={i}
-              className={`nowbar-dot${i === card ? ' active' : ''}`}
-              onClick={() => setCard(i)}
-              aria-label={`카드 ${i + 1}`}
-            />
-          ))}
+        {/* 카드 2 — AI 브리핑 */}
+        <div className={`nowbar-card${card === 1 ? ' front' : ' back'}`}>
+          <div className="nowbar-ai">
+            <span className="ai-badge">
+              <span className="dot" />
+              exist AI
+            </span>
+            <span className="ai-text">{brief || '상황을 분석하는 중이에요…'}</span>
+          </div>
+        </div>
+
+        {/* 카드 3 — 할 일 진행률 */}
+        <div className={`nowbar-card${card === 2 ? ' front' : ' back'}`}>
+          <div className="nowbar-progress">
+            <div className="progress-label">
+              ✅ 오늘 할 일 <b>{todos.length}개 중 {doneCount}개 완료</b>
+            </div>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="progress-pct">{progress}%</span>
+          </div>
         </div>
       </div>
 
