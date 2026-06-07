@@ -131,40 +131,17 @@ input:focus {
 }
 
 .nowbar-dot {
-  position: relative;
   width: 9px;
   height: 9px;
   border: none;
   border-radius: 50%;
   background: #d5d5d5;
   padding: 0;
-  transition: background 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: background 0.25s ease;
 }
 
 .nowbar-dot.active {
   background: var(--green);
-  transform: scale(1.2);
-}
-
-/* 활성 점에서 링이 퍼져나가는 리플 */
-.nowbar-dot.active::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: 50%;
-  border: 2px solid var(--green);
-  animation: dot-ripple 0.55s ease-out forwards;
-}
-
-@keyframes dot-ripple {
-  from {
-    transform: scale(0.7);
-    opacity: 0.9;
-  }
-  to {
-    transform: scale(2.4);
-    opacity: 0;
-  }
 }
 
 .nowbar-dot:hover:not(.active) {
@@ -216,6 +193,178 @@ input:focus {
   transform: translate(7px, 7px) scale(0.96);
   z-index: 1;
   pointer-events: none;
+}
+
+/* hover 확장 패널 */
+.nowbar-expand {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding-top: 10px; /* 호버 브리지 */
+  display: none;
+  z-index: 1400;
+}
+
+.nowbar-pill:hover .nowbar-expand {
+  display: block;
+  animation: toast-in 0.2s ease-out;
+}
+
+.nowbar-expand-box {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  padding: 18px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.nb-expand-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--green);
+  margin-bottom: 10px;
+}
+
+.nb-expand-schedule {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+}
+
+.nb-upcoming {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+}
+
+/* 월 캘린더 */
+.nb-cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 800;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.nb-cal-head button {
+  border: none;
+  background: none;
+  font-size: 18px;
+  color: var(--text-sub);
+  padding: 2px 8px;
+}
+
+.nb-cal-head button:hover {
+  color: var(--green);
+}
+
+.nb-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.nb-cal-dow {
+  font-size: 12px;
+  color: var(--text-sub);
+  padding: 4px 0;
+}
+
+.nb-cal-day {
+  position: relative;
+  font-size: 13px;
+  padding: 6px 0 8px;
+  border-radius: 8px;
+}
+
+.nb-cal-day.out {
+  color: #c8c8c8;
+}
+
+.nb-cal-day.today {
+  background: var(--green);
+  color: #fff;
+  font-weight: 800;
+}
+
+.nb-cal-mark {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.nb-cal-day.today .nb-cal-mark {
+  background: #fff;
+}
+
+/* 확장 — 투두 */
+.nb-expand-todos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nb-expand-todos .nowbar-todo {
+  cursor: pointer;
+}
+
+.nb-todo-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.nb-todo-add input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.nb-todo-add button {
+  width: 36px;
+  border: none;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  font-size: 16px;
+}
+
+/* 확장 — 시간 */
+.nb-time-range {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.nb-timeline.big {
+  height: 46px;
+}
+
+/* 확장 — AI */
+.nb-ai-full {
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.nb-ai-caption {
+  font-size: 12px;
+  color: var(--text-sub);
 }
 
 /* 카드 2 — AI 브리핑 */
@@ -295,30 +444,133 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
-.nowbar-meeting {
+/* 공통 — 현재 회의 블록 (nowbar.png 디자인) */
+.nb-current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-shrink: 0;
+  max-width: 280px;
+}
+
+.nb-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.nb-thumb.none {
+  background: #e4e4e4;
+  color: #999;
+}
+
+.nb-current-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
-.nowbar-meeting .title {
+.nb-current-text .title {
   font-weight: 800;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nb-current-text .countdown {
+  font-size: 14px;
   white-space: nowrap;
 }
 
-.nowbar-meeting .tag {
-  color: var(--text-sub);
-  font-size: 13px;
-  margin-left: 6px;
+.nb-current-text .countdown b {
+  color: var(--green);
 }
 
-.nowbar-meeting .countdown {
+.nb-current-text .tag {
+  color: var(--text-sub);
+}
+
+/* 카드 1 — 다음 일정 리스트 */
+.nb-next-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.nb-next-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.nb-mini-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.nb-next-title {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nb-next-start {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.nb-next-start b {
+  color: var(--green);
+}
+
+.nb-next-empty {
+  color: var(--text-sub);
   font-size: 14px;
 }
 
-.nowbar-meeting .countdown b {
-  color: var(--green);
+/* 카드 3 — 시간 타임라인 (nowbar.png 시간 모드) */
+.nb-timeline {
+  position: relative;
+  flex: 1;
+  height: 34px;
+  border: 1px solid #c9d8ea;
+  border-radius: 6px;
+  background: #f4f8fd;
+  overflow: hidden;
+  align-self: center;
+}
+
+.nb-timeline-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #a7c9ef 0%, #3d7fd1 100%);
+  transition: width 1s linear;
+}
+
+.nb-tick {
+  position: absolute;
+  top: 2px;
+  font-size: 10px;
+  color: #345;
+  border-left: 1px solid rgba(40, 70, 110, 0.45);
+  padding-left: 3px;
+  height: 100%;
 }
 
 .nowbar-divider {

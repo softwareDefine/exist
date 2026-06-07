@@ -73,9 +73,19 @@ export default function DashboardPage() {
     }
   }
 
+  async function toggleTodo(todo: Todo) {
+    await api(`/api/todos/${todo.id}`, { method: 'PATCH', body: { done: !todo.done } });
+    void refresh();
+  }
+
+  async function addTodo(title: string) {
+    await api('/api/todos', { method: 'POST', body: { title } });
+    void refresh();
+  }
+
   return (
     <>
-      <NowBar todos={todos} meetings={recent} />
+      <NowBar todos={todos} meetings={recent} onToggleTodo={toggleTodo} onAddTodo={addTodo} />
       <NotificationToasts />
       <main className="dashboard">
         <aside>
