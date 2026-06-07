@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import MeetingRoomPage from './pages/MeetingRoomPage';
 
 function Protected({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -18,6 +19,14 @@ export default function App() {
           element={
             <Protected>
               <DashboardPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/meeting/:code"
+          element={
+            <Protected>
+              <MeetingRoomPage />
             </Protected>
           }
         />

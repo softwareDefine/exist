@@ -1,9 +1,37 @@
-/* 한글: 네이버 나눔스퀘어네오 (variable woff2) */
+/* 한글: 네이버 나눔스퀘어네오 (공식 웹폰트, 웨이트별 매핑) */
 @font-face {
   font-family: 'NanumSquareNeo';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_11-01@1.0/NanumSquareNeo-Variable.woff2')
-    format('woff2-variations');
-  font-weight: 300 900;
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aLt.woff')
+    format('woff');
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'NanumSquareNeo';
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aRg.woff')
+    format('woff');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'NanumSquareNeo';
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aBd.woff')
+    format('woff');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'NanumSquareNeo';
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aEb.woff')
+    format('woff');
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'NanumSquareNeo';
+  src: url('https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareNeo/NanumSquareNeoTTF-aHv.woff')
+    format('woff');
+  font-weight: 900;
   font-display: swap;
 }
 
@@ -363,6 +391,112 @@ input {
   display: grid;
   place-items: center;
   color: var(--text-sub);
+}
+
+/* ───── 회의실 ───── */
+.meeting-room {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #0f1115;
+  color: #fff;
+}
+
+.meeting-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 28px;
+}
+
+.meeting-header .logo {
+  color: #fff;
+}
+
+.meeting-code {
+  font-size: 15px;
+  color: #aaa;
+}
+
+.meeting-code b {
+  color: var(--green);
+  letter-spacing: 2px;
+}
+
+.meeting-status {
+  font-size: 14px;
+  color: #e6b800;
+}
+
+.video-grid {
+  flex: 1;
+  display: grid;
+  gap: 14px;
+  padding: 0 28px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-content: center;
+}
+
+.video-tile {
+  position: relative;
+  background: #1c1f26;
+  border-radius: 14px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+}
+
+.video-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 48px;
+}
+
+.video-name {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.meeting-controls {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 18px;
+}
+
+.meeting-controls button {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: #2a2e37;
+  color: #fff;
+  font-size: 22px;
+}
+
+.meeting-controls button.off {
+  background: #d33;
+}
+
+.meeting-controls .leave {
+  width: auto;
+  border-radius: 28px;
+  padding: 0 24px;
+  background: #d33;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 /* ───── 로그인 ───── */

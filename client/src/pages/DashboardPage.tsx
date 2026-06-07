@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -39,9 +41,7 @@ export default function DashboardPage() {
     if (!code.trim()) return;
     try {
       const m = await api<Meeting>('/api/meetings/join', { method: 'POST', body: { code } });
-      setMessage(`"${m.title}" 참여 완료 (회의 화면은 step 3에서)`);
-      setCode('');
-      void refresh();
+      navigate(`/meeting/${m.code}`);
     } catch (err) {
       setMessage(err instanceof Error ? err.message : '참여 실패');
     }
@@ -154,7 +154,9 @@ export default function DashboardPage() {
                 <div>
                   <div className="name">{m.title}</div>
                   <div className="actions">
-                    <button title="통화">📞</button>
+                    <button title="통화" onClick={() => navigate(`/meeting/${m.code}`)}>
+                      📞
+                    </button>
                     <button title="채팅">💬</button>
                     <button title="일정">📅</button>
                     <button title="설정">⚙️</button>

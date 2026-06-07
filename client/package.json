@@ -16,6 +16,7 @@
     "vite": "^8.0.12"
   },
   "dependencies": {
+    "mediasoup-client": "^3.20.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.17.0",

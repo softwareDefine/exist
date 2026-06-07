@@ -6,6 +6,8 @@ import { Server } from 'socket.io';
 import authRouter from './auth.js';
 import meetingsRouter from './meetings.js';
 import todosRouter from './todos.js';
+import db from './db.js';
+import { startMediasoup, attachSfu } from './sfu.js';
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:5173' }));
@@ -18,17 +20,32 @@ app.use('/api/todos', todosRouter);
 
 const server = http.createServer(app);
 
-// Socket.IO — 추후 mediasoup 시그널링 + presence + nowbar 알림 push에 사용
+// Socket.IO — SFU 시그널링 + presence + nowbar 알림 push
 const io = new Server(server, {
   cors: { origin: 'http://localhost:5173' },
 });
 
-io.on('connection', (socket) => {
-  console.log(`[socket] connected: ${socket.id}`);
-  socket.on('disconnect', () => console.log(`[socket] disconnected: ${socket.id}`));
+// 소켓 인증: handshake.auth.token으로 세션 검증
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token as string | undefined;
+  if (!token) return next(new Error('unauthorized'));
+  const row = db
+    .prepare(
+      `SELECT s.user_id, u.username FROM sessions s
+       JOIN users u ON u.id = s.user_id WHERE s.token = ?`,
+    )
+    .get(token) as { user_id: number; username: string } | undefined;
+  if (!row) return next(new Error('unauthorized'));
+  socket.data.userId = row.user_id;
+  socket.data.username = row.username;
+  next();
 });
 
+attachSfu(io);
+
 const PORT = Number(process.env.PORT ?? 4000);
-server.listen(PORT, () => {
-  console.log(`exist server listening on http://localhost:${PORT}`);
+startMediasoup().then(() => {
+  server.listen(PORT, () => {
+    console.log(`exist server listening on http://localhost:${PORT}`);
+  });
 });
