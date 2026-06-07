@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import Logo from './Logo';
@@ -38,7 +38,7 @@ function formatDiff(ms: number): string {
 interface MeetingContext {
   title: string;
   tag: string;
-  countdown: string; // 예: "종료" / "시작"
+  countdown: string;
   diff: string;
 }
 
@@ -48,7 +48,11 @@ function meetingContext(meetings: Meeting[], now: Date): MeetingContext | null {
   const timed = meetings.filter((m) => m.starts_at);
 
   const ongoing = timed.find(
-    (m) => new Date(m.starts_at!).getTime() <= t && m.ends_at && t < new Date(m.ends_at).getTime(),
+    (m) =>
+      m.starts_at &&
+      m.ends_at &&
+      new Date(m.starts_at) <= now &&
+      now < new Date(m.ends_at),
   );
   if (ongoing) {
     return {
@@ -78,11 +82,15 @@ interface Props {
   meetings?: Meeting[];
 }
 
+const CARD_COUNT = 3;
+
 export default function NowBar({ todos = [], meetings = [] }: Props) {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [now, setNow] = useState(() => new Date());
   const [brief, setBrief] = useState('');
+  const [card, setCard] = useState(0);
+  const wheelLock = useRef(0);
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 10_000);
@@ -108,56 +116,99 @@ export default function NowBar({ todos = [], meetings = [] }: Props) {
     };
   }, [todos, meetings]);
 
+  function onWheel(e: React.WheelEvent) {
+    const nowMs = Date.now();
+    if (nowMs - wheelLock.current < 450) return; // 전환 애니메이션 중 잠금
+    if (Math.abs(e.deltaY) < 8) return;
+    wheelLock.current = nowMs;
+    setCard((c) => {
+      const dir = e.deltaY > 0 ? 1 : -1;
+      return (c + dir + CARD_COUNT) % CARD_COUNT;
+    });
+  }
+
   const ctx = meetingContext(meetings, now);
-  // 미완료 우선, 최대 2개 (피그마: 미완 1 + 완료 1 형태)
   const shown = [...todos].sort((a, b) => a.done - b.done).slice(0, 2);
+  const doneCount = todos.filter((t) => t.done).length;
+  const progress = todos.length > 0 ? Math.round((doneCount / todos.length) * 100) : 0;
 
   return (
     <header className="nowbar">
       <Logo />
 
-      <div className="nowbar-pill">
-        <div className="nowbar-meeting">
-          {ctx ? (
-            <>
-              <div>
-                <span className="title">{ctx.title}</span>
-                <span className="tag">{ctx.tag}</span>
+      <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">
+        <div className="nowbar-track" style={{ transform: `translateY(-${card * 100}%)` }}>
+          {/* 카드 1 — 회의 + 투두 (기본) */}
+          <div className="nowbar-card">
+            <div className="nowbar-meeting">
+              {ctx ? (
+                <>
+                  <div>
+                    <span className="title">{ctx.title}</span>
+                    <span className="tag">{ctx.tag}</span>
+                  </div>
+                  <div className="countdown">
+                    <b>{ctx.countdown}</b> {ctx.diff}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <span className="title">회의 없음</span>
+                  </div>
+                  <div className="countdown">
+                    <span className="tag">예정된 회의가 없습니다</span>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="nowbar-divider" />
+            <div className="nowbar-todos">
+              {shown.map((todo) => (
+                <div key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
+                  <input type="checkbox" checked={!!todo.done} readOnly />
+                  {todo.title}
+                </div>
+              ))}
+              {todos.length === 0 && <div className="nowbar-todo">투두를 추가해보세요</div>}
+            </div>
+          </div>
+
+          {/* 카드 2 — AI 브리핑 */}
+          <div className="nowbar-card">
+            <div className="nowbar-ai">
+              <span className="ai-badge">
+                <span className="dot" />
+                exist AI
+              </span>
+              <span className="ai-text">{brief || '상황을 분석하는 중이에요…'}</span>
+            </div>
+          </div>
+
+          {/* 카드 3 — 할 일 진행률 */}
+          <div className="nowbar-card">
+            <div className="nowbar-progress">
+              <div className="progress-label">
+                ✅ 오늘 할 일 <b>{todos.length}개 중 {doneCount}개 완료</b>
               </div>
-              <div className="countdown">
-                <b>{ctx.countdown}</b> {ctx.diff}
+              <div className="progress-bar">
+                <div className="progress-fill" style={{ width: `${progress}%` }} />
               </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <span className="title">회의 없음</span>
-              </div>
-              <div className="countdown">
-                <span className="tag">예정된 회의가 없습니다</span>
-              </div>
-            </>
-          )}
+              <span className="progress-pct">{progress}%</span>
+            </div>
+          </div>
         </div>
 
-        {brief && <div className="nowbar-divider" />}
-        {brief && (
-          <div className="nowbar-brief" title={brief}>
-            <span className="dot" />
-            {brief}
-          </div>
-        )}
-
-        <div className="nowbar-divider" />
-
-        <div className="nowbar-todos">
-          {shown.map((todo) => (
-            <div key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
-              <input type="checkbox" checked={!!todo.done} readOnly />
-              {todo.title}
-            </div>
+        {/* 위치 인디케이터 — 점 3개 */}
+        <div className="nowbar-dots">
+          {Array.from({ length: CARD_COUNT }, (_, i) => (
+            <button
+              key={i}
+              className={`nowbar-dot${i === card ? ' active' : ''}`}
+              onClick={() => setCard(i)}
+              aria-label={`카드 ${i + 1}`}
+            />
           ))}
-          {todos.length === 0 && <div className="nowbar-todo">투두를 추가해보세요</div>}
         </div>
       </div>
 
