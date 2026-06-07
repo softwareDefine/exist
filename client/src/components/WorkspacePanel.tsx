@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useAuthStore } from '../store';
 import { FolderIcon, PhoneIcon, CloseIcon } from './Icons';
 import CanvasBoard from './CanvasBoard';
 import MeetingHub from './MeetingHub';
@@ -22,14 +23,38 @@ interface Props {
   meetingRequest?: MeetingTabRequest | null;
 }
 
+function tabsKey() {
+  return `exist:meeting-tabs:${useAuthStore.getState().user?.username ?? ''}`;
+}
+
+function loadSavedTabs(): { code: string; title: string }[] {
+  try {
+    const raw = localStorage.getItem(tabsKey());
+    const parsed = raw ? (JSON.parse(raw) as { code: string; title: string }[]) : [];
+    return Array.isArray(parsed) ? parsed.filter((t) => t?.code && t?.title) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function WorkspacePanel({ meetingRequest }: Props) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [meetingTabs, setMeetingTabs] = useState<{ code: string; title: string }[]>([]);
+  // 새로고침해도 열린 회의 탭 복원
+  const [meetingTabs, setMeetingTabs] = useState<{ code: string; title: string }[]>(loadSavedTabs);
   const [active, setActive] = useState<ActiveTab | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null); // 오버레이 전체화면 회의 코드
   const [renaming, setRenaming] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [unread, setUnread] = useState<Map<string, number>>(new Map());
+
+  // 열린 회의 탭 영속화
+  useEffect(() => {
+    try {
+      localStorage.setItem(tabsKey(), JSON.stringify(meetingTabs));
+    } catch {
+      /* 저장 실패 무시 */
+    }
+  }, [meetingTabs]);
 
   // 회의 채팅 수신 → 비활성 탭이면 안읽음 배지
   useEffect(() => {

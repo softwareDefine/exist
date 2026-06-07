@@ -51,7 +51,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
   const [copied, setCopied] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
+  const [canvasMounted, setCanvasMounted] = useState(false); // 한 번 열면 유지 (재연결·카메라 초기화 방지)
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (subtab === 'canvas') setCanvasMounted(true);
+  }, [subtab]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -295,9 +300,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           </div>
         )}
 
-        {/* 캔버스 — 회의마다 자동으로 생기는 공동편집 보드 */}
-        {subtab === 'canvas' && (
-          <div className="hub-canvas">
+        {/* 캔버스 — 회의마다 자동으로 생기는 공동편집 보드 (한 번 열면 마운트 유지) */}
+        {canvasMounted && (
+          <div
+            className="hub-canvas"
+            style={{ display: subtab === 'canvas' ? 'block' : 'none' }}
+          >
             <CanvasBoard roomId={`mt-${code.toUpperCase()}`} />
           </div>
         )}
