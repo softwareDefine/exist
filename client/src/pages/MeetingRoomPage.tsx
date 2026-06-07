@@ -388,8 +388,18 @@ export default function MeetingRoomPage() {
   }
 
   const peers = [...remotePeers.values()];
-  const screenPeers = peers.filter((p) => p.screenTrack);
-  const hasScreen = screenPeers.length > 0 || !!localScreen;
+
+  // 공유 중인 화면 전부 (로컬 + 원격 여러 명 동시 지원)
+  const screens: { key: string; track: MediaStreamTrack; username: string; isLocal?: boolean }[] =
+    [
+      ...(localScreen
+        ? [{ key: 'local', track: localScreen, username: user?.username ?? '나', isLocal: true }]
+        : []),
+      ...peers
+        .filter((p) => p.screenTrack)
+        .map((p) => ({ key: p.peerId, track: p.screenTrack!, username: p.username })),
+    ];
+  const hasScreen = screens.length > 0;
 
   return (
     <div className="meeting-room">
@@ -419,16 +429,17 @@ export default function MeetingRoomPage() {
       <div className="meeting-body">
         <div className={`video-area${hasScreen ? ' with-screen' : ''}`}>
           {hasScreen && (
-            <div className="screen-stage">
-              {localScreen ? (
-                <VideoTile track={localScreen} username={user?.username ?? '나'} muted isLocal isScreen />
-              ) : (
+            <div className={`screen-stage screens-${screens.length}`}>
+              {screens.map((s) => (
                 <VideoTile
-                  track={screenPeers[0].screenTrack}
-                  username={screenPeers[0].username}
+                  key={s.key}
+                  track={s.track}
+                  username={s.username}
+                  muted={s.isLocal}
+                  isLocal={s.isLocal}
                   isScreen
                 />
-              )}
+              ))}
             </div>
           )}
           <div
