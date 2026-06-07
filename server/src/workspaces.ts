@@ -39,14 +39,26 @@ router.post('/', (req: AuthedRequest, res) => {
   res.json({ id: info.lastInsertRowid, name });
 });
 
-/** tldraw 캔버스 에셋(이미지 등) 업로드 */
+/** tldraw 캔버스 에셋(이미지 등) 업로드 — 최대 20MB */
+const MAX_UPLOAD = 20 * 1024 * 1024;
+
 router.post('/uploads', (req: AuthedRequest, res) => {
   const id = crypto.randomUUID();
   const ext = (req.query.name as string | undefined)?.split('.').pop()?.replace(/[^\w]/g, '') ?? 'bin';
   const filename = `${id}.${ext}`;
   const chunks: Buffer[] = [];
-  req.on('data', (c) => chunks.push(c));
+  let size = 0;
+  req.on('data', (c: Buffer) => {
+    size += c.length;
+    if (size > MAX_UPLOAD) {
+      res.status(413).json({ error: '파일이 너무 큽니다 (최대 20MB)' });
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
   req.on('end', () => {
+    if (res.headersSent) return;
     fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.concat(chunks));
     res.json({ url: `/api/workspaces/uploads/${filename}` });
   });
