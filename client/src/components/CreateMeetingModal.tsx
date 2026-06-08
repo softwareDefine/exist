@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { useOrgStore, type OrgContext } from '../orgStore';
 
 interface Props {
   open: boolean;
@@ -10,7 +11,10 @@ interface Props {
 
 export default function CreateMeetingModal({ open, onClose, onCreated }: Props) {
   const navigate = useNavigate();
+  const orgs = useOrgStore((s) => s.orgs);
+  const current = useOrgStore((s) => s.current);
   const [title, setTitle] = useState('');
+  const [orgCtx, setOrgCtx] = useState<OrgContext>('personal');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [created, setCreated] = useState<{ code: string; title: string } | null>(null);
@@ -20,11 +24,12 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
   useEffect(() => {
     if (!open) return;
     setTitle('');
+    setOrgCtx(current); // 현재 보고 있는 조직 컨텍스트를 기본값으로
     setStart('');
     setEnd('');
     setCreated(null);
     setCopied(false);
-  }, [open]);
+  }, [open, current]);
 
   // ESC 닫기
   useEffect(() => {
@@ -44,7 +49,12 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
     try {
       const m = await api<{ code: string; title: string }>('/api/meetings', {
         method: 'POST',
-        body: { title, starts_at: start || null, ends_at: end || null },
+        body: {
+          title,
+          org_id: orgCtx === 'personal' ? null : orgCtx,
+          starts_at: start || null,
+          ends_at: end || null,
+        },
       });
       setCreated({ code: m.code, title });
       onCreated();
@@ -100,6 +110,23 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
                 placeholder="예: 주간 스프린트 리뷰"
                 autoFocus
               />
+            </label>
+            <label className="modal-label">
+              어디에서 만들까요
+              <select
+                className="modal-select"
+                value={orgCtx === 'personal' ? 'personal' : String(orgCtx)}
+                onChange={(e) =>
+                  setOrgCtx(e.target.value === 'personal' ? 'personal' : Number(e.target.value))
+                }
+              >
+                <option value="personal">개인 회의</option>
+                {orgs.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="modal-label">
               시작 (선택)

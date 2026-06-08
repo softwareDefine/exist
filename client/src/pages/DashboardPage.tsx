@@ -7,9 +7,12 @@ import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspaceP
 import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, ClockIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
+import OrgSwitcher from '../components/OrgSwitcher';
+import { useOrgStore } from '../orgStore';
 
 export default function DashboardPage() {
   const location = useLocation();
+  const orgCurrent = useOrgStore((s) => s.current);
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -32,8 +35,9 @@ export default function DashboardPage() {
 
   async function refresh() {
     try {
+      const param = useOrgStore.getState().contextParam();
       const [meetings, todoList] = await Promise.all([
-        api<Meeting[]>('/api/meetings/recent'),
+        api<Meeting[]>(`/api/meetings/recent?org=${param}`),
         api<Todo[]>('/api/todos'),
       ]);
       setRecent(meetings);
@@ -43,9 +47,11 @@ export default function DashboardPage() {
     }
   }
 
+  // 최초 + 조직 컨텍스트 전환 시 회의 목록 갱신
   useEffect(() => {
     void refresh();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgCurrent]);
 
   async function joinMeeting(e: React.FormEvent) {
     e.preventDefault();
@@ -82,6 +88,8 @@ export default function DashboardPage() {
       <NotificationToasts />
       <main className="dashboard">
         <aside>
+          <OrgSwitcher />
+
           <div className="join-card">
             <div className="head">
               <h2>회의 입장</h2>

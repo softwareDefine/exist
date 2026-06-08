@@ -921,6 +921,22 @@ input:focus {
   font-weight: 400;
 }
 
+.modal-select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 15px;
+  font-weight: 500;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.modal-select:focus {
+  border-color: var(--green);
+  outline: none;
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;
@@ -1689,6 +1705,288 @@ input:focus {
 .hub-preview-msg b {
   color: var(--text);
   margin-right: 6px;
+}
+
+/* ───── 조직 전환기 ───── */
+.org-switcher {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.org-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.org-switcher-btn:hover {
+  border-color: var(--green);
+}
+
+.org-switcher-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--green);
+}
+
+.org-switcher-name {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.org-switcher-btn svg:last-child {
+  color: var(--text-sub);
+  flex-shrink: 0;
+}
+
+.org-switcher-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: #ff5b5b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.org-switcher-badge.sm {
+  min-width: 17px;
+  height: 17px;
+  font-size: 10px;
+}
+
+.org-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  animation: org-menu-in 0.14s ease;
+}
+
+@keyframes org-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.org-menu-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.org-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 10px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+  width: 100%;
+}
+
+.org-menu-item:hover {
+  background: var(--green-soft);
+}
+
+.org-menu-item.active {
+  color: var(--green);
+}
+
+.org-menu-item.action {
+  color: var(--text-sub);
+  font-weight: 600;
+}
+
+.org-menu-item.action:hover {
+  color: var(--green);
+}
+
+.org-menu-item-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.org-menu-item:not(.action) .org-menu-item-name {
+  flex: 1;
+}
+
+.org-menu-item > .org-check {
+  margin-left: auto;
+  color: var(--green);
+  font-weight: 800;
+}
+
+.org-menu-manage {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-sub);
+}
+
+.org-menu-manage:hover {
+  background: #fff;
+  color: var(--green);
+}
+
+.org-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 4px;
+}
+
+/* 조직 멤버 관리 모달 */
+.modal-card.org-members {
+  max-width: 460px;
+}
+
+.org-joincode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.org-joincode-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.org-joincode-val {
+  flex: 1;
+  border: 1px dashed var(--green);
+  background: var(--green-soft);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--green);
+  text-align: left;
+}
+
+.org-section {
+  margin-bottom: 18px;
+}
+
+.org-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-sub);
+  margin-bottom: 8px;
+}
+
+.org-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.org-member-row:last-child {
+  border-bottom: none;
+}
+
+.org-member-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.org-avatar {
+  font-size: 18px;
+}
+
+.org-role {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f0f0f0;
+  color: var(--text-sub);
+}
+
+.org-role.owner {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.org-role.admin {
+  background: #eef3ff;
+  color: #3b6cff;
+}
+
+.org-member-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.org-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 7px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.org-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.org-btn.approve {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.org-btn.approve:hover {
+  background: var(--green-dark, #1a9e12);
+  color: #fff;
+}
+
+.org-btn.reject:hover {
+  border-color: #ff5b5b;
+  color: #ff5b5b;
 }
 
 /* nowbar 일정 클릭 → 회의 탭 */

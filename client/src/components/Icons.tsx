@@ -175,6 +175,52 @@ export function CloseIcon({ size }: IconProps) {
   );
 }
 
+export function BuildingIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="4" y="3" width="11" height="18" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M15 8h4a1.5 1.5 0 0 1 1.5 1.5V21" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path
+        d="M7.5 7h4M7.5 10.5h4M7.5 14h4M17.5 11.5h.01M17.5 15h.01"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+export function UsersIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <circle cx="9" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.5 19.5a5.5 5.5 0 0 1 11 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M16 5.2a3.2 3.2 0 0 1 0 5.6M17.5 14.2a5.5 5.5 0 0 1 3 5.3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+export function ChevronIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function PlusIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function SlashIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
