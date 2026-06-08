@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOrgStore, type OrgContext } from '../orgStore';
 import { BuildingIcon, ChevronIcon, PlusIcon, UsersIcon } from './Icons';
 import CreateOrgModal from './CreateOrgModal';
 import JoinOrgModal from './JoinOrgModal';
-import OrgMembersModal from './OrgMembersModal';
 
 /** 상단 조직 전환기 — 현재 컨텍스트(개인/조직) 선택 + 생성·가입·멤버관리 진입 */
 export default function OrgSwitcher() {
@@ -12,10 +12,10 @@ export default function OrgSwitcher() {
   const setCurrent = useOrgStore((s) => s.setCurrent);
   const load = useOrgStore((s) => s.load);
 
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
-  const [manageOrg, setManageOrg] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -78,19 +78,17 @@ export default function OrgSwitcher() {
                 {o.isManager && o.pendingCount > 0 && (
                   <span className="org-switcher-badge sm">{o.pendingCount}</span>
                 )}
-                {o.isManager && (
-                  <span
-                    className="org-menu-manage"
-                    title="멤버 관리"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setManageOrg(o.id);
-                      setOpen(false);
-                    }}
-                  >
-                    <UsersIcon size={14} />
-                  </span>
-                )}
+                <span
+                  className="org-menu-manage"
+                  title="조직도 보기"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    navigate(`/org/${o.id}`);
+                  }}
+                >
+                  <UsersIcon size={14} />
+                </span>
                 {current === o.id && <span className="org-check">✓</span>}
               </button>
             ))}
@@ -127,7 +125,6 @@ export default function OrgSwitcher() {
 
       <CreateOrgModal open={showCreate} onClose={() => setShowCreate(false)} />
       <JoinOrgModal open={showJoin} onClose={() => setShowJoin(false)} />
-      <OrgMembersModal orgId={manageOrg} onClose={() => setManageOrg(null)} />
     </div>
   );
 }

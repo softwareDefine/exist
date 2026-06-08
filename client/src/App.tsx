@@ -5,6 +5,7 @@ import RegisterPage from './pages/RegisterPage';
 import ForgotPage from './pages/ForgotPage';
 import DashboardPage from './pages/DashboardPage';
 import MeetingRoomPage from './pages/MeetingRoomPage';
+import OrgChartPage from './pages/OrgChartPage';
 import ErrorToasts from './components/ErrorToasts';
 
 function Protected({ children }: { children: React.ReactNode }) {
@@ -33,6 +34,14 @@ export default function App() {
           element={
             <Protected>
               <MeetingRoomPage />
+            </Protected>
+          }
+        />
+        <Route
+          path="/org/:id"
+          element={
+            <Protected>
+              <OrgChartPage />
             </Protected>
           }
         />

@@ -2176,6 +2176,210 @@ input:focus {
   color: #ff5b5b;
 }
 
+/* ───── 조직도 페이지 ───── */
+.orgchart-page {
+  min-height: 100vh;
+  background: #f6f7f9;
+}
+
+.orgchart-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+
+.orgchart-back {
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-sub);
+  flex: 1;
+  text-align: left;
+}
+
+.orgchart-back:hover {
+  color: var(--green);
+}
+
+.orgchart-top > span {
+  flex: 1;
+}
+
+.orgchart-loading {
+  text-align: center;
+  padding: 80px;
+  color: var(--text-sub);
+}
+
+.orgchart-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.orgchart-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.orgchart-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.orgchart-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.orgchart-title h1 {
+  font-size: 24px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.orgchart-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  margin-top: 3px;
+}
+
+.orgchart-admin {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.orgchart-code {
+  border: 1px dashed var(--green);
+  background: var(--green-soft);
+  border-radius: 9px;
+  padding: 9px 13px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+
+.orgchart-code b {
+  color: var(--green);
+  letter-spacing: 1px;
+}
+
+.orgchart-manage {
+  border: none;
+  background: var(--green);
+  color: #fff;
+  border-radius: 9px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.orgchart-manage:hover {
+  background: var(--green-dark, #1a9e12);
+}
+
+.orgchart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.orgchart-dept {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.orgchart-dept-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--text);
+  margin-bottom: 12px;
+  padding-left: 9px;
+  border-left: 4px solid var(--green);
+}
+
+.orgchart-dept-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.orgchart-members {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.orgchart-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.orgchart-avatar {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.orgchart-info {
+  min-width: 0;
+}
+
+.orgchart-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.orgchart-pos {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green);
+  margin-top: 1px;
+}
+
 /* nowbar 일정 클릭 → 회의 탭 */
 .nb-current.clickable,
 .nb-next-row.clickable {
