@@ -338,8 +338,8 @@ export default function NowBar({
   if (isEmpty) {
     return (
       <header className="nowbar">
-        <SidebarToggle onToggle={onToggleSidebar} />
         <Logo />
+        <SidebarToggle onToggle={onToggleSidebar} />
         <div className="nowbar-pill">
           <div className="nowbar-card front nb-onboard">
             ✨ 일정이나 할 일을 추가해 <b>nowbar</b>를 사용해보세요
@@ -360,8 +360,8 @@ export default function NowBar({
 
   return (
     <header className="nowbar">
-      <SidebarToggle onToggle={onToggleSidebar} />
       <Logo />
+      <SidebarToggle onToggle={onToggleSidebar} />
 
       <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">
         {/* 카드 1 — 다음/이전 일정 모드 */}
