@@ -221,6 +221,20 @@ export function PlusIcon({ size }: IconProps) {
   );
 }
 
+export function BellIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M12 3a6 6 0 0 0-6 6c0 3.5-1 5.2-1.8 6.1-.4.5-.1 1.4.6 1.4h14.4c.7 0 1-.9.6-1.4C19 14.2 18 12.5 18 9a6 6 0 0 0-6-6z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M9.5 19a2.5 2.5 0 0 0 5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function SlashIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

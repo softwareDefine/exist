@@ -3,6 +3,7 @@ import { api } from '../api';
 import { useAuthStore } from '../store';
 import Logo from './Logo';
 import SettingsModal from './SettingsModal';
+import NotificationCenter from './NotificationCenter';
 
 export interface Todo {
   id: number;
@@ -331,6 +332,7 @@ export default function NowBar({
           </div>
         </div>
         <span className="nowbar-clock">{formatNow(now)}</span>
+        <NotificationCenter />
         <ProfileMenu avatar={avatar} onOpenSettings={() => setSettingsOpen(true)} />
         <SettingsModal
           open={settingsOpen}
@@ -531,6 +533,7 @@ export default function NowBar({
 
       <span className="nowbar-clock">{formatNow(now)}</span>
 
+      <NotificationCenter />
       <ProfileMenu avatar={avatar} onOpenSettings={() => setSettingsOpen(true)} />
       <SettingsModal
         open={settingsOpen}

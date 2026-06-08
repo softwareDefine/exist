@@ -14,8 +14,9 @@ import { startMediasoup, attachSfu } from './sfu.js';
 import agentRouter, { getUserContext } from './agent.js';
 import workspacesRouter from './workspaces.js';
 import orgsRouter from './orgs.js';
+import notificationsRouter from './notifications.js';
 import { attachSync } from './sync.js';
-import { initNotifier } from './notify.js';
+import { initNotifier, notifyUser } from './notify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -41,6 +42,7 @@ app.use('/api/todos', todosRouter);
 app.use('/api/agent', agentRouter);
 app.use('/api/workspaces', workspacesRouter);
 app.use('/api/orgs', orgsRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // 프로덕션: 빌드된 클라이언트 정적 서빙 + SPA 폴백
 const clientDist = path.resolve(__dirname, '..', '..', 'client', 'dist');
@@ -127,7 +129,8 @@ setInterval(() => {
       );
       if (due.length > 0) {
         due.forEach((t) => notified.add(`${userId}:${m.title}:${t}`));
-        socket.emit('agent:notify', {
+        // 알림함에 영속 + 접속 소켓에 푸시
+        notifyUser(userId, {
           from: 'exist AI',
           text: `"${m.title}" 회의가 ${min}분 뒤에 시작돼요`,
         });

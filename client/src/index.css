@@ -1894,6 +1894,129 @@ input:focus {
   margin-right: 6px;
 }
 
+/* ───── 알림함 ───── */
+.notif-center {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.notif-bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  color: var(--text);
+  transition: background 0.15s;
+}
+
+.notif-bell:hover {
+  background: #f0f0f0;
+}
+
+.notif-count {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ff5b5b;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+.notif-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 320px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  animation: org-menu-in 0.14s ease;
+}
+
+.notif-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.notif-clear {
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+
+.notif-clear:hover {
+  color: #ff5b5b;
+}
+
+.notif-list {
+  overflow-y: auto;
+}
+
+.notif-empty {
+  padding: 36px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.notif-item {
+  padding: 11px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.notif-item.unread {
+  background: var(--green-soft);
+}
+
+.notif-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.notif-from {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--green);
+}
+
+.notif-time {
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.notif-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.4;
+}
+
 /* ───── 조직 전환기 ───── */
 .org-switcher {
   position: relative;
