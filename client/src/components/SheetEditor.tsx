@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { useAuthStore } from '../store';
+import { DownloadIcon } from './Icons';
 
 const COLS = 26; // A..Z
 const ROWS = 60;
@@ -96,9 +97,25 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   const [, bump] = useState(0);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [peers, setPeers] = useState(1);
-  const [sel, setSel] = useState<{ r: number; c: number }>({ r: 0, c: 0 });
+  const [sel, setSel] = useState<{ r: number; c: number }>({ r: 0, c: 0 }); // 활성(포커스) 셀
+  const [anchor, setAnchor] = useState<{ r: number; c: number }>({ r: 0, c: 0 }); // 선택 시작점
   const [editing, setEditing] = useState<{ r: number; c: number; value: string } | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
+  const draggingRef = useRef(false);
+
+  // 드래그 종료 (그리드 밖에서 마우스 떼도 처리)
+  useEffect(() => {
+    const up = () => {
+      draggingRef.current = false;
+    };
+    window.addEventListener('mouseup', up);
+    return () => window.removeEventListener('mouseup', up);
+  }, []);
+
+  function selectCell(r: number, c: number) {
+    setAnchor({ r, c });
+    setSel({ r, c });
+  }
 
   useEffect(() => {
     const ydoc = new Y.Doc();
@@ -149,7 +166,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   }
 
   function startEdit(r: number, c: number, initial?: string) {
-    setSel({ r, c });
+    selectCell(r, c);
     setEditing({ r, c, value: initial ?? raw(r, c) });
     setTimeout(() => editRef.current?.focus(), 0);
   }
@@ -158,30 +175,79 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     setCell(editing.r, editing.c, editing.value);
     const { r, c } = editing;
     setEditing(null);
-    if (move === 'down') setSel({ r: Math.min(r + 1, ROWS - 1), c });
-    else if (move === 'right') setSel({ r, c: Math.min(c + 1, COLS - 1) });
+    if (move === 'down') selectCell(Math.min(r + 1, ROWS - 1), c);
+    else if (move === 'right') selectCell(r, Math.min(c + 1, COLS - 1));
+  }
+
+  function clearRange() {
+    for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) setCell(r, c, '');
   }
 
   function onGridKey(e: React.KeyboardEvent) {
     if (editing) return;
     const { r, c } = sel;
-    if (e.key === 'ArrowUp') { setSel({ r: Math.max(0, r - 1), c }); e.preventDefault(); }
-    else if (e.key === 'ArrowDown' || e.key === 'Enter') { setSel({ r: Math.min(ROWS - 1, r + 1), c }); e.preventDefault(); }
-    else if (e.key === 'ArrowLeft') { setSel({ r, c: Math.max(0, c - 1) }); e.preventDefault(); }
-    else if (e.key === 'ArrowRight' || e.key === 'Tab') { setSel({ r, c: Math.min(COLS - 1, c + 1) }); e.preventDefault(); }
-    else if (e.key === 'Delete' || e.key === 'Backspace') { setCell(r, c, ''); e.preventDefault(); }
+    const shift = e.shiftKey;
+    const move = (nr: number, nc: number) => {
+      setSel({ r: nr, c: nc });
+      if (!shift) setAnchor({ r: nr, c: nc });
+    };
+    if (e.key === 'ArrowUp') { move(Math.max(0, r - 1), c); e.preventDefault(); }
+    else if (e.key === 'ArrowDown') { move(Math.min(ROWS - 1, r + 1), c); e.preventDefault(); }
+    else if (e.key === 'Enter') { selectCell(Math.min(ROWS - 1, r + 1), c); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { move(r, Math.max(0, c - 1)); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { move(r, Math.min(COLS - 1, c + 1)); e.preventDefault(); }
+    else if (e.key === 'Tab') { selectCell(r, Math.min(COLS - 1, c + 1)); e.preventDefault(); }
+    else if (e.key === 'Delete' || e.key === 'Backspace') { clearRange(); e.preventDefault(); }
     else if (e.key === 'F2') { startEdit(r, c); e.preventDefault(); }
     else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) { startEdit(r, c, e.key); e.preventDefault(); }
+  }
+
+  function exportCsv() {
+    const cells = cellsRef.current;
+    if (!cells) return;
+    // 사용된 범위 탐색
+    let maxR = 0;
+    let maxC = 0;
+    cells.forEach((_v, k) => {
+      const ref = parseRef(k);
+      if (ref) {
+        maxR = Math.max(maxR, ref.r);
+        maxC = Math.max(maxC, ref.c);
+      }
+    });
+    const rows: string[] = [];
+    for (let r = 0; r <= maxR; r++) {
+      const cols: string[] = [];
+      for (let c = 0; c <= maxC; c++) {
+        const v = display(r, c);
+        cols.push(/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+      }
+      rows.push(cols.join(','));
+    }
+    const csv = '﻿' + rows.join('\r\n'); // BOM(엑셀 한글)
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${roomId.replace(/^sheet-/, 'sheet_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const statusLabel =
     status === 'connected' ? '실시간 연결됨' : status === 'connecting' ? '연결 중…' : '연결 끊김';
   const activeRaw = raw(sel.r, sel.c);
+  const r1 = Math.min(anchor.r, sel.r);
+  const r2 = Math.max(anchor.r, sel.r);
+  const c1 = Math.min(anchor.c, sel.c);
+  const c2 = Math.max(anchor.c, sel.c);
+  const multi = r1 !== r2 || c1 !== c2;
 
   return (
     <div className="sheet-editor">
       <div className="sheet-bar">
-        <div className="sheet-cellref">{cellKey(sel.r, sel.c)}</div>
+        <div className="sheet-cellref">
+          {multi ? `${cellKey(r1, c1)}:${cellKey(r2, c2)}` : cellKey(sel.r, sel.c)}
+        </div>
         <input
           className="sheet-formula"
           value={editing ? editing.value : activeRaw}
@@ -196,6 +262,9 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
           }}
         />
         <div className="sheet-right">
+          <button className="sheet-csv" onClick={exportCsv} title="CSV로 내보내기">
+            <DownloadIcon size={15} /> CSV
+          </button>
           <span className="code-doc-peers">{peers}명 참여</span>
           <span className={`code-doc-status ${status}`}>
             <i /> {statusLabel}
@@ -208,7 +277,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
             <tr>
               <th className="sheet-corner" />
               {Array.from({ length: COLS }, (_, c) => (
-                <th key={c} className={c === sel.c ? 'sel' : ''}>
+                <th key={c} className={c >= c1 && c <= c2 ? 'sel' : ''}>
                   {colLetter(c)}
                 </th>
               ))}
@@ -217,19 +286,25 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
           <tbody>
             {Array.from({ length: ROWS }, (_, r) => (
               <tr key={r}>
-                <th className={`sheet-rownum${r === sel.r ? ' sel' : ''}`}>{r + 1}</th>
+                <th className={`sheet-rownum${r >= r1 && r <= r2 ? ' sel' : ''}`}>{r + 1}</th>
                 {Array.from({ length: COLS }, (_, c) => {
-                  const isSel = sel.r === r && sel.c === c;
+                  const isActive = sel.r === r && sel.c === c;
+                  const isRange = multi && r >= r1 && r <= r2 && c >= c1 && c <= c2;
                   const isEditing = editing && editing.r === r && editing.c === c;
                   return (
                     <td
                       key={c}
-                      className={`${isSel ? 'sel' : ''}${raw(r, c)[0] === '=' ? ' formula' : ''}`}
-                      onMouseDown={() => {
+                      className={`${isActive ? 'sel' : ''}${isRange ? ' inrange' : ''}${raw(r, c)[0] === '=' ? ' formula' : ''}`}
+                      onMouseDown={(e) => {
                         if (!isEditing) {
                           if (editing) commitEdit(null);
-                          setSel({ r, c });
+                          if (e.shiftKey) setSel({ r, c });
+                          else selectCell(r, c);
+                          draggingRef.current = true;
                         }
+                      }}
+                      onMouseEnter={() => {
+                        if (draggingRef.current && !editing) setSel({ r, c });
                       }}
                       onDoubleClick={() => startEdit(r, c)}
                     >
