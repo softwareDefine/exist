@@ -98,7 +98,7 @@ function CurrentBlock({
   if (!ctx) {
     return (
       <div className="nb-current">
-        <div className="nb-thumb none">—</div>
+        <div className="nb-thumb none" />
         <div className="nb-current-text">
           <div className="title">회의 없음</div>
           <div className="countdown tag">예정된 회의가 없습니다</div>

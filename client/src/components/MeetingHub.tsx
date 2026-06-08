@@ -15,6 +15,7 @@ import {
   GridIcon,
   PenIcon,
   UsersIcon,
+  CheckIcon,
 } from './Icons';
 
 interface Participant {
@@ -70,6 +71,16 @@ function groupByDept(people: Participant[]): { dept: string | null; people: Part
     });
 }
 
+/** "2026년 6월 8일 (월) 오후 2시 30분" */
+function formatFull(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  const ampm = d.getHours() < 12 ? '오전' : '오후';
+  const h = d.getHours() % 12 || 12;
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]}) ${ampm} ${h}시 ${String(d.getMinutes()).padStart(2, '0')}분`;
+}
+
 /** 일정 진행 상태 뱃지 */
 function scheduleState(
   starts: string | null,
@@ -90,7 +101,14 @@ function scheduleState(
   return { label: '진행 중', cls: 'live' };
 }
 
-type SubTab = 'dash' | 'call' | 'chat' | 'canvas';
+interface MeetingTodo {
+  id: number;
+  title: string;
+  done: number;
+  author?: string;
+}
+
+type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'schedule';
 
 interface Props {
   code: string;
@@ -110,7 +128,45 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [canvasMounted, setCanvasMounted] = useState(false); // 한 번 열면 유지 (재연결·카메라 초기화 방지)
+  const [todos, setTodos] = useState<MeetingTodo[]>([]);
+  const [todoInput, setTodoInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // 회의 공유 할 일 로드
+  useEffect(() => {
+    let alive = true;
+    void api<MeetingTodo[]>(`/api/todos?meeting=${code}`)
+      .then((list) => {
+        if (alive) setTodos(list);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [code]);
+
+  async function reloadTodos() {
+    try {
+      setTodos(await api<MeetingTodo[]>(`/api/todos?meeting=${code}`));
+    } catch {
+      /* 무시 */
+    }
+  }
+  async function addTodo(e: React.FormEvent) {
+    e.preventDefault();
+    if (!todoInput.trim()) return;
+    await api('/api/todos', { method: 'POST', body: { title: todoInput, meeting: code } });
+    setTodoInput('');
+    void reloadTodos();
+  }
+  async function toggleTodo(t: MeetingTodo) {
+    await api(`/api/todos/${t.id}`, { method: 'PATCH', body: { done: !t.done } });
+    void reloadTodos();
+  }
+  async function deleteTodo(t: MeetingTodo) {
+    await api(`/api/todos/${t.id}`, { method: 'DELETE' });
+    void reloadTodos();
+  }
 
   useEffect(() => {
     if (subtab === 'canvas') setCanvasMounted(true);
@@ -213,6 +269,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           <GridIcon size={14} /> 대시보드
         </button>
         <button
+          className={`hub-tab${subtab === 'schedule' ? ' active' : ''}`}
+          onClick={() => setSubtab('schedule')}
+        >
+          <CalendarIcon size={13} /> 일정
+        </button>
+        <button
           className={`hub-tab${subtab === 'call' ? ' active' : ''}`}
           onClick={() => setSubtab('call')}
         >
@@ -306,8 +368,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                   )}
                 </section>
 
-                {/* 4. 사용자 정보 (참가자) — 풀폭, 조직 회의면 부서별 명함 */}
-                <section className="hub-section full">
+                {/* 4. 사용자 정보 (참가자) — 절반, 조직 회의면 부서별 명함 */}
+                <section className="hub-section">
                   <div className="hub-section-title">
                     <UsersIcon size={15} /> 참가자 <b>{detail.participants.length}</b>
                     {detail.orgName && <span className="hub-roster-org">· {detail.orgName}</span>}
@@ -354,7 +416,52 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                   </div>
                 </section>
 
-                {/* 5. 최근 채팅 */}
+                {/* 5. 할 일 (회의 공유) */}
+                <section className="hub-section">
+                  <div className="hub-section-title">
+                    <CheckIcon size={15} /> 할 일
+                    {todos.length > 0 && (
+                      <span className="hub-todo-count">
+                        {todos.filter((t) => t.done).length}/{todos.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="hub-todos">
+                    {todos.map((t) => (
+                      <div key={t.id} className={`hub-todo${t.done ? ' done' : ''}`}>
+                        <label className="hub-todo-label">
+                          <input
+                            type="checkbox"
+                            checked={!!t.done}
+                            onChange={() => void toggleTodo(t)}
+                          />
+                          <span className="hub-todo-text">{t.title}</span>
+                        </label>
+                        {t.author && <span className="hub-todo-author">{t.author}</span>}
+                        <button
+                          className="hub-todo-del"
+                          onClick={() => void deleteTodo(t)}
+                          title="삭제"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    {todos.length === 0 && (
+                      <div className="hub-section-empty">함께 할 일을 추가해보세요</div>
+                    )}
+                  </div>
+                  <form className="hub-todo-add" onSubmit={addTodo}>
+                    <input
+                      value={todoInput}
+                      onChange={(e) => setTodoInput(e.target.value)}
+                      placeholder="할 일 추가"
+                    />
+                    <button type="submit">추가</button>
+                  </form>
+                </section>
+
+                {/* 6. 최근 채팅 */}
                 <section className="hub-section">
                   <div className="hub-section-title">
                     <ChatIcon size={15} /> 최근 채팅
@@ -388,6 +495,47 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                   </div>
                 </section>
               </>
+            )}
+          </div>
+        )}
+
+        {/* 일정 서브탭 */}
+        {subtab === 'schedule' && (
+          <div className="hub-schedule">
+            {!detail ? (
+              <div className="hub-loading">불러오는 중…</div>
+            ) : range ? (
+              <div className="hub-sched-card">
+                {(() => {
+                  const st = scheduleState(detail.starts_at, detail.ends_at);
+                  return st ? (
+                    <div className={`hub-sched-badge lg ${st.cls}`}>{st.label}</div>
+                  ) : null;
+                })()}
+                <div className="hub-sched-rows">
+                  {detail.starts_at && (
+                    <div className="hub-sched-row">
+                      <span className="hub-sched-label">시작</span>
+                      <span className="hub-sched-val">{formatFull(detail.starts_at)}</span>
+                    </div>
+                  )}
+                  {detail.ends_at && (
+                    <div className="hub-sched-row">
+                      <span className="hub-sched-label">종료</span>
+                      <span className="hub-sched-val">{formatFull(detail.ends_at)}</span>
+                    </div>
+                  )}
+                </div>
+                {detail.isHost && (
+                  <div className="hub-sched-hint">시작·종료 시각은 회의 설정에서 바꿀 수 있어요</div>
+                )}
+              </div>
+            ) : (
+              <div className="hub-sched-empty">
+                <CalendarIcon size={40} />
+                <p>아직 일정이 정해지지 않았어요</p>
+                {detail.isHost && <span>회의 설정에서 시작·종료 시각을 정해보세요</span>}
+              </div>
             )}
           </div>
         )}

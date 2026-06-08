@@ -141,4 +141,11 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 회의별 할 일 — todos.meeting_id (null이면 개인 todo, 값 있으면 회의 공유)
+try {
+  db.exec(`ALTER TABLE todos ADD COLUMN meeting_id INTEGER REFERENCES meetings(id)`);
+} catch {
+  /* 이미 존재 */
+}
+
 export default db;
