@@ -331,6 +331,40 @@ export function DocIcon({ size }: IconProps) {
   );
 }
 
+export function PlayIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M7 5.5l11 6.5-11 6.5z" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function DownloadIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 4v10m0 0l-4-4m4 4l4-4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 17.5v1a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function SunIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5 5l1.8 1.8M17.2 17.2L19 19M19 5l-1.8 1.8M6.8 17.2L5 19" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function MoonIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M20 13.5A8 8 0 1 1 10.5 4a6.3 6.3 0 0 0 9.5 9.5z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function SheetIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

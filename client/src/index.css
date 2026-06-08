@@ -2955,13 +2955,245 @@ input:focus {
   flex-direction: column;
 }
 
+.vsc-tabbar {
+  display: flex;
+  align-items: stretch;
+  background: #252526;
+  border-bottom: 1px solid #161616;
+  min-height: 36px;
+  flex: none;
+}
+
 .vsc-tabs {
   display: flex;
   background: #252526;
-  border-bottom: 1px solid #161616;
   overflow-x: auto;
-  flex: none;
+  flex: 1;
+  min-width: 0;
   min-height: 36px;
+}
+
+.vsc-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  flex: none;
+}
+
+.vsc-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vsc-run:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.vsc-act {
+  background: none;
+  border: none;
+  color: #bdbdbd;
+  cursor: pointer;
+  display: inline-flex;
+  padding: 5px;
+  border-radius: 6px;
+}
+
+.vsc-act:hover {
+  background: #37373d;
+  color: #fff;
+}
+
+.vsc-act:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 실행 출력 패널 */
+.vsc-output {
+  flex: none;
+  height: 190px;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #161616;
+  background: #1e1e1e;
+}
+
+.vsc-output-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #bdbdbd;
+  background: #252526;
+  flex: none;
+}
+
+.vsc-output-tools {
+  display: flex;
+  gap: 6px;
+}
+
+.vsc-output-tools button {
+  background: none;
+  border: none;
+  color: #bdbdbd;
+  cursor: pointer;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.vsc-output-tools button:hover {
+  background: #37373d;
+  color: #fff;
+}
+
+.vsc-output-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-family: ui-monospace, Menlo, Consolas, 'NanumSquareNeo', 'Malgun Gothic', monospace;
+  font-size: 12.5px;
+}
+
+.vsc-out-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  color: #d4d4d4;
+}
+
+.vsc-out-line.error {
+  color: #f48771;
+}
+
+.vsc-out-line.warn {
+  color: #ffd479;
+}
+
+.vsc-out-line.info {
+  color: #7a9cc6;
+}
+
+/* ── 라이트 테마 ── */
+.vsc.light {
+  background: #ffffff;
+  color: #1c2024;
+}
+
+.vsc.light .vsc-sidebar {
+  background: #f3f3f3;
+  border-right-color: #e3e3e3;
+}
+
+.vsc.light .vsc-sidebar-head {
+  color: #5a5a5a;
+}
+
+.vsc.light .vsc-newfile {
+  color: #5a5a5a;
+}
+
+.vsc.light .vsc-newfile:hover {
+  background: #e0e0e0;
+  color: #000;
+}
+
+.vsc.light .vsc-file {
+  color: #1c2024;
+}
+
+.vsc.light .vsc-file:hover {
+  background: #e8e8e8;
+}
+
+.vsc.light .vsc-file.active {
+  background: #dcdce0;
+  color: #000;
+}
+
+.vsc.light .vsc-tabbar,
+.vsc.light .vsc-tabs {
+  background: #ececec;
+  border-bottom-color: #e0e0e0;
+}
+
+.vsc.light .vsc-tab {
+  background: #e2e2e2;
+  color: #555;
+  border-right-color: #dadada;
+}
+
+.vsc.light .vsc-tab.active {
+  background: #fff;
+  color: #000;
+}
+
+.vsc.light .vsc-act {
+  color: #5a5a5a;
+}
+
+.vsc.light .vsc-act:hover {
+  background: #e0e0e0;
+  color: #000;
+}
+
+.vsc.light .vsc-output {
+  background: #fff;
+  border-top-color: #e0e0e0;
+}
+
+.vsc.light .vsc-output-head {
+  background: #ececec;
+  color: #5a5a5a;
+}
+
+.vsc.light .vsc-output-tools button {
+  color: #5a5a5a;
+}
+
+.vsc.light .vsc-output-tools button:hover {
+  background: #e0e0e0;
+  color: #000;
+}
+
+.vsc.light .vsc-out-line {
+  color: #1c2024;
+}
+
+.vsc.light .vsc-out-line.error {
+  color: #cd3131;
+}
+
+.vsc.light .vsc-out-line.warn {
+  color: #b58b00;
+}
+
+.vsc.light .vsc-out-line.info {
+  color: #2a6cc6;
+}
+
+.vsc.light .vsc-welcome {
+  color: #9a9a9a;
 }
 
 .vsc-tab {

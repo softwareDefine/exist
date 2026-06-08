@@ -11,9 +11,46 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { yCollab } from 'y-codemirror.next';
 import { useAuthStore } from '../store';
-import { PlusIcon, CloseIcon, CodeIcon } from './Icons';
+import {
+  PlusIcon,
+  CloseIcon,
+  CodeIcon,
+  PlayIcon,
+  DownloadIcon,
+  SunIcon,
+  MoonIcon,
+} from './Icons';
 
 const CURSOR_COLORS = ['#30a46c', '#e5484d', '#f76808', '#4f7cff', '#8e4ec6', '#0091ff', '#d6409f'];
+
+type OutLine = { type: 'log' | 'error' | 'warn' | 'info'; text: string };
+
+// Pyodide (브라우저 Python) 지연 로드 — 한 번만
+let pyodidePromise: Promise<unknown> | null = null;
+function loadPyodide(): Promise<unknown> {
+  if (pyodidePromise) return pyodidePromise;
+  pyodidePromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
+    s.onload = async () => {
+      try {
+        const py = await (window as unknown as { loadPyodide: () => Promise<unknown> }).loadPyodide();
+        resolve(py);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    s.onerror = () => reject(new Error('Pyodide 로드 실패 (인터넷 연결 필요)'));
+    document.head.appendChild(s);
+  });
+  return pyodidePromise;
+}
+
+function runtimeForExt(ext: string): 'js' | 'py' | null {
+  if (['js', 'mjs', 'cjs', 'jsx'].includes(ext)) return 'js';
+  if (ext === 'py') return 'py';
+  return null;
+}
 
 interface FileMeta {
   id: string;
@@ -62,6 +99,12 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   const [creating, setCreating] = useState(false);
   const [draftName, setDraftName] = useState('');
   const creatingRef = useRef(false); // Enter/blur 중복 생성 방지
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    () => (localStorage.getItem('exist:code-theme') as 'dark' | 'light') || 'dark',
+  );
+  const [output, setOutput] = useState<OutLine[]>([]);
+  const [showOutput, setShowOutput] = useState(false);
+  const [running, setRunning] = useState(false);
 
   // ── 연결 + 파일 목록 ──
   useEffect(() => {
@@ -139,7 +182,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
         basicSetup,
         keymap.of([indentWithTab]),
         ext,
-        oneDark,
+        ...(theme === 'dark' ? [oneDark] : []),
         yCollab(ytext, conn.provider.awareness),
         EditorView.updateListener.of((u) => {
           if (u.selectionSet || u.docChanged) {
@@ -164,7 +207,120 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
       viewRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conn, activeId, activeFile?.name]);
+  }, [conn, activeId, activeFile?.name, theme]);
+
+  function toggleTheme() {
+    setTheme((t) => {
+      const next = t === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('exist:code-theme', next);
+      return next;
+    });
+  }
+
+  function downloadActive() {
+    if (!activeFile || !conn) return;
+    const text = conn.ydoc.getText(`file:${activeId}`).toString();
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = activeFile.name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function runActive() {
+    if (!activeFile || !conn || running) return;
+    const code = conn.ydoc.getText(`file:${activeId}`).toString();
+    const ext = activeFile.name.split('.').pop()?.toLowerCase() ?? '';
+    const rt = runtimeForExt(ext);
+    setShowOutput(true);
+    if (rt === 'js') runJS(code);
+    else if (rt === 'py') runPython(code);
+    else {
+      setOutput([
+        { type: 'error', text: `.${ext} 파일은 브라우저 실행을 지원하지 않아요 (JS·Python만 가능)` },
+      ]);
+    }
+  }
+
+  function runJS(code: string) {
+    setRunning(true);
+    setOutput([{ type: 'info', text: '▶ JavaScript 실행 중…' }]);
+    const workerSrc = `
+      self.onmessage = (e) => {
+        const fmt = (a) => { try { return (typeof a === 'object' && a !== null) ? JSON.stringify(a) : String(a); } catch { return String(a); } };
+        const send = (type) => (...args) => self.postMessage({ line: { type, text: args.map(fmt).join(' ') } });
+        const console = { log: send('log'), info: send('log'), debug: send('log'), warn: send('warn'), error: send('error') };
+        try {
+          const fn = new Function('console', e.data);
+          const r = fn(console);
+          if (r !== undefined) self.postMessage({ line: { type: 'log', text: fmt(r) } });
+          self.postMessage({ done: true });
+        } catch (err) {
+          self.postMessage({ line: { type: 'error', text: (err && err.stack) ? String(err.stack) : String(err) } });
+          self.postMessage({ done: true });
+        }
+      };`;
+    const url = URL.createObjectURL(new Blob([workerSrc], { type: 'application/javascript' }));
+    const worker = new Worker(url);
+    const lines: OutLine[] = [];
+    const finish = (extra?: OutLine) => {
+      worker.terminate();
+      URL.revokeObjectURL(url);
+      setRunning(false);
+      setOutput(extra ? [...lines, extra] : [...lines]);
+    };
+    const timer = setTimeout(
+      () => finish({ type: 'error', text: '⏱ 시간 초과(3초) — 실행을 중단했어요' }),
+      3000,
+    );
+    worker.onmessage = (e: MessageEvent) => {
+      const d = e.data as { line?: OutLine; done?: boolean };
+      if (d.line) {
+        lines.push(d.line);
+        setOutput([...lines]);
+      }
+      if (d.done) {
+        clearTimeout(timer);
+        finish({ type: 'info', text: '✓ 완료' });
+      }
+    };
+    worker.postMessage(code);
+  }
+
+  async function runPython(code: string) {
+    setRunning(true);
+    setOutput([{ type: 'info', text: '🐍 Python 준비 중… (처음 실행은 몇 초 걸려요)' }]);
+    try {
+      const py = (await loadPyodide()) as {
+        setStdout: (o: { batched: (s: string) => void }) => void;
+        setStderr: (o: { batched: (s: string) => void }) => void;
+        runPythonAsync: (c: string) => Promise<unknown>;
+      };
+      const lines: OutLine[] = [{ type: 'info', text: '▶ Python 실행 중…' }];
+      setOutput([...lines]);
+      py.setStdout({
+        batched: (s: string) => {
+          lines.push({ type: 'log', text: s });
+          setOutput([...lines]);
+        },
+      });
+      py.setStderr({
+        batched: (s: string) => {
+          lines.push({ type: 'error', text: s });
+          setOutput([...lines]);
+        },
+      });
+      await py.runPythonAsync(code);
+      lines.push({ type: 'info', text: '✓ 완료' });
+      setOutput([...lines]);
+    } catch (e) {
+      setOutput((l) => [...l, { type: 'error', text: String((e as Error)?.message ?? e) }]);
+    } finally {
+      setRunning(false);
+    }
+  }
 
   function openFile(id: string) {
     setActiveId(id);
@@ -213,8 +369,10 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
     status === 'connected' ? '연결됨' : status === 'connecting' ? '연결 중…' : '연결 끊김';
   const langLabel = activeFile ? langForName(activeFile.name).label : '';
 
+  const canRun = !!activeFile && runtimeForExt(activeFile.name.split('.').pop()?.toLowerCase() ?? '') !== null;
+
   return (
-    <div className="vsc">
+    <div className={`vsc ${theme}`}>
       {/* 파일 탐색기 */}
       <div className="vsc-sidebar">
         <div className="vsc-sidebar-head">
@@ -267,24 +425,47 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
 
       {/* 에디터 영역 */}
       <div className="vsc-main">
-        <div className="vsc-tabs">
-          {openTabs.map((id) => {
-            const f = files.find((x) => x.id === id);
-            if (!f) return null;
-            return (
-              <div
-                key={id}
-                className={`vsc-tab${id === activeId ? ' active' : ''}`}
-                onClick={() => setActiveId(id)}
-              >
-                <span className="vsc-tab-ic">{fileIcon(f.name)}</span>
-                {f.name}
-                <button className="vsc-tab-close" onClick={(e) => closeTab(id, e)}>
-                  <CloseIcon size={10} />
-                </button>
-              </div>
-            );
-          })}
+        <div className="vsc-tabbar">
+          <div className="vsc-tabs">
+            {openTabs.map((id) => {
+              const f = files.find((x) => x.id === id);
+              if (!f) return null;
+              return (
+                <div
+                  key={id}
+                  className={`vsc-tab${id === activeId ? ' active' : ''}`}
+                  onClick={() => setActiveId(id)}
+                >
+                  <span className="vsc-tab-ic">{fileIcon(f.name)}</span>
+                  {f.name}
+                  <button className="vsc-tab-close" onClick={(e) => closeTab(id, e)}>
+                    <CloseIcon size={10} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          <div className="vsc-actions">
+            <button
+              className="vsc-run"
+              onClick={runActive}
+              disabled={!canRun || running}
+              title={canRun ? '실행 (JS·Python)' : '실행 미지원 파일'}
+            >
+              <PlayIcon size={13} /> {running ? '실행 중…' : '실행'}
+            </button>
+            <button
+              className="vsc-act"
+              onClick={downloadActive}
+              disabled={!activeFile}
+              title="현재 파일 다운로드"
+            >
+              <DownloadIcon size={16} />
+            </button>
+            <button className="vsc-act" onClick={toggleTheme} title="테마 전환">
+              {theme === 'dark' ? <SunIcon size={16} /> : <MoonIcon size={15} />}
+            </button>
+          </div>
         </div>
         {activeFile ? (
           <div className="vsc-editor" ref={hostRef} />
@@ -292,6 +473,32 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
           <div className="vsc-welcome">
             <CodeIcon size={40} />
             <p>왼쪽에서 파일을 선택하거나 새로 만들어 시작하세요</p>
+          </div>
+        )}
+        {showOutput && (
+          <div className="vsc-output">
+            <div className="vsc-output-head">
+              <span>출력</span>
+              <div className="vsc-output-tools">
+                <button onClick={() => setOutput([])} title="지우기">
+                  지우기
+                </button>
+                <button onClick={() => setShowOutput(false)} title="닫기">
+                  <CloseIcon size={12} />
+                </button>
+              </div>
+            </div>
+            <div className="vsc-output-body">
+              {output.length === 0 ? (
+                <div className="vsc-out-line info">실행 결과가 여기 표시돼요</div>
+              ) : (
+                output.map((o, i) => (
+                  <div key={i} className={`vsc-out-line ${o.type}`}>
+                    {o.text}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
         <div className="vsc-statusbar">
