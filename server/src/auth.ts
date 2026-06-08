@@ -1,7 +1,16 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import db from './db.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// 아바타 이미지는 워크스페이스와 같은 업로드 디렉토리에 저장 (서빙도 그쪽 재사용)
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const MAX_AVATAR = 5 * 1024 * 1024;
 
 export interface AuthedRequest extends Request {
   userId?: number;
@@ -184,6 +193,35 @@ router.patch('/me', requireAuth, (req: AuthedRequest, res) => {
   }
   db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar, req.userId);
   res.json({ ok: true });
+});
+
+/** 프로필 사진 업로드 — 이미지 raw body, 저장 후 avatar에 URL 설정 (최대 5MB) */
+router.post('/avatar', requireAuth, (req: AuthedRequest, res) => {
+  const ct = String(req.headers['content-type'] ?? '');
+  if (!ct.startsWith('image/')) {
+    return res.status(400).json({ error: '이미지 파일만 올릴 수 있어요' });
+  }
+  const ext = ct.split('/')[1]?.replace(/[^\w]/g, '').slice(0, 5) || 'png';
+  const filename = `avatar-${crypto.randomUUID()}.${ext}`;
+  const chunks: Buffer[] = [];
+  let size = 0;
+  req.on('data', (c: Buffer) => {
+    size += c.length;
+    if (size > MAX_AVATAR) {
+      res.status(413).json({ error: '사진이 너무 커요 (최대 5MB)' });
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
+  req.on('end', () => {
+    if (res.headersSent) return;
+    if (size === 0) return res.status(400).json({ error: '빈 파일이에요' });
+    fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.concat(chunks));
+    const url = `/api/workspaces/uploads/${filename}`;
+    db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(url, req.userId);
+    res.json({ avatar: url });
+  });
 });
 
 /** 비밀번호 변경 — 현재 비밀번호 확인 후 */

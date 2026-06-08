@@ -673,6 +673,21 @@ input:focus {
   flex-shrink: 0;
 }
 
+/* 공통 아바타 — 이모지 또는 사진 */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.avatar-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .nowbar-avatar {
   width: 44px;
   height: 44px;
@@ -1004,6 +1019,51 @@ input:focus {
   display: grid;
   place-items: center;
   font-size: 24px;
+}
+
+.avatar-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.avatar-upload-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 9px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.avatar-upload-btn:hover:not(:disabled) {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.avatar-upload-btn:disabled {
+  opacity: 0.6;
+}
+
+.avatar-upload-hint {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+.profile-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.profile-name-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 16px;
+  background: #dfe8f2;
 }
 
 .settings-section {
@@ -1865,6 +1925,9 @@ input:focus {
 }
 
 .hub-pcard-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
   font-size: 22px;
   line-height: 1;
   flex-shrink: 0;
@@ -2677,6 +2740,9 @@ input:focus {
 }
 
 .orgchart-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   font-size: 26px;
   line-height: 1;
   flex-shrink: 0;
@@ -2747,6 +2813,8 @@ input:focus {
 }
 
 .orgchart-avatar.sm {
+  width: 30px;
+  height: 30px;
   font-size: 20px;
 }
 

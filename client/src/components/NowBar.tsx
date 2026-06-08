@@ -4,6 +4,7 @@ import { useAuthStore } from '../store';
 import Logo from './Logo';
 import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
+import Avatar from './Avatar';
 
 export interface Todo {
   id: number;
@@ -209,11 +210,11 @@ function ProfileMenu({
   const logout = useAuthStore((s) => s.logout);
   return (
     <div className="nowbar-profile">
-      <div className="nowbar-avatar">{avatar}</div>
+      <Avatar value={avatar} className="nowbar-avatar" />
       <div className="profile-menu">
         <div className="profile-menu-box">
           <div className="profile-name">
-            {avatar} <b>{user?.username}</b>
+            <Avatar value={avatar} className="profile-name-avatar" /> <b>{user?.username}</b>
           </div>
           <button className="profile-item" onClick={onOpenSettings}>
             ⚙️ 설정

@@ -5,6 +5,7 @@ import { usePresence } from '../lib/usePresence';
 import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
 import CanvasBoard from './CanvasBoard';
+import Avatar from './Avatar';
 import {
   PhoneIcon,
   CalendarIcon,
@@ -321,7 +322,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                               key={p.username}
                               className={`hub-pcard${presence.has(p.username) ? ' online' : ''}`}
                             >
-                              <span className="hub-pcard-avatar">{p.avatar || '🙂'}</span>
+                              <Avatar value={p.avatar} className="hub-pcard-avatar" />
                               <span className="hub-pcard-info">
                                 <span className="hub-pcard-name">
                                   {p.username}

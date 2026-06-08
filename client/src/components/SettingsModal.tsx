@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
+import Avatar from './Avatar';
 
 const AVATARS = ['🐧', '🦊', '🐻', '🐼', '🐯', '🦁', '🐸', '🐰', '🦉', '🐢', '🐳', '🚀'];
 
@@ -13,11 +14,14 @@ interface Props {
 
 export default function SettingsModal({ open, onClose, avatar, onAvatarChange }: Props) {
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [pwError, setPwError] = useState('');
   const [pwDone, setPwDone] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -41,6 +45,32 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
       await api('/api/auth/me', { method: 'PATCH', body: { avatar: a } });
     } catch {
       /* 전역 토스트 */
+    }
+  }
+
+  async function uploadPhoto(file: File) {
+    if (!file.type.startsWith('image/')) {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: '이미지 파일만 올릴 수 있어요' }));
+      return;
+    }
+    setUploading(true);
+    try {
+      const res = await fetch('/api/auth/avatar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': file.type },
+        body: file,
+      });
+      const data = (await res.json()) as { avatar?: string; error?: string };
+      if (!res.ok || !data.avatar) throw new Error(data.error ?? '업로드 실패');
+      onAvatarChange(data.avatar);
+    } catch (err) {
+      window.dispatchEvent(
+        new CustomEvent('app:error', {
+          detail: err instanceof Error ? err.message : '사진 업로드에 실패했어요',
+        }),
+      );
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -69,11 +99,34 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">설정</div>
         <div className="settings-user">
-          <span className="settings-avatar">{avatar}</span>
+          <Avatar value={avatar} className="settings-avatar" />
           <b>{user?.username}</b>
         </div>
 
-        <div className="settings-section">아바타</div>
+        <div className="settings-section">프로필 사진</div>
+        <div className="avatar-upload">
+          <button
+            className="avatar-upload-btn"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? '올리는 중…' : '📷 사진 업로드'}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void uploadPhoto(f);
+              e.target.value = '';
+            }}
+          />
+          <span className="avatar-upload-hint">JPG·PNG, 최대 5MB</span>
+        </div>
+
+        <div className="settings-section">이모지로 선택</div>
         <div className="avatar-grid">
           {AVATARS.map((a) => (
             <button

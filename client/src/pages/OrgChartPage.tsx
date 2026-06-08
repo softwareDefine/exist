@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useOrgStore } from '../orgStore';
 import Logo from '../components/Logo';
+import Avatar from '../components/Avatar';
 import { BuildingIcon, UsersIcon } from '../components/Icons';
 import { POSITIONS } from '../lib/positions';
 
@@ -177,7 +178,7 @@ export default function OrgChartPage() {
               {detail.pending.map((p) => (
                 <div key={p.userId} className="orgchart-pending-row">
                   <span className="orgchart-pending-id">
-                    <span className="orgchart-avatar sm">{p.avatar || '🙂'}</span>
+                    <Avatar value={p.avatar} className="orgchart-avatar sm" />
                     {p.username}
                   </span>
                   <select
@@ -224,7 +225,7 @@ export default function OrgChartPage() {
                   {g.people.map((m) => (
                     <div key={m.userId} className={`orgchart-card${manager ? ' editable' : ''}`}>
                       <div className="orgchart-card-main">
-                        <span className="orgchart-avatar">{m.avatar || '🙂'}</span>
+                        <Avatar value={m.avatar} className="orgchart-avatar" />
                         <div className="orgchart-info">
                           <div className="orgchart-name">
                             {m.username}
