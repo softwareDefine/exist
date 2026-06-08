@@ -1269,9 +1269,15 @@ input:focus {
 
 .workspace-tabs {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-end;
+  gap: 0;
   overflow-x: auto;
+}
+
+/* 탭들을 브라우저 탭처럼 붙이고 인접 테두리는 공유(겹침 제거) */
+.workspace-tabs .ws-tab + .ws-tab,
+.workspace-tabs .ws-tab + .ws-create {
+  margin-left: -1px;
 }
 
 .ws-add {
@@ -1320,6 +1326,9 @@ input:focus {
 .ws-tab.active {
   color: var(--green);
   background: #fff;
+  /* 붙은 탭들 중 활성 탭을 위로 올려 양옆 테두리가 가려지지 않게 */
+  position: relative;
+  z-index: 1;
 }
 
 .workspace-canvas {
