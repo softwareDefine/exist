@@ -4953,7 +4953,7 @@ input:focus {
 }
 
 .hub-call.mini {
-  position: absolute;
+  position: fixed;
   right: 16px;
   bottom: 16px;
   width: 320px;
@@ -4962,8 +4962,50 @@ input:focus {
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
   border: 1px solid #2a2e37;
+}
+
+/* 무빙 통화창 드래그 바 */
+.hub-pip-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  z-index: 5;
+  cursor: move;
+}
+
+.hub-pip-grip {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.hub-pip-expand {
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  color: #fff;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.hub-pip-expand:hover {
+  background: rgba(255, 255, 255, 0.34);
 }
 
 .hub-call.mini .meeting-header,

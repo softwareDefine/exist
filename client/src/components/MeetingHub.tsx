@@ -148,6 +148,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
   const [codeMounted, setCodeMounted] = useState(false); // 코드 편집기도 한 번 열면 유지
   const [docMounted, setDocMounted] = useState(false); // 문서 편집기도 한 번 열면 유지
   const [sheetMounted, setSheetMounted] = useState(false); // 시트 편집기도 한 번 열면 유지
+  const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null); // 무빙 통화창 위치
+  const pipDragRef = useRef<{ dx: number; dy: number } | null>(null);
   const [todos, setTodos] = useState<MeetingTodo[]>([]);
   const [todoInput, setTodoInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -194,6 +196,39 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     if (subtab === 'doc') setDocMounted(true);
     if (subtab === 'sheet') setSheetMounted(true);
   }, [subtab]);
+
+  // 무빙 통화창 드래그
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      const d = pipDragRef.current;
+      if (!d) return;
+      const x = Math.max(6, Math.min(window.innerWidth - 90, e.clientX - d.dx));
+      const y = Math.max(6, Math.min(window.innerHeight - 60, e.clientY - d.dy));
+      setPipPos({ x, y });
+    }
+    function onUp() {
+      if (pipDragRef.current) {
+        pipDragRef.current = null;
+        document.body.style.userSelect = '';
+      }
+    }
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, []);
+
+  function startPipDrag(e: React.MouseEvent) {
+    const el = (e.currentTarget as HTMLElement).closest('.hub-call') as HTMLElement | null;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    pipDragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    if (!pipPos) setPipPos({ x: rect.left, y: rect.top });
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  }
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -600,9 +635,26 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
         {inCall && (
           <div
             className={`hub-call${subtab === 'call' ? '' : ' mini'}`}
-            onClick={subtab !== 'call' ? () => setSubtab('call') : undefined}
-            title={subtab !== 'call' ? '클릭하면 통화 화면으로' : undefined}
+            style={
+              subtab !== 'call' && pipPos
+                ? { left: pipPos.x, top: pipPos.y, right: 'auto', bottom: 'auto' }
+                : undefined
+            }
           >
+            {subtab !== 'call' && (
+              <div className="hub-pip-bar" onMouseDown={startPipDrag}>
+                <span className="hub-pip-grip" title="드래그해서 옮기기">
+                  ⠿ 통화
+                </span>
+                <button
+                  className="hub-pip-expand"
+                  onClick={() => setSubtab('call')}
+                  title="통화 화면으로"
+                >
+                  ⤢
+                </button>
+              </div>
+            )}
             <MeetingView
               code={code}
               embedded
