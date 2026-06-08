@@ -27,6 +27,7 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { yCollab } from 'y-codemirror.next';
 import { useAuthStore } from '../store';
+import { api } from '../api';
 import {
   PlusIcon,
   CloseIcon,
@@ -62,10 +63,21 @@ function loadPyodide(): Promise<unknown> {
   return pyodidePromise;
 }
 
-function runtimeForExt(ext: string): 'js' | 'py' | null {
+function runtimeForExt(ext: string): 'js' | 'py' | 'sql' | 'server' | null {
   if (['js', 'mjs', 'cjs', 'jsx'].includes(ext)) return 'js';
   if (ext === 'py') return 'py';
+  if (ext === 'sql') return 'sql';
+  if (['c', 'cc', 'cpp', 'cxx', 'java', 'go', 'rs', 'php', 'rb', 'ts', 'tsx'].includes(ext))
+    return 'server';
   return null;
+}
+
+function serverLang(ext: string): string {
+  if (ext === 'c') return 'c';
+  if (['cc', 'cpp', 'cxx'].includes(ext)) return 'cpp';
+  if (ext === 'rs') return 'rust';
+  if (['ts', 'tsx'].includes(ext)) return 'ts';
+  return ext; // java, go, php, rb
 }
 
 interface FileMeta {
@@ -313,10 +325,43 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
     setShowOutput(true);
     if (rt === 'js') runJS(code);
     else if (rt === 'py') runPython(code);
+    else if (rt === 'sql') runSql(code);
+    else if (rt === 'server') runServer(ext);
     else {
-      setOutput([
-        { type: 'error', text: `.${ext} 파일은 브라우저 실행을 지원하지 않아요 (JS·Python만 가능)` },
-      ]);
+      setOutput([{ type: 'error', text: `.${ext} 파일은 실행을 지원하지 않아요` }]);
+    }
+  }
+
+  async function runServer(ext: string) {
+    if (!conn || !activeFile) return;
+    setRunning(true);
+    setOutput([{ type: 'info', text: '▶ 서버에서 실행 중…' }]);
+    const projFiles = files
+      .filter((f) => !f.dir)
+      .map((f) => ({ path: f.name, content: conn.ydoc.getText(`file:${f.id}`).toString() }));
+    try {
+      const r = await api<{ lines: OutLine[] }>('/api/run/exec', {
+        method: 'POST',
+        body: { lang: serverLang(ext), entry: activeFile.name, files: projFiles },
+      });
+      setOutput(r.lines.length ? r.lines : [{ type: 'info', text: '(출력 없음)' }]);
+    } catch (e) {
+      setOutput([{ type: 'error', text: '서버 실행 실패: ' + String((e as Error)?.message ?? e) }]);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function runSql(sql: string) {
+    setRunning(true);
+    setOutput([{ type: 'info', text: '▶ SQL 실행 중…' }]);
+    try {
+      const r = await api<{ lines: OutLine[] }>('/api/run/sql', { method: 'POST', body: { sql } });
+      setOutput(r.lines);
+    } catch (e) {
+      setOutput([{ type: 'error', text: 'SQL 실행 실패: ' + String((e as Error)?.message ?? e) }]);
+    } finally {
+      setRunning(false);
     }
   }
 
