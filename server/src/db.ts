@@ -104,4 +104,16 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 조직 멤버의 직급(position)·부서(department) — 한국 회사 조직도
+try {
+  db.exec(`ALTER TABLE organization_members ADD COLUMN position TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+try {
+  db.exec(`ALTER TABLE organization_members ADD COLUMN department TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 export default db;

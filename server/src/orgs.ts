@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
+import { byPositionDesc } from './positions.js';
 
 /*
  * 조직(organization) — 회사·팀 단위.
@@ -161,10 +162,10 @@ router.get('/:id', (req: AuthedRequest, res) => {
 
   const members = db
     .prepare(
-      `SELECT u.id AS user_id, u.username, u.avatar, om.role, om.status, om.created_at
+      `SELECT u.id AS user_id, u.username, u.avatar, om.role, om.status,
+              om.position, om.department, om.created_at
        FROM organization_members om JOIN users u ON u.id = om.user_id
-       WHERE om.org_id = ? AND om.status = 'active'
-       ORDER BY CASE om.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 ELSE 2 END, om.created_at`,
+       WHERE om.org_id = ? AND om.status = 'active'`,
     )
     .all(orgId) as {
     user_id: number;
@@ -172,8 +173,19 @@ router.get('/:id', (req: AuthedRequest, res) => {
     avatar: string;
     role: string;
     status: string;
+    position: string | null;
+    department: string | null;
     created_at: string;
   }[];
+
+  // 부서 → 직급 높은 순 → 가입 순으로 정렬 (한국 조직도식)
+  members.sort((a, b) => {
+    const dep = (a.department ?? 'zzz').localeCompare(b.department ?? 'zzz', 'ko');
+    if (dep !== 0) return dep;
+    const pos = byPositionDesc(a, b);
+    if (pos !== 0) return pos;
+    return a.created_at.localeCompare(b.created_at);
+  });
 
   // 대기 신청은 관리자에게만
   const pending = manager
@@ -198,6 +210,8 @@ router.get('/:id', (req: AuthedRequest, res) => {
       username: m.username,
       avatar: m.avatar,
       role: m.role,
+      position: m.position,
+      department: m.department,
     })),
     pending: pending.map((p) => ({ userId: p.user_id, username: p.username, avatar: p.avatar })),
   });
@@ -237,26 +251,56 @@ router.delete('/:id/members/:userId', (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
-/** 역할 변경 — 멤버↔관리자 (owner만) */
+/* 멤버 정보 변경
+ *  - role(admin↔member): 소유자만
+ *  - position(직급)·department(부서): 관리자(owner/admin)
+ *  body에 온 필드만 부분 변경 */
 router.patch('/:id/members/:userId', (req: AuthedRequest, res) => {
   const orgId = Number(req.params.id);
   const targetId = Number(req.params.userId);
-  const role = String(req.body?.role ?? '');
-  if (!['admin', 'member'].includes(role)) {
-    return res.status(400).json({ error: '역할은 admin 또는 member여야 해요' });
-  }
-  const me = getMembership(orgId, req.userId!);
-  if (!me || me.status !== 'active' || me.role !== 'owner') {
-    return res.status(403).json({ error: '소유자만 역할을 바꿀 수 있어요' });
-  }
+  const body = req.body ?? {};
+
   const m = getMembership(orgId, targetId);
   if (!m || m.status !== 'active') return res.status(404).json({ error: '활성 멤버가 아니에요' });
-  if (m.role === 'owner') return res.status(400).json({ error: '소유자 역할은 바꿀 수 없어요' });
-  db.prepare('UPDATE organization_members SET role = ? WHERE org_id = ? AND user_id = ?').run(
-    role,
-    orgId,
-    targetId,
-  );
+
+  // 역할 변경 — 소유자 전용
+  if (body.role !== undefined) {
+    const role = String(body.role);
+    if (!['admin', 'member'].includes(role)) {
+      return res.status(400).json({ error: '역할은 admin 또는 member여야 해요' });
+    }
+    const me = getMembership(orgId, req.userId!);
+    if (!me || me.status !== 'active' || me.role !== 'owner') {
+      return res.status(403).json({ error: '소유자만 역할을 바꿀 수 있어요' });
+    }
+    if (m.role === 'owner') return res.status(400).json({ error: '소유자 역할은 바꿀 수 없어요' });
+    db.prepare('UPDATE organization_members SET role = ? WHERE org_id = ? AND user_id = ?').run(
+      role,
+      orgId,
+      targetId,
+    );
+  }
+
+  // 직급·부서 변경 — 관리자(owner/admin)
+  if (body.position !== undefined || body.department !== undefined) {
+    if (!isManager(orgId, req.userId!)) {
+      return res.status(403).json({ error: '직급·부서는 관리자만 설정할 수 있어요' });
+    }
+    if (body.position !== undefined) {
+      const position = body.position === null ? null : String(body.position).trim().slice(0, 20) || null;
+      db.prepare(
+        'UPDATE organization_members SET position = ? WHERE org_id = ? AND user_id = ?',
+      ).run(position, orgId, targetId);
+    }
+    if (body.department !== undefined) {
+      const department =
+        body.department === null ? null : String(body.department).trim().slice(0, 30) || null;
+      db.prepare(
+        'UPDATE organization_members SET department = ? WHERE org_id = ? AND user_id = ?',
+      ).run(department, orgId, targetId);
+    }
+  }
+
   res.json({ ok: true });
 });
 

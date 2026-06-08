@@ -5,6 +5,7 @@ import { requireAuth, type AuthedRequest } from './auth.js';
 import { invalidateBrief } from './agent.js';
 import { getRoomSize } from './sfu.js';
 import { isMember } from './orgs.js';
+import { byPositionDesc } from './positions.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -119,12 +120,32 @@ router.get('/:code', (req: AuthedRequest, res) => {
     | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
 
+  // 조직 회의면 그 조직 기준 직급·부서를 함께 (개인 회의면 null)
   const participants = db
     .prepare(
-      `SELECT u.username FROM meeting_participants mp
-       JOIN users u ON u.id = mp.user_id WHERE mp.meeting_id = ? ORDER BY mp.joined_at`,
+      `SELECT u.username, u.avatar, om.role, om.position, om.department
+       FROM meeting_participants mp
+       JOIN users u ON u.id = mp.user_id
+       LEFT JOIN organization_members om
+         ON om.user_id = u.id AND om.org_id = ? AND om.status = 'active'
+       WHERE mp.meeting_id = ? ORDER BY mp.joined_at`,
     )
-    .all(meeting.id) as { username: string }[];
+    .all(meeting.org_id, meeting.id) as {
+    username: string;
+    avatar: string | null;
+    role: string | null;
+    position: string | null;
+    department: string | null;
+  }[];
+
+  // 조직 회의는 부서→직급순 정렬
+  if (meeting.org_id != null) {
+    participants.sort((a, b) => {
+      const dep = (a.department ?? 'zzz').localeCompare(b.department ?? 'zzz', 'ko');
+      if (dep !== 0) return dep;
+      return byPositionDesc(a, b);
+    });
+  }
 
   res.json({
     id: meeting.id,
@@ -137,7 +158,13 @@ router.get('/:code', (req: AuthedRequest, res) => {
     orgId: meeting.org_id,
     orgName: meeting.org_name,
     online: getRoomSize(meeting.code),
-    participants: participants.map((p) => p.username),
+    participants: participants.map((p) => ({
+      username: p.username,
+      avatar: p.avatar,
+      role: p.role,
+      position: p.position,
+      department: p.department,
+    })),
   });
 });
 

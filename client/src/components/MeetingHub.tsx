@@ -7,6 +7,14 @@ import MeetingView, { type ChatMessage } from './MeetingView';
 import CanvasBoard from './CanvasBoard';
 import { PhoneIcon, CalendarIcon, ClockIcon, ChatIcon, FolderIcon } from './Icons';
 
+interface Participant {
+  username: string;
+  avatar: string | null;
+  role: 'owner' | 'admin' | 'member' | null;
+  position: string | null;
+  department: string | null;
+}
+
 interface MeetingDetail {
   id: number;
   code: string;
@@ -15,8 +23,10 @@ interface MeetingDetail {
   ends_at: string | null;
   host: string;
   isHost: boolean;
+  orgId: number | null;
+  orgName: string | null;
   online: number;
-  participants: string[];
+  participants: Participant[];
 }
 
 function formatRange(starts: string | null, ends: string | null): string | null {
@@ -30,6 +40,23 @@ function formatRange(starts: string | null, ends: string | null): string | null 
   if (!ends) return fmt(s);
   const e = new Date(ends);
   return `${fmt(s)} ~ ${fmt(e)}`;
+}
+
+/** 참가자를 부서별로 묶기 — 부서 있는 그룹 먼저(가나다), 미지정은 마지막 */
+function groupByDept(people: Participant[]): { dept: string | null; people: Participant[] }[] {
+  const map = new Map<string | null, Participant[]>();
+  for (const p of people) {
+    const key = p.department || null;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(p);
+  }
+  return [...map.entries()]
+    .map(([dept, people]) => ({ dept, people }))
+    .sort((a, b) => {
+      if (a.dept === null) return 1;
+      if (b.dept === null) return -1;
+      return a.dept.localeCompare(b.dept, 'ko');
+    });
 }
 
 type SubTab = 'dash' | 'call' | 'chat' | 'canvas';
@@ -223,21 +250,46 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                       )}
                     </span>
                   </div>
-                  <div className="hub-row">
-                    <span className="hub-label">참가자</span>
-                    <span className="hub-participants">
-                      {detail.participants.map((p) => (
-                        <span
-                          key={p}
-                          className={`hub-person${presence.has(p) ? ' online' : ''}`}
-                          title={presence.has(p) ? '접속 중' : '오프라인'}
-                        >
-                          <i className="presence-dot" />
-                          {p}
-                        </span>
-                      ))}
-                    </span>
+                </div>
+
+                {/* 참가자 — 조직 회의면 부서별 명함, 개인 회의면 단순 목록 */}
+                <div className="hub-roster">
+                  <div className="hub-roster-head">
+                    참가자 <b>{detail.participants.length}</b>
+                    {detail.orgName && <span className="hub-roster-org">· {detail.orgName}</span>}
                   </div>
+                  {groupByDept(detail.participants).map((group) => (
+                    <div key={group.dept ?? '__none'} className="hub-dept">
+                      {group.dept && <div className="hub-dept-name">{group.dept}</div>}
+                      <div className="hub-cards">
+                        {group.people.map((p) => (
+                          <div
+                            key={p.username}
+                            className={`hub-pcard${presence.has(p.username) ? ' online' : ''}`}
+                          >
+                            <span className="hub-pcard-avatar">{p.avatar || '🙂'}</span>
+                            <span className="hub-pcard-info">
+                              <span className="hub-pcard-name">
+                                {p.username}
+                                {p.position && <span className="hub-pcard-pos">{p.position}</span>}
+                                {p.role === 'owner' && <span className="hub-pcard-badge">소유자</span>}
+                                {p.role === 'admin' && (
+                                  <span className="hub-pcard-badge admin">관리자</span>
+                                )}
+                              </span>
+                              <span className="hub-pcard-sub">
+                                {p.department || (detail.orgName ? '부서 미지정' : '')}
+                                {p.username === detail.host && (
+                                  <span className="hub-pcard-host"> · 호스트</span>
+                                )}
+                              </span>
+                            </span>
+                            <i className="presence-dot" title={presence.has(p.username) ? '접속 중' : '오프라인'} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 <button className="hub-join" onClick={joinCall}>

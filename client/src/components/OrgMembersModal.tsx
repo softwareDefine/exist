@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { useOrgStore } from '../orgStore';
+import { POSITIONS } from '../lib/positions';
 
 interface Member {
   userId: number;
   username: string;
   avatar: string;
   role: 'owner' | 'admin' | 'member';
+  position: string | null;
+  department: string | null;
 }
 interface Pending {
   userId: number;
@@ -77,6 +80,20 @@ export default function OrgMembersModal({ orgId, onClose }: Props) {
     await api(`/api/orgs/${orgId}/members/${userId}`, { method: 'PATCH', body: { role } });
     await load();
   }
+  async function setPosition(userId: number, position: string) {
+    await api(`/api/orgs/${orgId}/members/${userId}`, {
+      method: 'PATCH',
+      body: { position: position || null },
+    });
+    await load();
+  }
+  async function setDepartment(userId: number, department: string) {
+    await api(`/api/orgs/${orgId}/members/${userId}`, {
+      method: 'PATCH',
+      body: { department: department || null },
+    });
+    await load();
+  }
   async function copyCode() {
     if (!detail?.joinCode) return;
     try {
@@ -131,28 +148,71 @@ export default function OrgMembersModal({ orgId, onClose }: Props) {
             <div className="org-section">
               <div className="org-section-title">멤버 ({detail.members.length})</div>
               {detail.members.map((m) => (
-                <div key={m.userId} className="org-member-row">
-                  <span className="org-member-id">
-                    <span className="org-avatar">{m.avatar}</span>
-                    {m.username}
-                    <span className={`org-role ${m.role}`}>{ROLE_LABEL[m.role]}</span>
-                  </span>
-                  {/* 소유자만 역할 변경·제거 가능, 자기 자신/소유자 대상 제외 */}
-                  {detail.myRole === 'owner' && m.role !== 'owner' && (
-                    <span className="org-member-actions">
-                      {m.role === 'member' ? (
-                        <button className="org-btn" onClick={() => setRole(m.userId, 'admin')}>
-                          관리자로
-                        </button>
-                      ) : (
-                        <button className="org-btn" onClick={() => setRole(m.userId, 'member')}>
-                          멤버로
-                        </button>
-                      )}
-                      <button className="org-btn reject" onClick={() => remove(m.userId)}>
-                        제거
-                      </button>
+                <div key={m.userId} className="org-member-card">
+                  <div className="org-member-top">
+                    <span className="org-member-id">
+                      <span className="org-avatar">{m.avatar}</span>
+                      {m.username}
+                      <span className={`org-role ${m.role}`}>{ROLE_LABEL[m.role]}</span>
                     </span>
+                    {/* 소유자만 역할 변경·제거, 소유자 대상 제외 */}
+                    {detail.myRole === 'owner' && m.role !== 'owner' && (
+                      <span className="org-member-actions">
+                        {m.role === 'member' ? (
+                          <button className="org-btn" onClick={() => setRole(m.userId, 'admin')}>
+                            관리자로
+                          </button>
+                        ) : (
+                          <button className="org-btn" onClick={() => setRole(m.userId, 'member')}>
+                            멤버로
+                          </button>
+                        )}
+                        <button className="org-btn reject" onClick={() => remove(m.userId)}>
+                          제거
+                        </button>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 직급·부서 — 관리자면 편집, 아니면 표시만 */}
+                  {detail.isManager ? (
+                    <div className="org-member-fields">
+                      <select
+                        className="org-field-select"
+                        value={m.position ?? ''}
+                        onChange={(e) => setPosition(m.userId, e.target.value)}
+                        title="직급"
+                      >
+                        <option value="">직급 미지정</option>
+                        {POSITIONS.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                        {m.position && !POSITIONS.includes(m.position as (typeof POSITIONS)[number]) && (
+                          <option value={m.position}>{m.position}</option>
+                        )}
+                      </select>
+                      <input
+                        className="org-field-input"
+                        defaultValue={m.department ?? ''}
+                        placeholder="부서 (예: 개발팀)"
+                        maxLength={30}
+                        title="부서"
+                        onBlur={(e) => {
+                          if ((e.target.value || '') !== (m.department ?? '')) {
+                            void setDepartment(m.userId, e.target.value);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    (m.position || m.department) && (
+                      <div className="org-member-meta">
+                        {m.department && <span>{m.department}</span>}
+                        {m.position && <span className="org-member-pos">{m.position}</span>}
+                      </div>
+                    )
                   )}
                 </div>
               ))}
