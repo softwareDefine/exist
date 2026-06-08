@@ -2475,6 +2475,153 @@ input:focus {
   white-space: nowrap;
 }
 
+/* 협업 스프레드시트 */
+.sheet-editor {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.sheet-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.sheet-cellref {
+  min-width: 54px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  background: #f1f3f5;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 8px;
+}
+
+.sheet-formula {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13.5px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+.sheet-formula:focus {
+  outline: none;
+  border-color: var(--green);
+}
+
+.sheet-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+
+.sheet-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+}
+
+.sheet-grid {
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+}
+
+.sheet-grid th,
+.sheet-grid td {
+  border: 1px solid #e3e6ea;
+  height: 26px;
+}
+
+.sheet-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f6f7f9;
+  color: var(--text-sub);
+  font-weight: 600;
+  width: 96px;
+  min-width: 96px;
+}
+
+.sheet-corner {
+  position: sticky;
+  left: 0;
+  z-index: 3 !important;
+  width: 44px !important;
+  min-width: 44px;
+  background: #eef0f2 !important;
+}
+
+.sheet-rownum {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 44px;
+  min-width: 44px;
+  background: #f6f7f9;
+  color: var(--text-sub);
+  font-weight: 600;
+  text-align: center;
+}
+
+.sheet-grid thead th.sel,
+.sheet-rownum.sel {
+  background: rgba(33, 200, 24, 0.14);
+  color: var(--green);
+}
+
+.sheet-grid td {
+  padding: 0 7px;
+  max-width: 96px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: cell;
+  color: #1c2024;
+}
+
+.sheet-grid td.formula {
+  color: #0b6bcb;
+}
+
+.sheet-grid td.sel {
+  outline: 2px solid var(--green);
+  outline-offset: -2px;
+  background: rgba(33, 200, 24, 0.05);
+}
+
+.sheet-cell-val {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-cell-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 0;
+  background: transparent;
+  color: #1c2024;
+}
+
 .hub-call-lobby {
   flex: 1;
   display: grid;

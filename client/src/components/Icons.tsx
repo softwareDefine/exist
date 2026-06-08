@@ -315,6 +315,15 @@ export function DocIcon({ size }: IconProps) {
   );
 }
 
+export function SheetIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.5 9.5h17M3.5 14.5h17M9 9.5v10M15 9.5v10" stroke="currentColor" strokeWidth="1.5" />
+    </Svg>
+  );
+}
+
 export function CodeIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
