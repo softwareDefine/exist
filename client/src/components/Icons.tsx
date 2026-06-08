@@ -34,10 +34,14 @@ export function ChatIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
       <path
-        d="M4 3h16c1.1 0 2 .9 2 2v11c0 1.1-.9 2-2 2H8.5L4 22V5c0-1.1.9-2 2-2z"
-        fill="currentColor"
-        transform="translate(-1 -1)"
+        d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v6A2.5 2.5 0 0 1 17.5 14H9l-4 4v-4h-.5A.5.5 0 0 1 4 13.5v-8z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
       />
+      <circle cx="8.5" cy="8.5" r="1.05" fill="currentColor" />
+      <circle cx="12" cy="8.5" r="1.05" fill="currentColor" />
+      <circle cx="15.5" cy="8.5" r="1.05" fill="currentColor" />
     </Svg>
   );
 }
@@ -45,10 +49,14 @@ export function ChatIcon({ size }: IconProps) {
 export function CalendarIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
-      <rect x="3.2" y="5" width="17.6" height="16" rx="2" stroke="currentColor" strokeWidth="1.9" />
-      <path d="M3.2 9.5h17.6" stroke="currentColor" strokeWidth="1.9" />
-      <path d="M8 2.8v4M16 2.8v4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
-      <rect x="7" y="13" width="4" height="4" rx="0.8" fill="currentColor" />
+      <rect x="3.3" y="5" width="17.4" height="15.7" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.3 9.3h17.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 3v3.4M16 3v3.4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="8" cy="13" r="1.1" fill="currentColor" />
+      <circle cx="12" cy="13" r="1.1" fill="currentColor" />
+      <circle cx="16" cy="13" r="1.1" fill="currentColor" />
+      <circle cx="8" cy="16.8" r="1.1" fill="currentColor" />
+      <circle cx="12" cy="16.8" r="1.1" fill="currentColor" />
     </Svg>
   );
 }
