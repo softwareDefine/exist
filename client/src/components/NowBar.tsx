@@ -6,7 +6,7 @@ import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
-import { PanelLeftIcon } from './Icons';
+import { PanelLeftIcon, CheckIcon } from './Icons';
 
 export interface Todo {
   id: number;
@@ -394,8 +394,10 @@ export default function NowBar({
           <div className="nowbar-todos">
             {shownTodos.map((todo) => (
               <div key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
-                <input type="checkbox" checked={!!todo.done} readOnly />
-                {todo.title}
+                <span className="nowbar-todo-check" aria-hidden>
+                  <CheckIcon size={11} />
+                </span>
+                <span className="nowbar-todo-text">{todo.title}</span>
               </div>
             ))}
             {todos.length === 0 && <div className="nowbar-todo">투두를 추가해보세요</div>}
@@ -472,14 +474,17 @@ export default function NowBar({
             {card === 1 && (
               <div className="nb-expand-todos">
                 <div className="nb-expand-title">할 일</div>
-                {todos.map((todo) => (
+                {[...todos].sort((a, b) => a.done - b.done).map((todo) => (
                   <label key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
                     <input
                       type="checkbox"
                       checked={!!todo.done}
                       onChange={() => onToggleTodo?.(todo)}
                     />
-                    {todo.title}
+                    <span className="nowbar-todo-check" aria-hidden>
+                      <CheckIcon size={11} />
+                    </span>
+                    <span className="nowbar-todo-text">{todo.title}</span>
                   </label>
                 ))}
                 {todos.length === 0 && <div className="nb-next-empty">할 일이 없어요</div>}

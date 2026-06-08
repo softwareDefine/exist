@@ -658,15 +658,41 @@ input:focus {
 .nowbar-todo {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   white-space: nowrap;
 }
 
+/* 네이티브 체크박스는 숨기고 커스텀 박스로 대체 (회의 할 일과 동일 디자인) */
 .nowbar-todo input {
-  accent-color: var(--green);
+  display: none;
 }
 
-.nowbar-todo.done {
+.nowbar-todo-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.6px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: transparent;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.nowbar-todo.done .nowbar-todo-check {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.nowbar-todo-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nowbar-todo.done .nowbar-todo-text {
   color: var(--text-sub);
   text-decoration: line-through;
 }
