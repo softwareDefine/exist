@@ -2702,6 +2702,84 @@ input:focus {
   margin-top: 1px;
 }
 
+/* 가입 대기 섹션 */
+.orgchart-pending {
+  background: #fff;
+  border: 1px solid var(--green);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.orgchart-pending-head {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.orgchart-pending-head b {
+  color: var(--green);
+}
+
+.orgchart-pending-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.orgchart-pending-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 130px;
+}
+
+.orgchart-pending-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.orgchart-avatar.sm {
+  font-size: 20px;
+}
+
+/* 관리자 인라인 편집 카드 */
+.orgchart-card.editable {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.orgchart-card-main {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.orgchart-card-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.orgchart-card-edit .org-field-select {
+  flex: 0 0 96px;
+}
+
+.orgchart-card-edit .org-field-input {
+  flex: 1;
+  min-width: 90px;
+}
+
 /* nowbar 일정 클릭 → 회의 탭 */
 .nb-current.clickable,
 .nb-next-row.clickable {
