@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { useOrgStore, type OrgContext } from '../orgStore';
-import { FolderIcon, PhoneIcon, CloseIcon } from './Icons';
+import { FolderIcon, CamIcon, CloseIcon } from './Icons';
 import CanvasBoard from './CanvasBoard';
 import MeetingHub from './MeetingHub';
 
@@ -253,7 +253,7 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             {(unread.get(t.code) ?? 0) > 0 && (
               <span className="tab-badge">{unread.get(t.code)}</span>
             )}
-            <PhoneIcon size={14} />
+            <CamIcon size={15} />
             <span className="ws-tab-text">
               {tabMeta[t.code]?.orgName && (
                 <span className="ws-tab-org">{tabMeta[t.code].orgName}</span>
