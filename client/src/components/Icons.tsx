@@ -101,6 +101,22 @@ export function FolderIcon({ size }: IconProps) {
   );
 }
 
+/** 체크마크만 (박스 없음) — 커스텀 체크박스 안에 넣는 용도 */
+export function CheckMarkIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M5 12.5l4.2 4.2L19 6.5"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
 export function CheckIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

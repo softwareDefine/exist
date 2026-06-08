@@ -22,6 +22,7 @@ import {
   SheetIcon,
   UsersIcon,
   CheckIcon,
+  CheckMarkIcon,
 } from './Icons';
 
 interface Participant {
@@ -455,7 +456,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                               onChange={() => void toggleTodo(t)}
                             />
                             <span className="hub-todo-check" aria-hidden>
-                              <CheckIcon size={12} />
+                              <CheckMarkIcon size={12} />
                             </span>
                             <span className="hub-todo-text">{t.title}</span>
                           </label>

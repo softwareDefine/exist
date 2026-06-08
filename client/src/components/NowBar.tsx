@@ -6,7 +6,7 @@ import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
-import { PanelLeftIcon, CheckIcon } from './Icons';
+import { PanelLeftIcon, CheckMarkIcon } from './Icons';
 
 export interface Todo {
   id: number;
@@ -395,7 +395,7 @@ export default function NowBar({
             {shownTodos.map((todo) => (
               <div key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
                 <span className="nowbar-todo-check" aria-hidden>
-                  <CheckIcon size={11} />
+                  <CheckMarkIcon size={11} />
                 </span>
                 <span className="nowbar-todo-text">{todo.title}</span>
               </div>
@@ -482,7 +482,7 @@ export default function NowBar({
                       onChange={() => onToggleTodo?.(todo)}
                     />
                     <span className="nowbar-todo-check" aria-hidden>
-                      <CheckIcon size={11} />
+                      <CheckMarkIcon size={11} />
                     </span>
                     <span className="nowbar-todo-text">{todo.title}</span>
                   </label>
