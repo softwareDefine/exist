@@ -258,6 +258,61 @@ router.delete('/:code', (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
+/** 회의 일정 이벤트 목록 (참가자 공유) */
+router.get('/:code/events', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as { id: number } | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  const rows = db
+    .prepare(
+      `SELECT e.id, e.title, e.date, e.time, u.username AS author, e.created_by
+       FROM meeting_events e JOIN users u ON u.id = e.created_by
+       WHERE e.meeting_id = ? ORDER BY e.date, COALESCE(e.time, '99:99')`,
+    )
+    .all(meeting.id);
+  res.json(rows);
+});
+
+/** 회의 일정 이벤트 추가 */
+router.post('/:code/events', (req: AuthedRequest, res) => {
+  const { title, date, time } = req.body ?? {};
+  if (!title || !String(title).trim()) return res.status(400).json({ error: '일정 제목을 입력하세요' });
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+    return res.status(400).json({ error: '날짜를 확인하세요' });
+  }
+  const meeting = db
+    .prepare('SELECT id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as { id: number } | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  const t = time && /^\d{2}:\d{2}$/.test(String(time)) ? String(time) : null;
+  const info = db
+    .prepare(
+      'INSERT INTO meeting_events (meeting_id, title, date, time, created_by) VALUES (?, ?, ?, ?, ?)',
+    )
+    .run(meeting.id, String(title).trim().slice(0, 80), String(date), t, req.userId);
+  res.json({ id: info.lastInsertRowid, title, date, time: t });
+});
+
+/** 회의 일정 이벤트 삭제 (작성자 또는 호스트) */
+router.delete('/:code/events/:eventId', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  const ev = db
+    .prepare('SELECT created_by FROM meeting_events WHERE id = ? AND meeting_id = ?')
+    .get(req.params.eventId, meeting.id) as { created_by: number } | undefined;
+  if (!ev) return res.json({ ok: true });
+  if (ev.created_by !== req.userId && meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '작성자나 호스트만 삭제할 수 있어요' });
+  }
+  db.prepare('DELETE FROM meeting_events WHERE id = ?').run(req.params.eventId);
+  res.json({ ok: true });
+});
+
 /** 회의 채팅 히스토리 (최근 100개) */
 router.get('/:code/messages', (req: AuthedRequest, res) => {
   const meeting = db

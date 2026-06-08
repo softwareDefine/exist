@@ -91,6 +91,18 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, id);
+
+  /* 회의별 일정 이벤트 — 달력에서 관리 (회의 참가자 공유) */
+  CREATE TABLE IF NOT EXISTS meeting_events (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id),
+    title      TEXT NOT NULL,
+    date       TEXT NOT NULL,
+    time       TEXT,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_mevents_meeting ON meeting_events(meeting_id, date);
 `);
 
 // 마이그레이션: 복구 코드 컬럼 (기존 DB에 없으면 추가)

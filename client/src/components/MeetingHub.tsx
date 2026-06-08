@@ -7,6 +7,7 @@ import MeetingView, { type ChatMessage } from './MeetingView';
 import CanvasBoard from './CanvasBoard';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
+import MeetingSchedule from './MeetingSchedule';
 import {
   PhoneIcon,
   CalendarIcon,
@@ -69,16 +70,6 @@ function groupByDept(people: Participant[]): { dept: string | null; people: Part
       if (b.dept === null) return -1;
       return a.dept.localeCompare(b.dept, 'ko');
     });
-}
-
-/** "2026년 6월 8일 (월) 오후 2시 30분" */
-function formatFull(iso: string): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  const days = ['일', '월', '화', '수', '목', '금', '토'];
-  const ampm = d.getHours() < 12 ? '오전' : '오후';
-  const h = d.getHours() % 12 || 12;
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]}) ${ampm} ${h}시 ${String(d.getMinutes()).padStart(2, '0')}분`;
 }
 
 /** 일정 진행 상태 뱃지 */
@@ -499,44 +490,15 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           </div>
         )}
 
-        {/* 일정 서브탭 */}
-        {subtab === 'schedule' && (
+        {/* 일정 서브탭 — 달력으로 회의 일정 관리 */}
+        {subtab === 'schedule' && detail && (
           <div className="hub-schedule">
-            {!detail ? (
-              <div className="hub-loading">불러오는 중…</div>
-            ) : range ? (
-              <div className="hub-sched-card">
-                {(() => {
-                  const st = scheduleState(detail.starts_at, detail.ends_at);
-                  return st ? (
-                    <div className={`hub-sched-badge lg ${st.cls}`}>{st.label}</div>
-                  ) : null;
-                })()}
-                <div className="hub-sched-rows">
-                  {detail.starts_at && (
-                    <div className="hub-sched-row">
-                      <span className="hub-sched-label">시작</span>
-                      <span className="hub-sched-val">{formatFull(detail.starts_at)}</span>
-                    </div>
-                  )}
-                  {detail.ends_at && (
-                    <div className="hub-sched-row">
-                      <span className="hub-sched-label">종료</span>
-                      <span className="hub-sched-val">{formatFull(detail.ends_at)}</span>
-                    </div>
-                  )}
-                </div>
-                {detail.isHost && (
-                  <div className="hub-sched-hint">시작·종료 시각은 회의 설정에서 바꿀 수 있어요</div>
-                )}
-              </div>
-            ) : (
-              <div className="hub-sched-empty">
-                <CalendarIcon size={40} />
-                <p>아직 일정이 정해지지 않았어요</p>
-                {detail.isHost && <span>회의 설정에서 시작·종료 시각을 정해보세요</span>}
-              </div>
-            )}
+            <MeetingSchedule
+              code={code}
+              isHost={detail.isHost}
+              startsAt={detail.starts_at}
+              endsAt={detail.ends_at}
+            />
           </div>
         )}
 
