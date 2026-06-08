@@ -14,7 +14,6 @@ import MeetingSchedule from './MeetingSchedule';
 import {
   PhoneIcon,
   CalendarIcon,
-  ClockIcon,
   ChatIcon,
   GridIcon,
   PenIcon,
@@ -345,117 +344,81 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
               <div className="hub-loading">회의 정보를 불러오는 중…</div>
             ) : (
               <>
-                {/* 1. 회의 정보 — 상단 풀폭 */}
-                <section className="hub-section full hub-info-section">
-                  <div className="hub-head">
-                    <MeetingThumb
-                      id={detail.id}
-                      title={detail.title}
-                      thumbnail={detail.thumbnail}
-                      className="hub-thumb"
-                    />
-                    <div className="hub-title-wrap">
-                      <h2 className="hub-title">{detail.title}</h2>
-                      <div className="hub-sub">
-                        호스트 <b>{detail.host}</b>
-                        {detail.isHost && ' (나)'}
-                        {detail.orgName && <span className="hub-sub-org"> · {detail.orgName}</span>}
-                      </div>
+                {/* HERO — 회의 정보 + 통화 CTA 통합 */}
+                <section className="hub-hero">
+                  <MeetingThumb
+                    id={detail.id}
+                    title={detail.title}
+                    thumbnail={detail.thumbnail}
+                    className="hub-hero-thumb"
+                  />
+                  <div className="hub-hero-main">
+                    <h2 className="hub-hero-title">{detail.title}</h2>
+                    <div className="hub-hero-sub">
+                      호스트 <b>{detail.host}</b>
+                      {detail.isHost && ' (나)'}
+                      {detail.orgName && <span className="hub-sub-org"> · {detail.orgName}</span>}
                     </div>
-                    <button className="hub-code lg" onClick={copyCode} title="클릭해서 복사">
-                      {detail.code} {copied ? '✓' : '⧉'}
+                    <div className="hub-hero-chips">
+                      <button className="hub-hero-code" onClick={copyCode} title="클릭해서 복사">
+                        {detail.code} {copied ? '✓' : '⧉'}
+                      </button>
+                      {range && (
+                        <span className="hub-hero-when">
+                          <CalendarIcon size={13} /> {range}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="hub-hero-cta">
+                    {detail.online > 0 ? (
+                      <span className="hub-live">
+                        <i className="live-dot" /> {detail.online}명 통화 중
+                      </span>
+                    ) : (
+                      <span className="hub-hero-idle">대기 중</span>
+                    )}
+                    <button className="hub-join lg" onClick={joinCall}>
+                      <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여'}
                     </button>
                   </div>
                 </section>
 
-                {/* 2. 통화 정보 */}
-                <section className="hub-section">
-                  <div className="hub-section-title">
-                    <PhoneIcon size={15} /> 통화
-                  </div>
-                  <div className="hub-call-status">
-                    {detail.online > 0 ? (
-                      <span className="hub-live">
-                        <i className="live-dot" /> 지금 {detail.online}명 통화 중
-                      </span>
-                    ) : (
-                      <span className="hub-call-idle">
-                        <ClockIcon size={14} /> 아직 통화에 아무도 없어요
-                      </span>
-                    )}
-                  </div>
-                  <button className="hub-join" onClick={joinCall}>
-                    <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여하기'}
-                  </button>
-                </section>
-
-                {/* 3. 일정 정보 */}
-                <section className="hub-section">
-                  <div className="hub-section-title">
-                    <CalendarIcon size={15} /> 일정
-                  </div>
-                  {range ? (
-                    <>
-                      <div className="hub-sched-time">{range}</div>
-                      {(() => {
-                        const st = scheduleState(detail.starts_at, detail.ends_at);
-                        return st ? (
-                          <span className={`hub-sched-badge ${st.cls}`}>{st.label}</span>
-                        ) : null;
-                      })()}
-                    </>
-                  ) : (
-                    <div className="hub-section-empty">아직 일정이 정해지지 않았어요</div>
-                  )}
-                </section>
-
-                {/* 4. 사용자 정보 (참가자) — 절반, 조직 회의면 부서별 명함 */}
-                <section className="hub-section">
-                  <div className="hub-section-title">
-                    <UsersIcon size={15} /> 참가자 <b>{detail.participants.length}</b>
-                    {detail.orgName && <span className="hub-roster-org">· {detail.orgName}</span>}
-                  </div>
-                  <div className="hub-roster">
-                    {groupByDept(detail.participants).map((group) => (
-                      <div key={group.dept ?? '__none'} className="hub-dept">
-                        {group.dept && <div className="hub-dept-name">{group.dept}</div>}
-                        <div className="hub-cards">
-                          {group.people.map((p) => (
-                            <div
-                              key={p.username}
-                              className={`hub-pcard${presence.has(p.username) ? ' online' : ''}`}
-                            >
-                              <Avatar value={p.avatar} className="hub-pcard-avatar" />
-                              <span className="hub-pcard-info">
-                                <span className="hub-pcard-name">
-                                  {p.username}
-                                  {p.role === 'owner' && (
-                                    <span className="hub-pcard-badge">소유자</span>
-                                  )}
-                                  {p.role === 'admin' && (
-                                    <span className="hub-pcard-badge admin">관리자</span>
-                                  )}
-                                </span>
-                                <span className="hub-pcard-sub">
-                                  {p.position && <b className="hub-pcard-pos">{p.position}</b>}
-                                  {p.position && (p.department || detail.orgName) && ' · '}
-                                  {p.department || (detail.orgName ? '부서 미지정' : '')}
-                                  {p.username === detail.host && (
-                                    <span className="hub-pcard-host"> · 호스트</span>
-                                  )}
-                                </span>
-                              </span>
-                              <i
-                                className="presence-dot"
-                                title={presence.has(p.username) ? '접속 중' : '오프라인'}
-                              />
-                            </div>
-                          ))}
-                        </div>
+                {/* 본문: 메인 + 사이드 (Teams식 2단) */}
+                <div className="hub-dash-cols">
+                  <div className="hub-dash-main">
+                    {/* 협업 공간 앱 런처 */}
+                    <section className="hub-section hub-apps-card">
+                      <div className="hub-section-title">
+                        <GridIcon size={15} /> 협업 공간
                       </div>
-                    ))}
-                  </div>
-                </section>
+                      <div className="hub-apps">
+                        <button className="hub-app" onClick={() => setSubtab('canvas')}>
+                          <span className="hub-app-ic canvas">
+                            <PenIcon size={20} />
+                          </span>
+                          캔버스
+                        </button>
+                        <button className="hub-app" onClick={() => setSubtab('code')}>
+                          <span className="hub-app-ic code">
+                            <CodeIcon size={20} />
+                          </span>
+                          코드
+                        </button>
+                        <button className="hub-app" onClick={() => setSubtab('doc')}>
+                          <span className="hub-app-ic doc">
+                            <DocIcon size={20} />
+                          </span>
+                          문서
+                        </button>
+                        <button className="hub-app" onClick={() => setSubtab('sheet')}>
+                          <span className="hub-app-ic sheet">
+                            <SheetIcon size={20} />
+                          </span>
+                          시트
+                        </button>
+                      </div>
+                    </section>
 
                 {/* 5. 할 일 (회의 공유) */}
                 <section className="hub-section">
@@ -543,16 +506,78 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                   )}
                 </section>
 
-                {/* 6. 공동 편집 캔버스 바로가기 */}
-                <section className="hub-section hub-canvas-card" onClick={() => setSubtab('canvas')}>
-                  <div className="hub-section-title">
-                    <PenIcon size={15} /> 공동 편집 캔버스
-                    <span className="hub-preview-more">열기 ›</span>
                   </div>
-                  <div className="hub-section-empty">
-                    회의마다 자동으로 생기는 화이트보드예요 — 함께 그리고 메모하세요
-                  </div>
-                </section>
+
+                  <aside className="hub-dash-side">
+                    {/* 일정 */}
+                    <section className="hub-section">
+                      <div className="hub-section-title">
+                        <CalendarIcon size={15} /> 일정
+                      </div>
+                      {range ? (
+                        <>
+                          <div className="hub-sched-time">{range}</div>
+                          {(() => {
+                            const st = scheduleState(detail.starts_at, detail.ends_at);
+                            return st ? (
+                              <span className={`hub-sched-badge ${st.cls}`}>{st.label}</span>
+                            ) : null;
+                          })()}
+                        </>
+                      ) : (
+                        <div className="hub-section-empty">아직 일정이 정해지지 않았어요</div>
+                      )}
+                    </section>
+
+                    {/* 참가자 — 조직 회의면 부서별 명함 */}
+                    <section className="hub-section">
+                      <div className="hub-section-title">
+                        <UsersIcon size={15} /> 참가자 <b>{detail.participants.length}</b>
+                        {detail.orgName && <span className="hub-roster-org">· {detail.orgName}</span>}
+                      </div>
+                      <div className="hub-roster">
+                        {groupByDept(detail.participants).map((group) => (
+                          <div key={group.dept ?? '__none'} className="hub-dept">
+                            {group.dept && <div className="hub-dept-name">{group.dept}</div>}
+                            <div className="hub-cards">
+                              {group.people.map((p) => (
+                                <div
+                                  key={p.username}
+                                  className={`hub-pcard${presence.has(p.username) ? ' online' : ''}`}
+                                >
+                                  <Avatar value={p.avatar} className="hub-pcard-avatar" />
+                                  <span className="hub-pcard-info">
+                                    <span className="hub-pcard-name">
+                                      {p.username}
+                                      {p.role === 'owner' && (
+                                        <span className="hub-pcard-badge">소유자</span>
+                                      )}
+                                      {p.role === 'admin' && (
+                                        <span className="hub-pcard-badge admin">관리자</span>
+                                      )}
+                                    </span>
+                                    <span className="hub-pcard-sub">
+                                      {p.position && <b className="hub-pcard-pos">{p.position}</b>}
+                                      {p.position && (p.department || detail.orgName) && ' · '}
+                                      {p.department || (detail.orgName ? '부서 미지정' : '')}
+                                      {p.username === detail.host && (
+                                        <span className="hub-pcard-host"> · 호스트</span>
+                                      )}
+                                    </span>
+                                  </span>
+                                  <i
+                                    className="presence-dot"
+                                    title={presence.has(p.username) ? '접속 중' : '오프라인'}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  </aside>
+                </div>
               </>
             )}
           </div>

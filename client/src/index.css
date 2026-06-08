@@ -1569,24 +1569,224 @@ input:focus {
 
 .hub-dash {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   padding: 22px;
-  align-content: start;
   overflow-y: auto;
 }
 
-@media (max-width: 900px) {
-  .hub-dash {
+.hub-loading {
+  color: var(--text-sub);
+  margin: 40px auto;
+}
+
+/* ── Teams식 히어로 (회의 정보 + 통화 CTA) ── */
+.hub-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 24px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #0f8a3c 0%, #14a34a 55%, #1bbd57 100%);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(20, 163, 74, 0.22);
+}
+
+.hub-hero-thumb {
+  width: 60px;
+  height: 60px;
+  border-radius: 14px;
+  flex: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.hub-hero-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.hub-hero-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.hub-hero-sub {
+  margin-top: 3px;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.hub-hero-sub b {
+  color: #fff;
+  font-weight: 700;
+}
+
+.hub-hero-sub .hub-sub-org {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.hub-hero-chips {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 11px;
+  flex-wrap: wrap;
+}
+
+.hub-hero-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  border-radius: 8px;
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: background 0.14s;
+}
+
+.hub-hero-code:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.hub-hero-when {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.hub-hero-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+  flex: none;
+}
+
+.hub-hero-cta .hub-live {
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.hub-hero-cta .hub-live .live-dot {
+  background: #fff;
+}
+
+.hub-hero-idle {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.hub-join.lg {
+  background: #fff;
+  color: #0f8a3c;
+  border: none;
+  border-radius: 11px;
+  padding: 11px 22px;
+  font-size: 15px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.hub-join.lg:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+/* ── 2단 본문 ── */
+.hub-dash-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .hub-dash-cols {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.hub-loading {
-  grid-column: 1 / -1;
-  color: var(--text-sub);
-  margin: 40px auto;
+.hub-dash-main,
+.hub-dash-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── 협업 공간 앱 런처 ── */
+.hub-apps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 540px) {
+  .hub-apps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.hub-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 16px 8px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.14s, transform 0.12s, box-shadow 0.14s;
+}
+
+.hub-app:hover {
+  border-color: var(--green);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+}
+
+.hub-app-ic {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.hub-app-ic.canvas {
+  background: linear-gradient(135deg, #f76808, #f5a524);
+}
+.hub-app-ic.code {
+  background: linear-gradient(135deg, #4f7cff, #0091ff);
+}
+.hub-app-ic.doc {
+  background: linear-gradient(135deg, #8e4ec6, #d6409f);
+}
+.hub-app-ic.sheet {
+  background: linear-gradient(135deg, #18a957, #30a46c);
 }
 
 /* 대시보드 정보 섹션 카드 */
