@@ -9,7 +9,6 @@ import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
 import MeetingThumb from '../components/MeetingThumb';
 import OrgSwitcher from '../components/OrgSwitcher';
-import { ChevronIcon } from '../components/Icons';
 import { useOrgStore } from '../orgStore';
 
 export default function DashboardPage() {
@@ -97,18 +96,10 @@ export default function DashboardPage() {
         onToggleTodo={toggleTodo}
         onAddTodo={addTodo}
         onOpenMeeting={(m) => openMeetingTab(m.code, m.title)}
+        onToggleSidebar={toggleSidebar}
       />
       <NotificationToasts />
       <main className={`dashboard${sidebarOpen ? '' : ' collapsed'}`}>
-        <button
-          className="sidebar-toggle"
-          onClick={toggleSidebar}
-          title={sidebarOpen ? '사이드바 닫기' : '사이드바 열기'}
-        >
-          <span className={`sidebar-toggle-icon${sidebarOpen ? ' open' : ''}`}>
-            <ChevronIcon size={16} />
-          </span>
-        </button>
         <aside>
           <OrgSwitcher />
 

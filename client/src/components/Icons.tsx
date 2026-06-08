@@ -281,6 +281,15 @@ export function BellIcon({ size }: IconProps) {
   );
 }
 
+export function PanelLeftIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="3" y="4.5" width="18" height="15" rx="2.5" stroke="currentColor" strokeWidth="1.9" />
+      <path d="M9 4.5v15" stroke="currentColor" strokeWidth="1.9" />
+    </Svg>
+  );
+}
+
 export function HistoryIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

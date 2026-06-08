@@ -6,6 +6,7 @@ import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
+import { PanelLeftIcon } from './Icons';
 
 export interface Todo {
   id: number;
@@ -194,6 +195,17 @@ interface Props {
   onAddTodo?: (title: string) => void;
   /** 일정 클릭 → 회의 탭 열기 */
   onOpenMeeting?: (m: Meeting) => void;
+  /** 사이드바 열고 닫기 */
+  onToggleSidebar?: () => void;
+}
+
+function SidebarToggle({ onToggle }: { onToggle?: () => void }) {
+  if (!onToggle) return null;
+  return (
+    <button className="nowbar-sidebar-toggle" onClick={onToggle} title="사이드바 열기/닫기">
+      <PanelLeftIcon size={20} />
+    </button>
+  );
 }
 
 const CARD_COUNT = 3;
@@ -233,6 +245,7 @@ export default function NowBar({
   onToggleTodo,
   onAddTodo,
   onOpenMeeting,
+  onToggleSidebar,
 }: Props) {
   const [newTodo, setNewTodo] = useState('');
   const [now, setNow] = useState(() => new Date());
@@ -325,6 +338,7 @@ export default function NowBar({
   if (isEmpty) {
     return (
       <header className="nowbar">
+        <SidebarToggle onToggle={onToggleSidebar} />
         <Logo />
         <div className="nowbar-pill">
           <div className="nowbar-card front nb-onboard">
@@ -346,6 +360,7 @@ export default function NowBar({
 
   return (
     <header className="nowbar">
+      <SidebarToggle onToggle={onToggleSidebar} />
       <Logo />
 
       <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">

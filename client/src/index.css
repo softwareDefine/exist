@@ -819,42 +819,24 @@ input:focus {
   pointer-events: none;
 }
 
-/* 사이드바 토글 버튼 */
-.sidebar-toggle {
-  position: absolute;
-  top: 4px;
-  left: 336px;
-  z-index: 20;
-  width: 26px;
-  height: 26px;
+/* nowbar 사이드바 토글 버튼 (로고 옆) */
+.nowbar-sidebar-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: none;
+  border-radius: 9px;
   color: var(--text-sub);
-  box-shadow: var(--shadow-sm);
-  transition: left 0.25s ease, color 0.15s;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
 }
 
-.dashboard.collapsed .sidebar-toggle {
-  left: 8px;
-}
-
-.sidebar-toggle:hover {
-  color: var(--green);
-  border-color: var(--green);
-}
-
-.sidebar-toggle-icon {
-  display: inline-flex;
-  transition: transform 0.25s ease;
-  transform: rotate(-90deg);
-}
-
-.sidebar-toggle-icon.open {
-  transform: rotate(90deg);
+.nowbar-sidebar-toggle:hover {
+  background: #f0f0f0;
+  color: var(--text);
 }
 
 .dashboard aside {
