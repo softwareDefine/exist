@@ -33,15 +33,22 @@ export function PhoneIcon({ size }: IconProps) {
 export function ChatIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
+      {/* 뒤 말풍선 (받는 쪽) */}
       <path
-        d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v6A2.5 2.5 0 0 1 17.5 14H9l-4 4v-4h-.5A.5.5 0 0 1 4 13.5v-8z"
+        d="M3 6.2A2.2 2.2 0 0 1 5.2 4h8.6A2.2 2.2 0 0 1 16 6.2v3.6A2.2 2.2 0 0 1 13.8 12H8l-3 2.6V12h-.8a1.2 1.2 0 0 1-1.2-1.2V6.2z"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth="1.7"
         strokeLinejoin="round"
+        fill="#fff"
       />
-      <circle cx="8.5" cy="8.5" r="1.05" fill="currentColor" />
-      <circle cx="12" cy="8.5" r="1.05" fill="currentColor" />
-      <circle cx="15.5" cy="8.5" r="1.05" fill="currentColor" />
+      {/* 앞 말풍선 (보내는 쪽) — 겹쳐서 대화 느낌 */}
+      <path
+        d="M9 13.2A1.8 1.8 0 0 1 10.8 11.4h7.4A1.8 1.8 0 0 1 20 13.2v3A1.8 1.8 0 0 1 18.2 18H18v2.2L15.2 18h-4.4A1.8 1.8 0 0 1 9 16.2v-3z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+        fill="#fff"
+      />
     </Svg>
   );
 }
