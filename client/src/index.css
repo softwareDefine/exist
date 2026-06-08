@@ -39,6 +39,9 @@
   --text-sub: #9a9a9a;
   --border: #e2e2e2;
   --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;
+  --surface-3: #eef0f2;
   --radius: 14px;
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.1);
@@ -46,6 +49,38 @@
   /* 라틴(로고·숫자)은 Inter, 한글은 NanumSquareNeo로 폴백 */
   font-family: 'Inter', 'NanumSquareNeo', -apple-system, 'Malgun Gothic', sans-serif;
   color: var(--text);
+}
+
+.nowbar-theme {
+  background: none;
+  border: none;
+  color: var(--text-sub);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+.nowbar-theme:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* ── 다크 모드 ── */
+.dark {
+  --green-soft: #14331a;
+  --text: #e8e9ec;
+  --text-sub: #8a8f98;
+  --border: #2c2f36;
+  --bg: #15171c;
+  --surface: #1c1f25;
+  --surface-2: #22252c;
+  --surface-3: #2a2e36;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
 * {
@@ -155,7 +190,7 @@ input:focus {
   align-items: center;
   gap: 18px;
   padding: 0 22px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow-sm);
@@ -235,7 +270,7 @@ input:focus {
 
 /* 카드와 같은 테두리로 이어붙임 */
 .nowbar-expand-box {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-top: none;
   border-radius: 0 0 12px 12px;
@@ -360,7 +395,7 @@ input:focus {
 }
 
 .nb-cal-day.today .nb-cal-mark {
-  background: #fff;
+  background: var(--surface);
 }
 
 /* 확장 — 투두 */
@@ -676,7 +711,7 @@ input:focus {
   height: 18px;
   border: 1.6px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   color: transparent;
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
@@ -765,7 +800,7 @@ input:focus {
 }
 
 .profile-menu-box {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow-md);
@@ -965,7 +1000,7 @@ input:focus {
 }
 
 .modal-card {
-  background: #fff;
+  background: var(--surface);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   padding: 26px;
@@ -1021,7 +1056,7 @@ input:focus {
   padding: 11px 12px;
   font-size: 15px;
   font-weight: 500;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   cursor: pointer;
 }
@@ -1073,7 +1108,7 @@ input:focus {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   padding: 10px;
   font-size: 14px;
   font-weight: 700;
@@ -1140,7 +1175,7 @@ input:focus {
 
 .avatar-upload-btn {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   border-radius: 9px;
   padding: 9px 14px;
   font-size: 14px;
@@ -1193,7 +1228,7 @@ input:focus {
   aspect-ratio: 1;
   border: 1.5px solid var(--border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   font-size: 22px;
   display: grid;
   place-items: center;
@@ -1213,7 +1248,7 @@ input:focus {
   margin-top: 14px;
   border: 1px solid #f3c8c8;
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
   color: #d33;
   padding: 11px;
   font-size: 14px;
@@ -1278,7 +1313,7 @@ input:focus {
   border-radius: var(--radius);
   padding: 12px 14px;
   min-height: 48px;
-  background: #fff;
+  background: var(--surface);
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
@@ -1371,7 +1406,7 @@ input:focus {
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
-  background: #fff;
+  background: var(--surface);
   transition: border-color 0.15s ease;
 }
 
@@ -1497,7 +1532,7 @@ input:focus {
 .ws-tab.active {
   /* 현재 보는 탭: 흰 배경 + 녹색 글씨로 도드라지게 (비활성은 회색) */
   color: var(--green);
-  background: #fff;
+  background: var(--surface);
   opacity: 1;
   /* 붙은 탭들 중 활성 탭을 위로 올려 양옆 테두리가 가려지지 않게 */
   position: relative;
@@ -1534,7 +1569,7 @@ input:focus {
   gap: 4px;
   padding: 10px 16px 0;
   border-bottom: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
 }
 
 .hub-tab {
@@ -1685,7 +1720,7 @@ input:focus {
 }
 
 .hub-hero-cta .hub-live .live-dot {
-  background: #fff;
+  background: var(--surface);
 }
 
 .hub-hero-idle {
@@ -1694,7 +1729,7 @@ input:focus {
 }
 
 .hub-join.lg {
-  background: #fff;
+  background: var(--surface);
   color: #0f8a3c;
   border: none;
   border-radius: 11px;
@@ -1757,7 +1792,7 @@ input:focus {
   padding: 16px 8px;
   border: 1px solid var(--border);
   border-radius: 13px;
-  background: #fff;
+  background: var(--surface);
   font-size: 13px;
   font-weight: 700;
   color: var(--text);
@@ -1796,7 +1831,7 @@ input:focus {
 
 /* 대시보드 정보 섹션 카드 */
 .hub-section {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: var(--shadow-sm);
@@ -1945,7 +1980,7 @@ input:focus {
 .hub-todo-bar {
   flex: 1;
   height: 7px;
-  background: #eef0f2;
+  background: var(--surface-3);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -2100,7 +2135,7 @@ input:focus {
 }
 
 .msched-cal {
-  background: #fff;
+  background: var(--surface);
   border-right: 1px solid var(--border);
   padding: 18px 22px;
   display: flex;
@@ -2496,7 +2531,7 @@ input:focus {
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: #f1f3f5;
+  background: var(--surface-2);
 }
 
 /* 문서 탭 바 — 하단(엑셀식) */
@@ -2506,7 +2541,7 @@ input:focus {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: #fff;
+  background: var(--surface);
   border-top: 1px solid var(--border);
   padding: 0 10px;
   flex: none;
@@ -2537,11 +2572,11 @@ input:focus {
 }
 
 .doc-tab:hover {
-  background: #f1f3f5;
+  background: var(--surface-2);
 }
 
 .doc-tab.active {
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   border-color: var(--border);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
@@ -2592,7 +2627,7 @@ input:focus {
 }
 
 .doc-newtab:hover {
-  background: #f1f3f5;
+  background: var(--surface-2);
   color: var(--green);
 }
 
@@ -2608,7 +2643,7 @@ input:focus {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: #f1f3f5;
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 5px 10px;
@@ -2634,7 +2669,7 @@ input:focus {
   bottom: calc(100% + 5px);
   right: 0;
   z-index: 21;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -2656,7 +2691,7 @@ input:focus {
 }
 
 .doc-export-menu button:hover {
-  background: #f1f3f5;
+  background: var(--surface-2);
 }
 
 .doc-editor-bar {
@@ -2665,7 +2700,7 @@ input:focus {
   justify-content: space-between;
   gap: 12px;
   padding: 7px 12px;
-  background: #fff;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex: none;
 }
@@ -2695,7 +2730,7 @@ input:focus {
 }
 
 .doc-tool:hover {
-  background: #eef0f2;
+  background: var(--surface-3);
 }
 
 .doc-tool.on {
@@ -2728,7 +2763,7 @@ input:focus {
 .doc-page {
   max-width: 820px;
   margin: 0 auto;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.05);
@@ -2795,7 +2830,7 @@ input:focus {
 }
 
 .doc-prose code {
-  background: #eef0f2;
+  background: var(--surface-3);
   border-radius: 4px;
   padding: 1px 5px;
   font-family: ui-monospace, Menlo, Consolas, 'NanumSquareNeo', 'Malgun Gothic', monospace;
@@ -2846,7 +2881,7 @@ input:focus {
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--surface);
 }
 
 .sheet-bar {
@@ -2854,7 +2889,7 @@ input:focus {
   align-items: center;
   gap: 10px;
   padding: 7px 12px;
-  background: #fff;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex: none;
 }
@@ -2865,7 +2900,7 @@ input:focus {
   font-weight: 700;
   font-size: 13px;
   color: var(--text);
-  background: #f1f3f5;
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 5px 8px;
@@ -2896,7 +2931,7 @@ input:focus {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: #f1f3f5;
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 5px 10px;
@@ -2935,7 +2970,7 @@ input:focus {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: #f6f7f9;
+  background: var(--surface-2);
   color: var(--text-sub);
   font-weight: 600;
   width: 96px;
@@ -2948,7 +2983,7 @@ input:focus {
   z-index: 3 !important;
   width: 44px !important;
   min-width: 44px;
-  background: #eef0f2 !important;
+  background: var(--surface-3) !important;
 }
 
 .sheet-rownum {
@@ -2957,7 +2992,7 @@ input:focus {
   z-index: 1;
   width: 44px;
   min-width: 44px;
-  background: #f6f7f9;
+  background: var(--surface-2);
   color: var(--text-sub);
   font-weight: 600;
   text-align: center;
@@ -3020,7 +3055,7 @@ input:focus {
   align-items: center;
   gap: 3px;
   padding: 5px 10px;
-  background: #f6f7f9;
+  background: var(--surface-2);
   border-top: 1px solid var(--border);
   overflow-x: auto;
 }
@@ -3045,7 +3080,7 @@ input:focus {
 }
 
 .sheet-tab.active {
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   border-color: var(--border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -3096,13 +3131,45 @@ input:focus {
   color: var(--green);
 }
 
+/* 다크모드: 문서/시트/발표는 흰 종이 유지(가독성) */
+.dark .doc-editor,
+.dark .sheet-editor,
+.dark .slide-editor {
+  background: #e6e8eb;
+}
+.dark .doc-page,
+.dark .slide-canvas,
+.dark .slide-thumb-canvas,
+.dark .doc-tabbar,
+.dark .doc-editor-bar,
+.dark .sheet-bar,
+.dark .sheet-tabbar,
+.dark .slide-bar,
+.dark .slide-list,
+.dark .sheet-cell-input {
+  background: #ffffff;
+  color: #1c2024;
+}
+.dark .sheet-grid td {
+  color: #1c2024;
+}
+.dark .sheet-grid thead th,
+.dark .sheet-rownum {
+  background: #f6f7f9;
+  color: #6a6f78;
+}
+.dark .doc-prose,
+.dark .slide-canvas .slide-el {
+  color: #1c2024;
+}
+
 /* ── 협업 슬라이드 (PowerPoint형) ── */
 .slide-editor {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
-  background: #f1f3f5;
+  background: var(--surface-2);
 }
 
 .slide-bar {
@@ -3111,7 +3178,7 @@ input:focus {
   justify-content: space-between;
   gap: 12px;
   padding: 8px 12px;
-  background: #fff;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex: none;
 }
@@ -3122,7 +3189,7 @@ input:focus {
 }
 
 .slide-tools button {
-  background: #f1f3f5;
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 6px 11px;
@@ -3172,7 +3239,7 @@ input:focus {
   flex-direction: column;
   gap: 9px;
   border-right: 1px solid var(--border);
-  background: #fafbfc;
+  background: var(--surface-2);
 }
 
 .slide-thumb {
@@ -3195,7 +3262,7 @@ input:focus {
 .slide-thumb-canvas {
   flex: 1;
   aspect-ratio: 16 / 9;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 5px;
   position: relative;
@@ -3267,7 +3334,7 @@ input:focus {
   width: 100%;
   max-width: 900px;
   aspect-ratio: 16 / 9;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -3335,7 +3402,7 @@ input:focus {
 .slide-present-canvas {
   width: min(96vw, 170vh);
   aspect-ratio: 16 / 9;
-  background: #fff;
+  background: var(--surface);
   position: relative;
   overflow: hidden;
   box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
@@ -3755,7 +3822,7 @@ input:focus {
 
 /* ── 라이트 테마 ── */
 .vsc.light {
-  background: #ffffff;
+  background: var(--surface);
   color: #1c2024;
 }
 
@@ -3803,7 +3870,7 @@ input:focus {
 }
 
 .vsc.light .vsc-tab.active {
-  background: #fff;
+  background: var(--surface);
   color: #000;
 }
 
@@ -3817,7 +3884,7 @@ input:focus {
 }
 
 .vsc.light .vsc-output {
-  background: #fff;
+  background: var(--surface);
   border-top-color: #e0e0e0;
 }
 
@@ -3985,7 +4052,7 @@ input:focus {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--surface);
   overflow: hidden;
   min-height: 0;
 }
@@ -4008,7 +4075,7 @@ input:focus {
   font-size: 11px;
   font-weight: 700;
   color: var(--text-sub);
-  background: #eef0f2;
+  background: var(--surface-3);
   padding: 3px 12px;
   border-radius: 10px;
 }
@@ -4069,7 +4136,7 @@ input:focus {
 }
 
 .hub-chat .chat-bubble {
-  background: #eef0f2;
+  background: var(--surface-3);
   color: var(--text);
   border-radius: 14px;
   padding: 9px 14px;
@@ -4148,7 +4215,7 @@ input:focus {
 .hub-card {
   width: 440px;
   max-width: 100%;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: var(--shadow-sm);
@@ -4316,7 +4383,7 @@ input:focus {
   padding: 9px 11px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .hub-pcard.online {
@@ -4426,7 +4493,7 @@ input:focus {
   padding: 7px 9px;
   font-size: 13px;
   font-weight: 600;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -4575,7 +4642,7 @@ input:focus {
   max-height: 420px;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: var(--shadow-md);
@@ -4693,7 +4760,7 @@ input:focus {
   padding: 11px 14px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fff;
+  background: var(--surface);
   font-size: 15px;
   font-weight: 800;
   color: var(--text);
@@ -4751,7 +4818,7 @@ input:focus {
   left: 0;
   right: 0;
   z-index: 50;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow-md);
@@ -4829,7 +4896,7 @@ input:focus {
 }
 
 .org-menu-manage:hover {
-  background: #fff;
+  background: var(--surface);
   color: var(--green);
 }
 
@@ -4932,7 +4999,7 @@ input:focus {
 
 .org-btn {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   border-radius: 7px;
   padding: 5px 11px;
   font-size: 12px;
@@ -4964,7 +5031,7 @@ input:focus {
 /* ───── 조직도 페이지 ───── */
 .orgchart-page {
   min-height: 100vh;
-  background: #f6f7f9;
+  background: var(--surface-2);
 }
 
 .orgchart-top {
@@ -4972,7 +5039,7 @@ input:focus {
   align-items: center;
   justify-content: space-between;
   padding: 14px 28px;
-  background: #fff;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
@@ -5091,7 +5158,7 @@ input:focus {
 }
 
 .orgchart-dept {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;
@@ -5170,7 +5237,7 @@ input:focus {
 
 /* 가입 대기 섹션 */
 .orgchart-pending {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--green);
   border-radius: 14px;
   padding: 16px 18px;
@@ -5954,7 +6021,7 @@ input:focus {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow-md);
@@ -6178,7 +6245,7 @@ input:focus {
 .recovery-copy {
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   padding: 10px;
   font-size: 14px;
   font-weight: 700;

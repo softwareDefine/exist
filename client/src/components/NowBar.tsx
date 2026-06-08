@@ -6,7 +6,24 @@ import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
-import { PanelLeftIcon, CheckMarkIcon } from './Icons';
+import { PanelLeftIcon, CheckMarkIcon, SunIcon, MoonIcon } from './Icons';
+
+function ThemeToggle() {
+  const [dark, setDark] = useState(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
+  );
+  function toggle() {
+    const next = !dark;
+    document.documentElement.classList.toggle('dark', next);
+    localStorage.setItem('exist:theme', next ? 'dark' : 'light');
+    setDark(next);
+  }
+  return (
+    <button className="nowbar-theme" onClick={toggle} title={dark ? '라이트 모드' : '다크 모드'}>
+      {dark ? <SunIcon size={18} /> : <MoonIcon size={17} />}
+    </button>
+  );
+}
 
 export interface Todo {
   id: number;
@@ -346,6 +363,7 @@ export default function NowBar({
           </div>
         </div>
         <span className="nowbar-clock">{formatNow(now)}</span>
+        <ThemeToggle />
         <NotificationCenter />
         <ProfileMenu avatar={avatar} onOpenSettings={() => setSettingsOpen(true)} />
         <SettingsModal
@@ -553,6 +571,7 @@ export default function NowBar({
 
       <span className="nowbar-clock">{formatNow(now)}</span>
 
+      <ThemeToggle />
       <NotificationCenter />
       <ProfileMenu avatar={avatar} onOpenSettings={() => setSettingsOpen(true)} />
       <SettingsModal
