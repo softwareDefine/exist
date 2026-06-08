@@ -305,6 +305,16 @@ export function HistoryIcon({ size }: IconProps) {
   );
 }
 
+export function DocIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M6 3h8l4 4v14H6z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M13.5 3.2V7.5H18" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9 12.5h6M9 16h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function CodeIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
