@@ -1821,8 +1821,12 @@ input:focus {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   grid-auto-rows: 1fr;
-  gap: 3px;
+  gap: 0;
   min-height: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
 }
 
 .msched-dow {
@@ -1835,68 +1839,104 @@ input:focus {
 
 .msched-day {
   position: relative;
-  border: 1px solid transparent;
+  border: none;
   background: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 700;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  font-size: 13px;
   color: var(--text);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding-top: 10px;
-  gap: 4px;
+  align-items: stretch;
+  padding: 5px 5px 3px;
+  gap: 3px;
+  overflow: hidden;
+  text-align: left;
 }
 
 .msched-day:hover {
-  background: var(--green-soft);
-}
-
-.msched-day.out {
-  color: #ccc;
-}
-
-.msched-day.today {
-  color: var(--green);
+  background: #fafafa;
 }
 
 .msched-day.sel {
+  background: rgba(33, 200, 24, 0.06);
+}
+
+/* 날짜 숫자 — 오늘/선택일은 원형 강조 (구글 캘린더식) */
+.msched-day-num {
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.msched-day.out .msched-day-num {
+  color: #c4c4c4;
+}
+
+.msched-day-num.today {
   background: var(--green);
   color: #fff;
 }
 
-.msched-day.sel:hover {
-  background: var(--green);
-}
-
-.msched-day.meeting:not(.sel) {
+.msched-day-num.sel:not(.today) {
   box-shadow: inset 0 0 0 1.5px var(--green);
+  color: var(--green);
 }
 
-.msched-marks {
+/* 이벤트 칩 */
+.msched-day-events {
   display: flex;
+  flex-direction: column;
   gap: 2px;
-  height: 5px;
+  min-width: 0;
 }
 
-.msched-mark {
+.msched-chip {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--green-soft);
+  color: #178a10;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.msched-chip-time {
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.msched-chip-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--green);
-}
-
-.msched-day.sel .msched-mark {
-  background: #fff;
-}
-
-.msched-mark.main {
   background: #ff8a00;
+  flex-shrink: 0;
 }
 
-.msched-day.sel .msched-mark.main {
-  background: #ffd699;
+.msched-chip.meeting {
+  background: #fff3e0;
+  color: #b25e00;
+}
+
+.msched-more {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-sub);
+  padding-left: 5px;
 }
 
 /* 선택일 패널 */

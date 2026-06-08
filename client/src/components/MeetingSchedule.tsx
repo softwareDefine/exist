@@ -126,27 +126,42 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
           ))}
           {cells.map((c, i) => {
             const evs = byDate.get(c.key) ?? [];
+            const isMeetingDay = c.key === meetingDay;
+            const chips = evs.slice(0, isMeetingDay ? 1 : 2);
+            const overflow = evs.length - chips.length;
             return (
               <button
                 key={i}
                 className={
                   'msched-day' +
                   (c.cur ? '' : ' out') +
-                  (c.key === todayKey ? ' today' : '') +
-                  (c.key === selected ? ' sel' : '') +
-                  (c.key === meetingDay ? ' meeting' : '')
+                  (c.key === selected ? ' sel' : '')
                 }
                 onClick={() => setSelected(c.key)}
               >
-                {c.day}
-                {(evs.length > 0 || c.key === meetingDay) && (
-                  <span className="msched-marks">
-                    {c.key === meetingDay && <i className="msched-mark main" />}
-                    {evs.slice(0, 3).map((e) => (
-                      <i key={e.id} className="msched-mark" />
-                    ))}
-                  </span>
-                )}
+                <span
+                  className={
+                    'msched-day-num' +
+                    (c.key === todayKey ? ' today' : '') +
+                    (c.key === selected ? ' sel' : '')
+                  }
+                >
+                  {c.day}
+                </span>
+                <span className="msched-day-events">
+                  {isMeetingDay && (
+                    <span className="msched-chip meeting" title="이 회의 일정">
+                      <i className="msched-chip-dot" />이 회의
+                    </span>
+                  )}
+                  {chips.map((e) => (
+                    <span key={e.id} className="msched-chip" title={e.title}>
+                      {e.time && <b className="msched-chip-time">{e.time}</b>}
+                      {e.title}
+                    </span>
+                  ))}
+                  {overflow > 0 && <span className="msched-more">+{overflow}</span>}
+                </span>
               </button>
             );
           })}
