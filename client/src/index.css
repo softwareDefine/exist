@@ -1399,28 +1399,101 @@ input:focus {
 
 .hub-dash {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   padding: 22px;
+  align-content: start;
   overflow-y: auto;
 }
 
+@media (max-width: 900px) {
+  .hub-dash {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .hub-loading {
+  grid-column: 1 / -1;
   color: var(--text-sub);
-  margin: auto;
+  margin: 40px auto;
 }
 
 /* 대시보드 정보 섹션 카드 */
 .hub-section {
-  width: 100%;
-  max-width: 680px;
-  margin: 0 auto;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: var(--shadow-sm);
   padding: 20px 22px;
+}
+
+/* 풀폭 섹션 (회의 정보, 참가자) */
+.hub-section.full {
+  grid-column: 1 / -1;
+}
+
+/* 일정 정보 */
+.hub-sched-time {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.hub-sched-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #f0f0f0;
+  color: var(--text-sub);
+}
+
+.hub-sched-badge.live {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.hub-sched-badge.soon {
+  background: #fff3e0;
+  color: #e08a00;
+}
+
+.hub-sched-badge.done {
+  background: #f0f0f0;
+  color: #999;
+}
+
+/* 회의 정보 헤더 우측 코드 */
+.hub-code.lg {
+  margin-left: auto;
+  font-size: 16px;
+  padding: 8px 14px;
+}
+
+.hub-sub-org {
+  color: var(--text-sub);
+  font-weight: 700;
+}
+
+/* 캔버스 바로가기 카드 */
+.hub-canvas-card {
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.hub-canvas-card:hover {
+  border-color: var(--green);
+  background: rgba(33, 200, 24, 0.03);
+}
+
+/* 회의 정보 섹션은 헤더만 — 하단 구분선 제거 */
+.hub-info-section .hub-head {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .hub-section-title {

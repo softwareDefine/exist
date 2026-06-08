@@ -67,6 +67,26 @@ function groupByDept(people: Participant[]): { dept: string | null; people: Part
     });
 }
 
+/** 일정 진행 상태 뱃지 */
+function scheduleState(
+  starts: string | null,
+  ends: string | null,
+): { label: string; cls: string } | null {
+  if (!starts) return null;
+  const now = Date.now();
+  const s = new Date(starts).getTime();
+  const e = ends ? new Date(ends).getTime() : null;
+  if (now < s) {
+    const min = Math.round((s - now) / 60_000);
+    if (min < 60) return { label: `${min}분 후 시작`, cls: 'soon' };
+    const h = Math.round(min / 60);
+    if (h < 24) return { label: `${h}시간 후 시작`, cls: '' };
+    return { label: `${Math.round(h / 24)}일 후 시작`, cls: '' };
+  }
+  if (e && now >= e) return { label: '종료됨', cls: 'done' };
+  return { label: '진행 중', cls: 'live' };
+}
+
 type SubTab = 'dash' | 'call' | 'chat' | 'canvas';
 
 interface Props {
@@ -219,8 +239,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
               <div className="hub-loading">회의 정보를 불러오는 중…</div>
             ) : (
               <>
-                {/* 1. 회의 정보 */}
-                <section className="hub-section hub-info-section">
+                {/* 1. 회의 정보 — 상단 풀폭 */}
+                <section className="hub-section full hub-info-section">
                   <div className="hub-head">
                     <div
                       className="hub-thumb"
@@ -235,28 +255,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                       <div className="hub-sub">
                         호스트 <b>{detail.host}</b>
                         {detail.isHost && ' (나)'}
+                        {detail.orgName && <span className="hub-sub-org"> · {detail.orgName}</span>}
                       </div>
                     </div>
-                  </div>
-                  <div className="hub-meta">
-                    <div className="hub-meta-item">
-                      <span className="hub-meta-label">코드</span>
-                      <button className="hub-code" onClick={copyCode} title="클릭해서 복사">
-                        {detail.code} {copied ? '✓' : ''}
-                      </button>
-                    </div>
-                    <div className="hub-meta-item">
-                      <span className="hub-meta-label">
-                        <CalendarIcon size={13} /> 일정
-                      </span>
-                      <span className="hub-meta-val">{range ?? '미정'}</span>
-                    </div>
-                    {detail.orgName && (
-                      <div className="hub-meta-item">
-                        <span className="hub-meta-label">소속</span>
-                        <span className="hub-meta-val">{detail.orgName}</span>
-                      </div>
-                    )}
+                    <button className="hub-code lg" onClick={copyCode} title="클릭해서 복사">
+                      {detail.code} {copied ? '✓' : '⧉'}
+                    </button>
                   </div>
                 </section>
 
@@ -281,8 +285,28 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                   </button>
                 </section>
 
-                {/* 3. 사용자 정보 (참가자) — 조직 회의면 부서별 명함 */}
+                {/* 3. 일정 정보 */}
                 <section className="hub-section">
+                  <div className="hub-section-title">
+                    <CalendarIcon size={15} /> 일정
+                  </div>
+                  {range ? (
+                    <>
+                      <div className="hub-sched-time">{range}</div>
+                      {(() => {
+                        const st = scheduleState(detail.starts_at, detail.ends_at);
+                        return st ? (
+                          <span className={`hub-sched-badge ${st.cls}`}>{st.label}</span>
+                        ) : null;
+                      })()}
+                    </>
+                  ) : (
+                    <div className="hub-section-empty">아직 일정이 정해지지 않았어요</div>
+                  )}
+                </section>
+
+                {/* 4. 사용자 정보 (참가자) — 풀폭, 조직 회의면 부서별 명함 */}
+                <section className="hub-section full">
                   <div className="hub-section-title">
                     <UsersIcon size={15} /> 참가자 <b>{detail.participants.length}</b>
                     {detail.orgName && <span className="hub-roster-org">· {detail.orgName}</span>}
@@ -329,7 +353,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                   </div>
                 </section>
 
-                {/* 4. 각종 정보 — 최근 채팅 */}
+                {/* 5. 최근 채팅 */}
                 <section className="hub-section">
                   <div className="hub-section-title">
                     <ChatIcon size={15} /> 최근 채팅
@@ -350,6 +374,17 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                   ) : (
                     <div className="hub-section-empty">아직 대화가 없어요</div>
                   )}
+                </section>
+
+                {/* 6. 공동 편집 캔버스 바로가기 */}
+                <section className="hub-section hub-canvas-card" onClick={() => setSubtab('canvas')}>
+                  <div className="hub-section-title">
+                    <PenIcon size={15} /> 공동 편집 캔버스
+                    <span className="hub-preview-more">열기 ›</span>
+                  </div>
+                  <div className="hub-section-empty">
+                    회의마다 자동으로 생기는 화이트보드예요 — 함께 그리고 메모하세요
+                  </div>
                 </section>
               </>
             )}
