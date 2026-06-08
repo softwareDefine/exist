@@ -53,8 +53,23 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
   const [renaming, setRenaming] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [unread, setUnread] = useState<Map<string, number>>(new Map());
+  const [dragCode, setDragCode] = useState<string | null>(null); // 드래그 중인 회의 탭
   // 방금 연 회의 — 조직이 파악되면 그 조직으로 컨텍스트 전환 (한 번만)
   const justOpened = useRef<string | null>(null);
+
+  /** 회의 탭 순서 재배열 (드래그) — fromCode를 toCode 자리로 */
+  function reorderTabs(fromCode: string, toCode: string) {
+    if (fromCode === toCode) return;
+    setMeetingTabs((prev) => {
+      const arr = [...prev];
+      const fi = arr.findIndex((t) => t.code === fromCode);
+      const ti = arr.findIndex((t) => t.code === toCode);
+      if (fi < 0 || ti < 0) return prev;
+      const [moved] = arr.splice(fi, 1);
+      arr.splice(ti, 0, moved);
+      return arr;
+    });
+  }
 
   /** 탭이 현재 조직 컨텍스트에 보여야 하는가 (org 미파악 탭은 일단 보임) */
   function tabVisible(code: string): boolean {
@@ -234,13 +249,29 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             </button>
           ),
         )}
-        {/* 현재 조직 컨텍스트의 회의 탭만 표시 */}
+        {/* 현재 조직 컨텍스트의 회의 탭만 표시 — 드래그로 순서 변경 가능 */}
         {meetingTabs.filter((t) => tabVisible(t.code)).map((t) => (
           <button
             key={t.code}
             className={`ws-tab meeting${
               active?.kind === 'meeting' && active.code === t.code ? ' active' : ''
-            }`}
+            }${dragCode === t.code ? ' dragging' : ''}`}
+            draggable
+            onDragStart={(e) => {
+              setDragCode(t.code);
+              e.dataTransfer.effectAllowed = 'move';
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              // 크롬 탭처럼 드래그하는 동안 실시간으로 자리바꿈
+              if (dragCode && dragCode !== t.code) reorderTabs(dragCode, t.code);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragCode(null);
+            }}
+            onDragEnd={() => setDragCode(null)}
             onClick={() => {
               setActive({ kind: 'meeting', code: t.code });
               setUnread((prev) => {

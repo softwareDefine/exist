@@ -3045,6 +3045,15 @@ input:focus {
   color: var(--green);
 }
 
+.ws-tab.meeting[draggable='true'] {
+  cursor: grab;
+}
+
+.ws-tab.meeting.dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
 .ws-tab-text {
   display: inline-flex;
   flex-direction: column;
