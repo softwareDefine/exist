@@ -324,9 +324,13 @@ export function attachSfu(io: Server) {
         socket.data.userId,
         trimmed,
       );
+      const u = db.prepare('SELECT avatar FROM users WHERE id = ?').get(socket.data.userId) as
+        | { avatar: string | null }
+        | undefined;
       io.to(`chat:${upper}`).emit('chat:message', {
         code: upper,
         from: socket.data.username,
+        avatar: u?.avatar ?? null,
         text: trimmed,
         ts: Date.now(),
       });

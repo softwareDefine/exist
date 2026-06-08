@@ -322,14 +322,19 @@ router.get('/:code/messages', (req: AuthedRequest, res) => {
 
   const rows = db
     .prepare(
-      `SELECT u.username AS "from", m.text, m.created_at FROM messages m
+      `SELECT u.username AS "from", u.avatar, m.text, m.created_at FROM messages m
        JOIN users u ON u.id = m.user_id
        WHERE m.meeting_id = ? ORDER BY m.id DESC LIMIT 100`,
     )
-    .all(meeting.id) as { from: string; text: string; created_at: string }[];
+    .all(meeting.id) as { from: string; avatar: string | null; text: string; created_at: string }[];
 
   res.json(
-    rows.reverse().map((r) => ({ from: r.from, text: r.text, ts: new Date(r.created_at + 'Z').getTime() })),
+    rows.reverse().map((r) => ({
+      from: r.from,
+      avatar: r.avatar,
+      text: r.text,
+      ts: new Date(r.created_at + 'Z').getTime(),
+    })),
   );
 });
 

@@ -2116,45 +2116,100 @@ input:focus {
 .hub-chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
-.hub-msg {
+/* 날짜 구분선 */
+.chat-date {
+  text-align: center;
+  margin: 16px 0 10px;
+}
+
+.chat-date span {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  background: #eef0f2;
+  padding: 3px 12px;
+  border-radius: 10px;
+}
+
+/* 메시지 행 */
+.chat-row {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 78%;
+  gap: 8px;
+  align-items: flex-end;
+  max-width: 82%;
+  margin-top: 10px;
 }
 
-.hub-msg.mine {
+.chat-row.grouped {
+  margin-top: 2px;
+}
+
+.chat-row.mine {
   align-self: flex-end;
+}
+
+.chat-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 19px;
+  background: #dfe8f2;
+  flex-shrink: 0;
+}
+
+.chat-avatar-gap {
+  width: 34px;
+  flex-shrink: 0;
+}
+
+.chat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.chat-row.mine .chat-content {
   align-items: flex-end;
 }
 
-.hub-msg-from {
-  font-size: 11px;
+.chat-name {
+  font-size: 12px;
+  font-weight: 700;
   color: var(--text-sub);
+  padding-left: 3px;
 }
 
-.hub-msg.mine .hub-msg-from {
-  display: none;
+.chat-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
 }
 
-.hub-bubble {
+.chat-bubble {
   background: #f1f3f5;
-  border-radius: 12px;
-  padding: 9px 13px;
+  border-radius: 14px;
+  padding: 8px 13px;
   font-size: 14px;
   line-height: 1.5;
   word-break: break-word;
 }
 
-.hub-msg.mine .hub-bubble {
+.chat-row.mine .chat-bubble {
   background: var(--green);
   color: #fff;
+}
+
+.chat-time {
+  font-size: 10px;
+  color: var(--text-sub);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .hub-chat-input {
@@ -2183,10 +2238,23 @@ input:focus {
 }
 
 .hub-chat .chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   color: var(--text-sub);
+  margin: auto;
+}
+
+.hub-chat .chat-empty p {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.hub-chat .chat-empty span {
   font-size: 13px;
-  text-align: center;
-  margin-top: 24px;
 }
 
 .meeting-hub.loading {

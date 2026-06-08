@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { getSocket, request } from '../lib/socket';
 import { usePresence } from '../lib/usePresence';
@@ -97,6 +97,26 @@ interface MeetingTodo {
   title: string;
   done: number;
   author?: string;
+}
+
+function sameDay(a: number, b: number): boolean {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+function chatTime(ts: number): string {
+  const d = new Date(ts);
+  const ampm = d.getHours() < 12 ? '오전' : '오후';
+  const h = d.getHours() % 12 || 12;
+  return `${ampm} ${h}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function chatDateLabel(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  if (d.toDateString() === now.toDateString()) return '오늘';
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (d.toDateString() === yest.toDateString()) return '어제';
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
 type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'schedule';
@@ -559,14 +579,44 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           <div className="hub-chat">
             <div className="hub-chat-messages">
               {messages.length === 0 && (
-                <div className="chat-empty">아직 메시지가 없어요 — 첫 메시지를 남겨보세요</div>
-              )}
-              {messages.map((m, i) => (
-                <div key={i} className={`hub-msg${m.from === user?.username ? ' mine' : ''}`}>
-                  <span className="hub-msg-from">{m.from}</span>
-                  <div className="hub-bubble">{m.text}</div>
+                <div className="chat-empty">
+                  <ChatIcon size={40} />
+                  <p>아직 대화가 없어요</p>
+                  <span>첫 메시지를 남겨보세요</span>
                 </div>
-              ))}
+              )}
+              {messages.map((m, i) => {
+                const prev = messages[i - 1];
+                const mine = m.from === user?.username;
+                const showDate = !prev || !sameDay(prev.ts, m.ts);
+                const grouped =
+                  !!prev && prev.from === m.from && !showDate && m.ts - prev.ts < 5 * 60_000;
+                return (
+                  <Fragment key={i}>
+                    {showDate && (
+                      <div className="chat-date">
+                        <span>{chatDateLabel(m.ts)}</span>
+                      </div>
+                    )}
+                    <div className={`chat-row${mine ? ' mine' : ''}${grouped ? ' grouped' : ''}`}>
+                      {!mine &&
+                        (grouped ? (
+                          <span className="chat-avatar-gap" />
+                        ) : (
+                          <Avatar value={m.avatar} className="chat-avatar" />
+                        ))}
+                      <div className="chat-content">
+                        {!mine && !grouped && <span className="chat-name">{m.from}</span>}
+                        <div className="chat-line">
+                          {mine && <span className="chat-time">{chatTime(m.ts)}</span>}
+                          <div className="chat-bubble">{m.text}</div>
+                          {!mine && <span className="chat-time">{chatTime(m.ts)}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </Fragment>
+                );
+              })}
               <div ref={chatEndRef} />
             </div>
             <form className="hub-chat-input" onSubmit={sendChat}>

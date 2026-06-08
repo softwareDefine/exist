@@ -27,6 +27,7 @@ interface ProducerInfo {
 export interface ChatMessage {
   code?: string;
   from: string;
+  avatar?: string | null;
   text: string;
   ts: number;
 }
