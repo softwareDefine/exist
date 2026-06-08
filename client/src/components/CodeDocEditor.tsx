@@ -86,7 +86,10 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
         yCollab(ytext, provider.awareness),
         EditorView.theme({
           '&': { height: '100%', fontSize: '13.5px' },
-          '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+          '.cm-scroller': {
+            fontFamily:
+              "ui-monospace, SFMono-Regular, Menlo, Consolas, 'NanumSquareNeo', 'Malgun Gothic', monospace",
+          },
         }),
       ],
     });

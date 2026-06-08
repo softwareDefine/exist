@@ -650,7 +650,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
         {/* 코드 공동편집 — Yjs 실시간 (한 번 열면 마운트 유지) */}
         {codeMounted && (
           <div
-            className="hub-code"
+            className="hub-editor-pane"
             style={{ display: subtab === 'code' ? 'block' : 'none' }}
           >
             <CodeDocEditor roomId={`code-${code.toUpperCase()}`} />
@@ -660,7 +660,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
         {/* 문서 공동편집 — 리치텍스트(Word형), Yjs 실시간 */}
         {docMounted && (
           <div
-            className="hub-code"
+            className="hub-editor-pane"
             style={{ display: subtab === 'doc' ? 'block' : 'none' }}
           >
             <DocEditor roomId={`doc-${code.toUpperCase()}`} />
@@ -670,7 +670,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
         {/* 시트 공동편집 — 협업 스프레드시트, Yjs 실시간 */}
         {sheetMounted && (
           <div
-            className="hub-code"
+            className="hub-editor-pane"
             style={{ display: subtab === 'sheet' ? 'block' : 'none' }}
           >
             <SheetEditor roomId={`sheet-${code.toUpperCase()}`} />

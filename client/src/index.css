@@ -2396,8 +2396,8 @@ input:focus {
   position: relative;
 }
 
-/* 코드 공동편집 */
-.hub-code {
+/* 코드/문서/시트 공동편집 래퍼 (회의코드 칩 .hub-code와 충돌 방지용 별도 클래스) */
+.hub-editor-pane {
   flex: 1;
   min-height: 0;
   position: relative;
@@ -2444,7 +2444,7 @@ input:focus {
   color: #9aa1ad;
   font-size: 13px;
   font-weight: 600;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: ui-monospace, Menlo, Consolas, 'NanumSquareNeo', 'Malgun Gothic', monospace;
 }
 
 .code-doc-peers {
@@ -2629,7 +2629,7 @@ input:focus {
   color: #dce0e6;
   border-radius: 8px;
   padding: 14px 16px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: ui-monospace, Menlo, Consolas, 'NanumSquareNeo', 'Malgun Gothic', monospace;
   font-size: 13.5px;
   overflow-x: auto;
 }
@@ -2638,7 +2638,7 @@ input:focus {
   background: #eef0f2;
   border-radius: 4px;
   padding: 1px 5px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: ui-monospace, Menlo, Consolas, 'NanumSquareNeo', 'Malgun Gothic', monospace;
   font-size: 0.9em;
 }
 
@@ -2717,7 +2717,7 @@ input:focus {
   border-radius: 7px;
   padding: 6px 10px;
   font-size: 13.5px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: ui-monospace, Menlo, Consolas, 'NanumSquareNeo', 'Malgun Gothic', monospace;
 }
 
 .sheet-formula:focus {
