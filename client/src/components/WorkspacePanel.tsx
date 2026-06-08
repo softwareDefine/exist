@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { useOrgStore, type OrgContext } from '../orgStore';
@@ -56,6 +56,34 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
   const [dragCode, setDragCode] = useState<string | null>(null); // 드래그 중인 회의 탭
   // 방금 연 회의 — 조직이 파악되면 그 조직으로 컨텍스트 전환 (한 번만)
   const justOpened = useRef<string | null>(null);
+  // FLIP 애니메이션용 — 회의 탭 DOM + 직전 위치
+  const tabRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const prevRects = useRef<Map<string, DOMRect>>(new Map());
+
+  // 탭 순서가 바뀌면 각 탭을 직전 위치에서 새 위치로 부드럽게 슬라이드 (크롬 탭 방식)
+  useLayoutEffect(() => {
+    const refs = tabRefs.current;
+    const newRects = new Map<string, DOMRect>();
+    refs.forEach((el, code) => {
+      el.style.transition = 'none';
+      el.style.transform = '';
+      newRects.set(code, el.getBoundingClientRect());
+    });
+    refs.forEach((el, code) => {
+      if (code === dragCode) return; // 드래그 중인 탭은 그대로
+      const prev = prevRects.current.get(code);
+      const next = newRects.get(code);
+      if (!prev || !next) return;
+      const dx = prev.left - next.left;
+      if (Math.abs(dx) < 1) return;
+      el.style.transform = `translateX(${dx}px)`;
+      requestAnimationFrame(() => {
+        el.style.transition = 'transform 0.2s cubic-bezier(.2,.7,.3,1)';
+        el.style.transform = '';
+      });
+    });
+    prevRects.current = newRects;
+  });
 
   /** 회의 탭 순서 재배열 (드래그) — fromCode를 toCode 자리로 */
   function reorderTabs(fromCode: string, toCode: string) {
@@ -253,6 +281,10 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
         {meetingTabs.filter((t) => tabVisible(t.code)).map((t) => (
           <button
             key={t.code}
+            ref={(el) => {
+              if (el) tabRefs.current.set(t.code, el);
+              else tabRefs.current.delete(t.code);
+            }}
             className={`ws-tab meeting${
               active?.kind === 'meeting' && active.code === t.code ? ' active' : ''
             }${dragCode === t.code ? ' dragging' : ''}`}
