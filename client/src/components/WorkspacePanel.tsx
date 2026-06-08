@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
+import { useOrgStore, type OrgContext } from '../orgStore';
 import { FolderIcon, PhoneIcon, CloseIcon } from './Icons';
 import CanvasBoard from './CanvasBoard';
 import MeetingHub from './MeetingHub';
@@ -38,16 +39,29 @@ function loadSavedTabs(): { code: string; title: string }[] {
 }
 
 export default function WorkspacePanel({ meetingRequest }: Props) {
+  const orgCurrent = useOrgStore((s) => s.current);
+  const setOrgCurrent = useOrgStore((s) => s.setCurrent);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   // 새로고침해도 열린 회의 탭 복원
   const [meetingTabs, setMeetingTabs] = useState<{ code: string; title: string }[]>(loadSavedTabs);
-  // 회의별 소속 조직명 (MeetingHub가 상세 로드 시 알려줌)
-  const [tabOrgs, setTabOrgs] = useState<Record<string, string>>({});
+  // 회의별 소속 조직 (id=필터용, name=배지용) — MeetingHub가 상세 로드 시 알려줌
+  const [tabMeta, setTabMeta] = useState<Record<string, { orgId: number | null; orgName: string | null }>>(
+    {},
+  );
   const [active, setActive] = useState<ActiveTab | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null); // 오버레이 전체화면 회의 코드
   const [renaming, setRenaming] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [unread, setUnread] = useState<Map<string, number>>(new Map());
+  // 방금 연 회의 — 조직이 파악되면 그 조직으로 컨텍스트 전환 (한 번만)
+  const justOpened = useRef<string | null>(null);
+
+  /** 탭이 현재 조직 컨텍스트에 보여야 하는가 (org 미파악 탭은 일단 보임) */
+  function tabVisible(code: string): boolean {
+    const meta = tabMeta[code];
+    if (!meta) return true;
+    return orgCurrent === 'personal' ? meta.orgId == null : meta.orgId === orgCurrent;
+  }
 
   // 열린 회의 탭 영속화
   useEffect(() => {
@@ -58,21 +72,26 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     }
   }, [meetingTabs]);
 
-  // 회의 상세에서 조직명 수신 → 탭 배지
+  // 회의 상세에서 조직 정보 수신 → 탭 메타(배지·필터)
   useEffect(() => {
     function onOrg(e: Event) {
-      const { code, orgName } = (e as CustomEvent<{ code: string; orgName: string | null }>).detail;
-      setTabOrgs((prev) => {
-        if ((prev[code] ?? null) === (orgName ?? null)) return prev;
-        const next = { ...prev };
-        if (orgName) next[code] = orgName;
-        else delete next[code];
-        return next;
+      const { code, orgId, orgName } = (
+        e as CustomEvent<{ code: string; orgId: number | null; orgName: string | null }>
+      ).detail;
+      setTabMeta((prev) => {
+        const cur = prev[code];
+        if (cur && cur.orgId === (orgId ?? null) && cur.orgName === (orgName ?? null)) return prev;
+        return { ...prev, [code]: { orgId: orgId ?? null, orgName: orgName ?? null } };
       });
+      // 방금 연 회의면 그 회의 조직으로 컨텍스트 전환 (다른 조직 회의를 코드로 열어도 따라감)
+      if (justOpened.current === code) {
+        justOpened.current = null;
+        setOrgCurrent((orgId ?? 'personal') as OrgContext);
+      }
     }
     window.addEventListener('meeting:org', onOrg);
     return () => window.removeEventListener('meeting:org', onOrg);
-  }, []);
+  }, [setOrgCurrent]);
 
   // 회의 채팅 수신 → 비활성 탭이면 안읽음 배지
   useEffect(() => {
@@ -123,8 +142,27 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
         : [...prev, { code: meetingRequest.code, title: meetingRequest.title }],
     );
     setActive({ kind: 'meeting', code: meetingRequest.code });
+    // 조직을 모르면 meeting:org 수신 시 컨텍스트 전환하도록 표시
+    if (!tabMeta[meetingRequest.code]) justOpened.current = meetingRequest.code;
+    else setOrgCurrent((tabMeta[meetingRequest.code].orgId ?? 'personal') as OrgContext);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meetingRequest?.ts]);
+
+  // 조직 컨텍스트가 바뀌어 현재 활성 회의 탭이 숨겨지면 → 보이는 탭/작업공간으로 이동
+  useEffect(() => {
+    if (active?.kind !== 'meeting') return;
+    if (tabVisible(active.code)) return;
+    const firstVisible = meetingTabs.find((t) => tabVisible(t.code));
+    setActive(
+      firstVisible
+        ? { kind: 'meeting', code: firstVisible.code }
+        : workspaces.length > 0
+          ? { kind: 'ws', id: workspaces[0].id }
+          : null,
+    );
+    setExpanded((cur) => (cur && !tabVisible(cur) ? null : cur));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgCurrent, tabMeta]);
 
   function closeMeetingTab(code: string, message?: string) {
     setMeetingTabs((prev) => prev.filter((t) => t.code !== code));
@@ -196,7 +234,8 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             </button>
           ),
         )}
-        {meetingTabs.map((t) => (
+        {/* 현재 조직 컨텍스트의 회의 탭만 표시 */}
+        {meetingTabs.filter((t) => tabVisible(t.code)).map((t) => (
           <button
             key={t.code}
             className={`ws-tab meeting${
@@ -216,7 +255,9 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             )}
             <PhoneIcon size={14} />
             <span className="ws-tab-text">
-              {tabOrgs[t.code] && <span className="ws-tab-org">{tabOrgs[t.code]}</span>}
+              {tabMeta[t.code]?.orgName && (
+                <span className="ws-tab-org">{tabMeta[t.code].orgName}</span>
+              )}
               {t.title}
             </span>
             <span

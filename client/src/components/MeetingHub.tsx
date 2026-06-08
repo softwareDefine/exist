@@ -97,10 +97,10 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
         const d = await api<MeetingDetail>(`/api/meetings/${code}`);
         if (alive) {
           setDetail(d);
-          // 회의 탭 제목 옆 조직 배지용 (WorkspacePanel 수신)
+          // 회의 탭 제목 옆 조직 배지 + 조직별 탭 필터용 (WorkspacePanel 수신)
           window.dispatchEvent(
             new CustomEvent('meeting:org', {
-              detail: { code: code.toUpperCase(), orgName: d.orgName },
+              detail: { code: code.toUpperCase(), orgId: d.orgId, orgName: d.orgName },
             }),
           );
         }
