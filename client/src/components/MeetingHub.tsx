@@ -5,6 +5,7 @@ import { usePresence } from '../lib/usePresence';
 import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
 import CanvasBoard from './CanvasBoard';
+import CodeDocEditor from './CodeDocEditor';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import MeetingSchedule from './MeetingSchedule';
@@ -15,6 +16,7 @@ import {
   ChatIcon,
   GridIcon,
   PenIcon,
+  CodeIcon,
   UsersIcon,
   CheckIcon,
 } from './Icons';
@@ -119,7 +121,7 @@ function chatDateLabel(ts: number): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'schedule';
+type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'code' | 'schedule';
 
 interface Props {
   code: string;
@@ -139,6 +141,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [canvasMounted, setCanvasMounted] = useState(false); // 한 번 열면 유지 (재연결·카메라 초기화 방지)
+  const [codeMounted, setCodeMounted] = useState(false); // 코드 편집기도 한 번 열면 유지
   const [todos, setTodos] = useState<MeetingTodo[]>([]);
   const [todoInput, setTodoInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -181,6 +184,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
 
   useEffect(() => {
     if (subtab === 'canvas') setCanvasMounted(true);
+    if (subtab === 'code') setCodeMounted(true);
   }, [subtab]);
 
   useEffect(() => {
@@ -304,6 +308,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           onClick={() => setSubtab('canvas')}
         >
           <PenIcon size={13} /> 캔버스
+        </button>
+        <button
+          className={`hub-tab${subtab === 'code' ? ' active' : ''}`}
+          onClick={() => setSubtab('code')}
+        >
+          <CodeIcon size={14} /> 코드
         </button>
       </div>
 
@@ -589,6 +599,16 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
             style={{ display: subtab === 'canvas' ? 'block' : 'none' }}
           >
             <CanvasBoard roomId={`mt-${code.toUpperCase()}`} />
+          </div>
+        )}
+
+        {/* 코드 공동편집 — Yjs 실시간 (한 번 열면 마운트 유지) */}
+        {codeMounted && (
+          <div
+            className="hub-code"
+            style={{ display: subtab === 'code' ? 'block' : 'none' }}
+          >
+            <CodeDocEditor roomId={`code-${code.toUpperCase()}`} />
           </div>
         )}
 

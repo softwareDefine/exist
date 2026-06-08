@@ -2191,6 +2191,100 @@ input:focus {
   position: relative;
 }
 
+/* 코드 공동편집 */
+.hub-code {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.code-doc {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #282c34;
+}
+
+.code-doc-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #21252b;
+  border-bottom: 1px solid #181a1f;
+  flex: none;
+}
+
+.code-doc-left,
+.code-doc-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.code-doc-lang {
+  background: #2c313a;
+  color: #d7dae0;
+  border: 1px solid #3a3f4b;
+  border-radius: 7px;
+  padding: 5px 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.code-doc-name {
+  color: #9aa1ad;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+.code-doc-peers {
+  color: #8b919c;
+  font-size: 12.5px;
+}
+
+.code-doc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: #9aa1ad;
+}
+
+.code-doc-status i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f76808;
+  transition: background 0.2s;
+}
+
+.code-doc-status.connected i {
+  background: var(--green);
+}
+
+.code-doc-status.disconnected i {
+  background: #e5484d;
+}
+
+.code-doc-editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.code-doc-editor .cm-editor {
+  height: 100%;
+}
+
+.code-doc-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
 .hub-call-lobby {
   flex: 1;
   display: grid;

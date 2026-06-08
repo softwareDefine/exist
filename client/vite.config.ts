@@ -8,6 +8,7 @@ export default defineConfig({
       '/api': 'http://localhost:4000',
       '/socket.io': { target: 'http://localhost:4000', ws: true },
       '/sync': { target: 'http://localhost:4000', ws: true },
+      '/yjs': { target: 'http://localhost:4000', ws: true },
     },
   },
 });
