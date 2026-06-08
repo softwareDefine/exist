@@ -4,6 +4,7 @@ import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { invalidateBrief } from './agent.js';
 import { getRoomSize } from './sfu.js';
+import { isMember } from './orgs.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -26,17 +27,28 @@ router.post('/', (req: AuthedRequest, res) => {
   const { title, starts_at, ends_at } = req.body ?? {};
   if (!title) return res.status(400).json({ error: '회의 이름을 입력하세요' });
 
+  // org_id가 주어지면 해당 조직의 active 멤버만 회의를 만들 수 있다 (null = 개인 회의)
+  const orgId = req.body?.org_id != null ? Number(req.body.org_id) : null;
+  if (orgId != null) {
+    if (!Number.isInteger(orgId)) return res.status(400).json({ error: '잘못된 조직입니다' });
+    if (!isMember(orgId, req.userId!)) {
+      return res.status(403).json({ error: '이 조직의 멤버만 회의를 만들 수 있어요' });
+    }
+  }
+
   let code = generateCode();
   while (db.prepare('SELECT id FROM meetings WHERE code = ?').get(code)) code = generateCode();
 
   const info = db
-    .prepare('INSERT INTO meetings (code, title, host_id, starts_at, ends_at) VALUES (?, ?, ?, ?, ?)')
-    .run(code, title, req.userId, starts_at ?? null, ends_at ?? null);
+    .prepare(
+      'INSERT INTO meetings (code, title, host_id, org_id, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+    .run(code, title, req.userId, orgId, starts_at ?? null, ends_at ?? null);
   db.prepare('INSERT INTO meeting_participants (meeting_id, user_id) VALUES (?, ?)').run(
     info.lastInsertRowid,
     req.userId,
   );
-  res.json({ id: info.lastInsertRowid, code, title });
+  res.json({ id: info.lastInsertRowid, code, title, org_id: orgId });
 });
 
 /** 코드로 회의 참여 */
@@ -53,15 +65,32 @@ router.post('/join', (req: AuthedRequest, res) => {
   res.json({ id: meeting.id, code: meeting.code, title: meeting.title });
 });
 
-/** 최근 회의 목록 */
+/** 최근 회의 목록 — 조직 컨텍스트로 필터
+ *  ?org=<id>  : 그 조직의 회의   ?org=personal : 개인(조직 없는) 회의   생략: 전부 */
 router.get('/recent', (req: AuthedRequest, res) => {
+  const orgParam = req.query.org;
+  let where = 'mp.user_id = ?';
+  const params: (number | string)[] = [req.userId!];
+
+  if (orgParam === 'personal') {
+    where += ' AND m.org_id IS NULL';
+  } else if (orgParam != null && orgParam !== '') {
+    const orgId = Number(orgParam);
+    if (!Number.isInteger(orgId)) return res.status(400).json({ error: '잘못된 조직입니다' });
+    if (!isMember(orgId, req.userId!)) {
+      return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
+    }
+    where += ' AND m.org_id = ?';
+    params.push(orgId);
+  }
+
   const rows = db
     .prepare(
-      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, mp.joined_at FROM meetings m
+      `SELECT m.id, m.code, m.title, m.org_id, m.starts_at, m.ends_at, mp.joined_at FROM meetings m
        JOIN meeting_participants mp ON mp.meeting_id = m.id
-       WHERE mp.user_id = ? ORDER BY mp.joined_at DESC LIMIT 7`,
+       WHERE ${where} ORDER BY mp.joined_at DESC LIMIT 7`,
     )
-    .all(req.userId);
+    .all(...params);
   res.json(rows);
 });
 
@@ -69,8 +98,11 @@ router.get('/recent', (req: AuthedRequest, res) => {
 router.get('/:code', (req: AuthedRequest, res) => {
   const meeting = db
     .prepare(
-      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, u.username AS host
-       FROM meetings m JOIN users u ON u.id = m.host_id WHERE m.code = ?`,
+      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, m.org_id,
+              u.username AS host, o.name AS org_name
+       FROM meetings m JOIN users u ON u.id = m.host_id
+       LEFT JOIN organizations o ON o.id = m.org_id
+       WHERE m.code = ?`,
     )
     .get(String(req.params.code ?? '').toUpperCase()) as
     | {
@@ -80,7 +112,9 @@ router.get('/:code', (req: AuthedRequest, res) => {
         starts_at: string | null;
         ends_at: string | null;
         host_id: number;
+        org_id: number | null;
         host: string;
+        org_name: string | null;
       }
     | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
@@ -100,6 +134,8 @@ router.get('/:code', (req: AuthedRequest, res) => {
     ends_at: meeting.ends_at,
     host: meeting.host,
     isHost: meeting.host_id === req.userId,
+    orgId: meeting.org_id,
+    orgName: meeting.org_name,
     online: getRoomSize(meeting.code),
     participants: participants.map((p) => p.username),
   });

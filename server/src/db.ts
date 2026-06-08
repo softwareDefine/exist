@@ -21,11 +21,30 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS organizations (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    join_code  TEXT NOT NULL UNIQUE,
+    owner_id   INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  /* role: owner | admin | member   status: pending | active */
+  CREATE TABLE IF NOT EXISTS organization_members (
+    org_id     INTEGER NOT NULL REFERENCES organizations(id),
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    role       TEXT NOT NULL DEFAULT 'member',
+    status     TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (org_id, user_id)
+  );
+
   CREATE TABLE IF NOT EXISTS meetings (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     code       TEXT NOT NULL UNIQUE,
     title      TEXT NOT NULL,
     host_id    INTEGER NOT NULL REFERENCES users(id),
+    org_id     INTEGER REFERENCES organizations(id),
     starts_at  TEXT,
     ends_at    TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -74,6 +93,13 @@ try {
 // 마이그레이션: 프로필 아바타 (이모지)
 try {
   db.exec(`ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT '🐧'`);
+} catch {
+  /* 이미 존재 */
+}
+
+// 마이그레이션: 회의 조직 소속 (기존 DB에 컬럼 없으면 추가, null = 개인 회의)
+try {
+  db.exec(`ALTER TABLE meetings ADD COLUMN org_id INTEGER REFERENCES organizations(id)`);
 } catch {
   /* 이미 존재 */
 }
