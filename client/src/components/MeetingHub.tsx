@@ -5,7 +5,7 @@ import { usePresence } from '../lib/usePresence';
 import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
 import CanvasBoard from './CanvasBoard';
-import { PhoneIcon, CalendarIcon, ClockIcon, ChatIcon, FolderIcon } from './Icons';
+import { PhoneIcon, CalendarIcon, ClockIcon, ChatIcon, GridIcon, PenIcon } from './Icons';
 
 interface Participant {
   username: string;
@@ -179,7 +179,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           className={`hub-tab${subtab === 'dash' ? ' active' : ''}`}
           onClick={() => setSubtab('dash')}
         >
-          <FolderIcon size={14} /> 대시보드
+          <GridIcon size={14} /> 대시보드
         </button>
         <button
           className={`hub-tab${subtab === 'call' ? ' active' : ''}`}
@@ -199,7 +199,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           className={`hub-tab${subtab === 'canvas' ? ' active' : ''}`}
           onClick={() => setSubtab('canvas')}
         >
-          <FolderIcon size={13} /> 캔버스
+          <PenIcon size={13} /> 캔버스
         </button>
       </div>
 

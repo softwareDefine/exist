@@ -221,6 +221,31 @@ export function PlusIcon({ size }: IconProps) {
   );
 }
 
+export function GridIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.9" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.9" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.9" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.9" />
+    </Svg>
+  );
+}
+
+export function PenIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M14.5 5.5l4 4M4 20l1-4L16 5a2.1 2.1 0 0 1 3 3L8 19l-4 1z"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 export function BellIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

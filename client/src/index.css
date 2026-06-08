@@ -1311,21 +1311,27 @@ input:focus {
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 10px 10px 0 0;
-  background: #fafafa;
+  /* 비활성 탭: 회색으로 가라앉히기 */
+  background: #eceef0;
   padding: 9px 16px;
   font-size: 15px;
   font-weight: 700;
   color: var(--text-sub);
   white-space: nowrap;
+  opacity: 0.75;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
 }
 
 .ws-tab:hover {
   color: var(--text);
+  opacity: 1;
 }
 
 .ws-tab.active {
+  /* 현재 보는 탭: 흰 배경 + 녹색 글씨로 도드라지게 (비활성은 회색) */
   color: var(--green);
   background: #fff;
+  opacity: 1;
   /* 붙은 탭들 중 활성 탭을 위로 올려 양옆 테두리가 가려지지 않게 */
   position: relative;
   z-index: 1;
@@ -2705,10 +2711,6 @@ input:focus {
 }
 
 /* 회의 탭 */
-.ws-tab.meeting {
-  color: var(--text);
-}
-
 .ws-tab.meeting.active {
   color: var(--green);
 }
@@ -2720,11 +2722,16 @@ input:focus {
   line-height: 1.15;
 }
 
+/* 비활성 탭의 조직 배지는 회색, 활성 탭만 녹색 */
 .ws-tab-org {
   font-size: 10px;
   font-weight: 800;
-  color: var(--green);
+  color: var(--text-sub);
   letter-spacing: 0.2px;
+}
+
+.ws-tab.active .ws-tab-org {
+  color: var(--green);
 }
 
 .ws-tab .tab-close {
