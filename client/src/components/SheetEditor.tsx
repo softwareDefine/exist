@@ -89,14 +89,26 @@ function evalCell(
 
 const COLORS = ['#30a46c', '#e5484d', '#f76808', '#4f7cff', '#8e4ec6', '#0091ff', '#d6409f'];
 
-/** Yjs 기반 협업 스프레드시트 — roomId 단위 공유 */
+interface SheetMeta {
+  id: string;
+  name: string;
+  ord: number;
+  cellsKey: string;
+}
+
+/** Yjs 기반 협업 스프레드시트 — 여러 시트(하단 탭), roomId 단위 공유 */
 export default function SheetEditor({ roomId }: { roomId: string }) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
+  const ydocRef = useRef<Y.Doc | null>(null);
+  const sheetsMapRef = useRef<Y.Map<{ name: string; ord: number; cellsKey: string }> | null>(null);
   const cellsRef = useRef<Y.Map<unknown> | null>(null);
   const [, bump] = useState(0);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [peers, setPeers] = useState(1);
+  const [sheets, setSheets] = useState<SheetMeta[]>([]);
+  const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
+  const [renamingSheet, setRenamingSheet] = useState<{ id: string; name: string } | null>(null);
   const [sel, setSel] = useState<{ r: number; c: number }>({ r: 0, c: 0 }); // 활성(포커스) 셀
   const [anchor, setAnchor] = useState<{ r: number; c: number }>({ r: 0, c: 0 }); // 선택 시작점
   const [editing, setEditing] = useState<{ r: number; c: number; value: string } | null>(null);
@@ -123,12 +135,33 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     const provider = new WebsocketProvider(`${proto}://${location.host}/yjs`, roomId, ydoc, {
       params: { token: token ?? '' },
     });
-    const cells = ydoc.getMap('cells');
-    cellsRef.current = cells;
+    const sheetsMap = ydoc.getMap<{ name: string; ord: number; cellsKey: string }>('sheets');
+    ydocRef.current = ydoc;
+    sheetsMapRef.current = sheetsMap;
     setStatus(provider.wsconnected ? 'connected' : 'connecting');
 
-    const onCells = () => bump((n) => n + 1);
-    cells.observe(onCells);
+    const syncSheets = () => {
+      const list: SheetMeta[] = [];
+      sheetsMap.forEach((v, id) => list.push({ id, name: v.name, ord: v.ord, cellsKey: v.cellsKey }));
+      list.sort((a, b) => a.ord - b.ord);
+      setSheets(list);
+      setActiveSheetId((cur) => (cur && list.some((s) => s.id === cur) ? cur : list[0]?.id ?? null));
+    };
+    sheetsMap.observe(syncSheets);
+    syncSheets();
+
+    provider.on('sync', (isSynced: boolean) => {
+      if (isSynced && sheetsMap.size === 0) {
+        const legacy = ydoc.getMap('cells'); // 기존 단일시트 데이터 보존
+        const id = crypto.randomUUID();
+        sheetsMap.set(id, {
+          name: '시트1',
+          ord: 1,
+          cellsKey: legacy.size > 0 ? 'cells' : `cells:${id}`,
+        });
+      }
+    });
+
     const onStatus = (e: { status: 'connecting' | 'connected' | 'disconnected' }) =>
       setStatus(e.status);
     provider.on('status', onStatus);
@@ -138,15 +171,30 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     provider.awareness.setLocalStateField('user', { name: user?.username ?? '익명', color });
 
     return () => {
-      cells.unobserve(onCells);
+      sheetsMap.unobserve(syncSheets);
       provider.off('status', onStatus);
       provider.awareness.off('change', onAwareness);
       provider.destroy();
       ydoc.destroy();
+      ydocRef.current = null;
+      sheetsMapRef.current = null;
       cellsRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, token]);
+
+  // 활성 시트의 셀 맵 바인딩
+  const activeSheet = sheets.find((s) => s.id === activeSheetId) ?? null;
+  useEffect(() => {
+    const ydoc = ydocRef.current;
+    if (!ydoc || !activeSheet) return;
+    const cells = ydoc.getMap(activeSheet.cellsKey);
+    cellsRef.current = cells;
+    bump((n) => n + 1);
+    const onCells = () => bump((n) => n + 1);
+    cells.observe(onCells);
+    return () => cells.unobserve(onCells);
+  }, [activeSheet?.cellsKey]);
 
   function raw(r: number, c: number): string {
     return (cellsRef.current?.get(cellKey(r, c)) as string) ?? '';
@@ -181,6 +229,35 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
 
   function clearRange() {
     for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) setCell(r, c, '');
+  }
+
+  function newSheet() {
+    const map = sheetsMapRef.current;
+    if (!map) return;
+    const ord = sheets.reduce((m, s) => Math.max(m, s.ord), 0) + 1;
+    const id = crypto.randomUUID();
+    map.set(id, { name: `시트${ord}`, ord, cellsKey: `cells:${id}` });
+    setActiveSheetId(id);
+    selectCell(0, 0);
+  }
+  function deleteSheet(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const map = sheetsMapRef.current;
+    if (!map || sheets.length <= 1) return;
+    if (!confirm('이 시트를 삭제할까요? (실시간 공유)')) return;
+    const sh = sheets.find((s) => s.id === id);
+    if (sh) ydocRef.current?.getMap(sh.cellsKey).clear();
+    map.delete(id);
+    if (id === activeSheetId) setActiveSheetId(sheets.find((s) => s.id !== id)?.id ?? null);
+  }
+  function commitSheetRename() {
+    const map = sheetsMapRef.current;
+    if (renamingSheet && map) {
+      const name = renamingSheet.name.trim();
+      const cur = map.get(renamingSheet.id);
+      if (name && cur) map.set(renamingSheet.id, { ...cur, name });
+    }
+    setRenamingSheet(null);
   }
 
   function onGridKey(e: React.KeyboardEvent) {
@@ -333,6 +410,47 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* 하단 시트 탭 (엑셀식) */}
+      <div className="sheet-tabbar">
+        {sheets.map((s) => (
+          <div
+            key={s.id}
+            className={`sheet-tab${s.id === activeSheetId ? ' active' : ''}`}
+            onClick={() => {
+              setActiveSheetId(s.id);
+              selectCell(0, 0);
+            }}
+            onDoubleClick={() => setRenamingSheet({ id: s.id, name: s.name })}
+            title="더블클릭하면 이름 변경"
+          >
+            {renamingSheet?.id === s.id ? (
+              <input
+                className="sheet-tab-input"
+                autoFocus
+                value={renamingSheet.name}
+                onChange={(e) => setRenamingSheet({ id: s.id, name: e.target.value })}
+                onClick={(e) => e.stopPropagation()}
+                onBlur={commitSheetRename}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitSheetRename();
+                  else if (e.key === 'Escape') setRenamingSheet(null);
+                }}
+              />
+            ) : (
+              <span className="sheet-tab-name">{s.name}</span>
+            )}
+            {sheets.length > 1 && (
+              <button className="sheet-tab-close" onClick={(e) => deleteSheet(s.id, e)} title="삭제">
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+        <button className="sheet-newtab" title="새 시트" onClick={newSheet}>
+          +
+        </button>
       </div>
     </div>
   );
