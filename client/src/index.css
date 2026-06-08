@@ -625,10 +625,7 @@ input:focus {
 }
 
 .nowbar-divider {
-  width: 1px;
-  align-self: stretch;
-  background: var(--border);
-  flex-shrink: 0;
+  display: none;
 }
 
 .nowbar-todos {
