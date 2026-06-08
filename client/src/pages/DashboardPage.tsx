@@ -9,11 +9,15 @@ import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
 import MeetingThumb from '../components/MeetingThumb';
 import OrgSwitcher from '../components/OrgSwitcher';
+import { ChevronIcon } from '../components/Icons';
 import { useOrgStore } from '../orgStore';
 
 export default function DashboardPage() {
   const location = useLocation();
   const orgCurrent = useOrgStore((s) => s.current);
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => localStorage.getItem('exist:sidebar') !== 'closed',
+  );
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -31,6 +35,14 @@ export default function DashboardPage() {
 
   function openMeetingTab(code: string, title: string) {
     setMeetingRequest({ code, title, ts: Date.now() });
+  }
+
+  function toggleSidebar() {
+    setSidebarOpen((v) => {
+      const next = !v;
+      localStorage.setItem('exist:sidebar', next ? 'open' : 'closed');
+      return next;
+    });
   }
 
 
@@ -87,7 +99,16 @@ export default function DashboardPage() {
         onOpenMeeting={(m) => openMeetingTab(m.code, m.title)}
       />
       <NotificationToasts />
-      <main className="dashboard">
+      <main className={`dashboard${sidebarOpen ? '' : ' collapsed'}`}>
+        <button
+          className="sidebar-toggle"
+          onClick={toggleSidebar}
+          title={sidebarOpen ? '사이드바 닫기' : '사이드바 열기'}
+        >
+          <span className={`sidebar-toggle-icon${sidebarOpen ? ' open' : ''}`}>
+            <ChevronIcon size={16} />
+          </span>
+        </button>
         <aside>
           <OrgSwitcher />
 
