@@ -2185,6 +2185,37 @@ input:focus {
   line-height: 1.4;
 }
 
+/* 지난(치운) 알림은 흐리게 */
+.notif-item.cleared {
+  opacity: 0.6;
+}
+
+.notif-foot {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+}
+
+.notif-foot-btn {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.notif-foot-btn:hover {
+  background: #f5f5f5;
+  color: var(--green);
+}
+
+.notif-foot-btn.danger:hover {
+  background: #fff0f0;
+  color: #ff5b5b;
+}
+
 /* ───── 조직 전환기 ───── */
 .org-switcher {
   position: relative;

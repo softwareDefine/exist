@@ -9,6 +9,7 @@ interface Notification {
   text: string;
   kind: string | null;
   read: boolean;
+  cleared?: boolean;
   ts: number;
 }
 
@@ -22,14 +23,15 @@ function relTime(ts: number): string {
   return `${Math.floor(h / 24)}일 전`;
 }
 
-/** 알림함 — nowbar 종 아이콘. 영속 알림 목록 + 안읽음 카운트 + 실시간 수신 */
+/** 알림함 — nowbar 종 아이콘. 영속 알림 + 안읽음 카운트 + 실시간 + 지난 알림 보기 */
 export default function NotificationCenter() {
   const [items, setItems] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
+  const [past, setPast] = useState(false); // 지난(치운) 알림까지 보기
   const ref = useRef<HTMLDivElement>(null);
 
-  // 초기 로드
+  // 초기 로드 (현재 알림 + 안읽음 수)
   useEffect(() => {
     void api<{ unread: number; items: Notification[] }>('/api/notifications')
       .then((d) => {
@@ -43,9 +45,7 @@ export default function NotificationCenter() {
   useEffect(() => {
     const socket = getSocket();
     function onNotify(n: Notification & { created_at?: string }) {
-      // id가 없는(영속 안 된) 레거시 푸시는 무시 — 알림함은 DB 기반만
       if (typeof n.id !== 'number') return;
-      // 실시간 푸시는 created_at(ISO), API 로드는 ts(ms) — 통일
       const ts = typeof n.ts === 'number' ? n.ts : n.created_at ? Date.parse(n.created_at) : Date.now();
       setItems((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [{ ...n, ts, read: false }, ...prev],
@@ -71,6 +71,7 @@ export default function NotificationCenter() {
   async function toggle() {
     const next = !open;
     setOpen(next);
+    if (!next) setPast(false); // 닫을 때 현재 알림 모드로 초기화
     // 열 때 읽음 처리
     if (next && unread > 0) {
       setItems((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -80,6 +81,31 @@ export default function NotificationCenter() {
   }
 
   async function clearAll() {
+    // 완전 삭제가 아니라 "치우기"(보관) — 지난 알림에서 볼 수 있음
+    setItems([]);
+    setUnread(0);
+    await api('/api/notifications/clear', { method: 'POST' }).catch(() => {});
+  }
+
+  async function showPast() {
+    setPast(true);
+    const d = await api<{ items: Notification[] }>('/api/notifications?all=1').catch(() => null);
+    if (d) setItems(d.items);
+  }
+
+  async function backToCurrent() {
+    setPast(false);
+    const d = await api<{ unread: number; items: Notification[] }>('/api/notifications').catch(
+      () => null,
+    );
+    if (d) {
+      setItems(d.items);
+      setUnread(d.unread);
+    }
+  }
+
+  async function purgeAll() {
+    if (!window.confirm('지난 알림까지 완전히 삭제할까요? 되돌릴 수 없어요.')) return;
     setItems([]);
     setUnread(0);
     await api('/api/notifications', { method: 'DELETE' }).catch(() => {});
@@ -95,19 +121,28 @@ export default function NotificationCenter() {
       {open && (
         <div className="notif-panel">
           <div className="notif-head">
-            <span>알림</span>
-            {items.length > 0 && (
-              <button className="notif-clear" onClick={clearAll}>
-                모두 지우기
+            <span>{past ? '지난 알림' : '알림'}</span>
+            {past ? (
+              <button className="notif-clear" onClick={backToCurrent}>
+                ‹ 최근 알림
               </button>
+            ) : (
+              items.length > 0 && (
+                <button className="notif-clear" onClick={clearAll}>
+                  모두 지우기
+                </button>
+              )
             )}
           </div>
           <div className="notif-list">
             {items.length === 0 ? (
-              <div className="notif-empty">새 알림이 없어요</div>
+              <div className="notif-empty">{past ? '지난 알림이 없어요' : '새 알림이 없어요'}</div>
             ) : (
               items.map((n) => (
-                <div key={n.id} className={`notif-item${n.read ? '' : ' unread'}`}>
+                <div
+                  key={n.id}
+                  className={`notif-item${n.read ? '' : ' unread'}${n.cleared ? ' cleared' : ''}`}
+                >
                   <div className="notif-item-top">
                     <span className="notif-from">{n.from}</span>
                     <span className="notif-time">{relTime(n.ts)}</span>
@@ -115,6 +150,17 @@ export default function NotificationCenter() {
                   <div className="notif-text">{n.text}</div>
                 </div>
               ))
+            )}
+          </div>
+          <div className="notif-foot">
+            {past ? (
+              <button className="notif-foot-btn danger" onClick={purgeAll}>
+                완전 삭제
+              </button>
+            ) : (
+              <button className="notif-foot-btn" onClick={showPast}>
+                지난 알림 보기 ›
+              </button>
             )}
           </div>
         </div>
