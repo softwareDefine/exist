@@ -265,12 +265,33 @@ export function BellIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
       <path
-        d="M12 3a6 6 0 0 0-6 6c0 3.5-1 5.2-1.8 6.1-.4.5-.1 1.4.6 1.4h14.4c.7 0 1-.9.6-1.4C19 14.2 18 12.5 18 9a6 6 0 0 0-6-6z"
+        d="M18.5 9a6.5 6.5 0 0 0-13 0c0 6-2.5 7.5-2.5 7.5h18S18.5 15 18.5 9z"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth="1.7"
+        strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M9.5 19a2.5 2.5 0 0 0 5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M10 20.5a2.3 2.3 0 0 0 4 0"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+export function HistoryIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M3.5 8.5a9 9 0 1 1-1.2 4.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <path d="M3 4v4.5h4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 8v4.2l2.8 1.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

@@ -4,7 +4,7 @@ import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import NotificationToasts from '../components/NotificationToasts';
 import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspacePanel';
-import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, ClockIcon } from '../components/Icons';
+import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, HistoryIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
 import MeetingThumb from '../components/MeetingThumb';
@@ -111,7 +111,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="section-title">
-            <ClockIcon size={22} /> 최근 회의
+            <HistoryIcon size={21} /> 최근 회의
           </div>
           <div className="recent-list">
             {recent.map((m) => (
