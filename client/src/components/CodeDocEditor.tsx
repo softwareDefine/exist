@@ -3,9 +3,25 @@ import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { indentWithTab } from '@codemirror/commands';
+import { StreamLanguage } from '@codemirror/language';
 import { javascript } from '@codemirror/lang-javascript';
 import { python } from '@codemirror/lang-python';
 import { cpp } from '@codemirror/lang-cpp';
+import { java } from '@codemirror/lang-java';
+import { rust } from '@codemirror/lang-rust';
+import { go } from '@codemirror/lang-go';
+import { php } from '@codemirror/lang-php';
+import { html } from '@codemirror/lang-html';
+import { css } from '@codemirror/lang-css';
+import { sql } from '@codemirror/lang-sql';
+import { markdown } from '@codemirror/lang-markdown';
+import { xml } from '@codemirror/lang-xml';
+import { yaml } from '@codemirror/lang-yaml';
+import { json } from '@codemirror/lang-json';
+import { csharp, kotlin } from '@codemirror/legacy-modes/mode/clike';
+import { ruby } from '@codemirror/legacy-modes/mode/ruby';
+import { shell } from '@codemirror/legacy-modes/mode/shell';
+import { swift } from '@codemirror/legacy-modes/mode/swift';
 import { oneDark } from '@codemirror/theme-one-dark';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
@@ -60,25 +76,84 @@ interface FileMeta {
 
 function langForName(name: string): { ext: Extension; label: string } {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  if (ext === 'py') return { ext: python(), label: 'Python' };
-  if (['c', 'cc', 'cpp', 'cxx', 'h', 'hpp'].includes(ext)) return { ext: cpp(), label: 'C/C++' };
-  if (['ts', 'tsx'].includes(ext))
-    return { ext: javascript({ typescript: true, jsx: ext === 'tsx' }), label: 'TypeScript' };
-  if (['js', 'jsx', 'mjs', 'cjs'].includes(ext))
-    return { ext: javascript({ jsx: ext.includes('x') }), label: 'JavaScript' };
-  if (ext === 'json') return { ext: javascript(), label: 'JSON' };
-  return { ext: [], label: '일반 텍스트' };
+  switch (ext) {
+    case 'py':
+      return { ext: python(), label: 'Python' };
+    case 'ts':
+    case 'tsx':
+      return { ext: javascript({ typescript: true, jsx: ext === 'tsx' }), label: 'TypeScript' };
+    case 'js':
+    case 'jsx':
+    case 'mjs':
+    case 'cjs':
+      return { ext: javascript({ jsx: ext.includes('x') }), label: 'JavaScript' };
+    case 'c':
+    case 'cc':
+    case 'cpp':
+    case 'cxx':
+    case 'h':
+    case 'hpp':
+      return { ext: cpp(), label: 'C/C++' };
+    case 'java':
+      return { ext: java(), label: 'Java' };
+    case 'cs':
+      return { ext: StreamLanguage.define(csharp), label: 'C#' };
+    case 'kt':
+    case 'kts':
+      return { ext: StreamLanguage.define(kotlin), label: 'Kotlin' };
+    case 'go':
+      return { ext: go(), label: 'Go' };
+    case 'rs':
+      return { ext: rust(), label: 'Rust' };
+    case 'rb':
+      return { ext: StreamLanguage.define(ruby), label: 'Ruby' };
+    case 'php':
+      return { ext: php(), label: 'PHP' };
+    case 'swift':
+      return { ext: StreamLanguage.define(swift), label: 'Swift' };
+    case 'sh':
+    case 'bash':
+    case 'zsh':
+      return { ext: StreamLanguage.define(shell), label: 'Shell' };
+    case 'html':
+    case 'htm':
+      return { ext: html(), label: 'HTML' };
+    case 'css':
+    case 'scss':
+      return { ext: css(), label: 'CSS' };
+    case 'sql':
+      return { ext: sql(), label: 'SQL' };
+    case 'json':
+      return { ext: json(), label: 'JSON' };
+    case 'md':
+    case 'markdown':
+      return { ext: markdown(), label: 'Markdown' };
+    case 'xml':
+    case 'svg':
+      return { ext: xml(), label: 'XML' };
+    case 'yaml':
+    case 'yml':
+      return { ext: yaml(), label: 'YAML' };
+    default:
+      return { ext: [], label: '일반 텍스트' };
+  }
 }
 
 function fileIcon(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
-  if (ext === 'py') return '🐍';
-  if (['ts', 'tsx'].includes(ext)) return '🇹';
-  if (['js', 'jsx', 'mjs', 'cjs'].includes(ext)) return '🟨';
-  if (['c', 'cc', 'cpp', 'cxx', 'h', 'hpp'].includes(ext)) return '🔵';
-  if (ext === 'json') return '⚙️';
-  if (ext === 'md') return '📝';
-  return '📄';
+  const map: Record<string, string> = {
+    py: '🐍',
+    ts: '🇹', tsx: '🇹',
+    js: '🟨', jsx: '🟨', mjs: '🟨', cjs: '🟨',
+    c: '🔵', cc: '🔵', cpp: '🔵', cxx: '🔵', h: '🔵', hpp: '🔵',
+    java: '☕', cs: '🟣', kt: '🟪', kts: '🟪',
+    go: '🐹', rs: '🦀', rb: '💎', php: '🐘', swift: '🕊️',
+    sh: '🖥️', bash: '🖥️', zsh: '🖥️',
+    html: '🌐', htm: '🌐', css: '🎨', scss: '🎨',
+    sql: '🗃️', json: '⚙️', md: '📝', markdown: '📝',
+    xml: '📰', svg: '📰', yaml: '🔧', yml: '🔧',
+  };
+  return map[ext] ?? '📄';
 }
 
 /** VS Code식 코드 공동편집 — 파일 탐색기 + 멀티파일 탭, Yjs 실시간 */
