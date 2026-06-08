@@ -3141,6 +3141,39 @@ input:focus {
   color: #fff;
 }
 
+.vsc-head-btns {
+  display: flex;
+  gap: 1px;
+}
+
+.vsc-curdir {
+  color: #7a9cc6;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.vsc-chev {
+  display: inline-block;
+  width: 11px;
+  font-size: 9px;
+  color: #9a9a9a;
+  flex: none;
+  text-align: center;
+}
+
+.vsc-folder {
+  font-weight: 600;
+}
+
+.vsc-file.cur {
+  background: #2f3a2f;
+}
+
+.vsc.light .vsc-file.cur {
+  background: #e3efe3;
+}
+
 .vsc-files {
   flex: 1;
   overflow-y: auto;

@@ -70,8 +70,18 @@ function runtimeForExt(ext: string): 'js' | 'py' | null {
 
 interface FileMeta {
   id: string;
-  name: string;
+  name: string; // 전체 경로 (예: "src/app.js" 또는 폴더 "src")
   ord: number;
+  dir?: boolean;
+}
+
+function dirname(p: string): string {
+  const i = p.lastIndexOf('/');
+  return i < 0 ? '' : p.slice(0, i);
+}
+function basename(p: string): string {
+  const i = p.lastIndexOf('/');
+  return i < 0 ? p : p.slice(i + 1);
 }
 
 function langForName(name: string): { ext: Extension; label: string } {
@@ -162,7 +172,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   const user = useAuthStore((s) => s.user);
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
-  const filesMapRef = useRef<Y.Map<{ name: string; ord: number }> | null>(null);
+  const filesMapRef = useRef<Y.Map<{ name: string; ord: number; dir?: boolean }> | null>(null);
 
   const [conn, setConn] = useState<{ ydoc: Y.Doc; provider: WebsocketProvider } | null>(null);
   const [files, setFiles] = useState<FileMeta[]>([]);
@@ -171,9 +181,11 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [peers, setPeers] = useState(1);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<{ dir: string; kind: 'file' | 'folder' } | null>(null);
   const [draftName, setDraftName] = useState('');
   const creatingRef = useRef(false); // Enter/blur 중복 생성 방지
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [currentDir, setCurrentDir] = useState(''); // 새 파일/폴더가 만들어질 위치
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('exist:code-theme') as 'dark' | 'light') || 'dark',
   );
@@ -188,7 +200,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
     const provider = new WebsocketProvider(`${proto}://${location.host}/yjs`, roomId, ydoc, {
       params: { token: token ?? '' },
     });
-    const filesMap = ydoc.getMap<{ name: string; ord: number }>('files');
+    const filesMap = ydoc.getMap<{ name: string; ord: number; dir?: boolean }>('files');
     filesMapRef.current = filesMap;
     setConn({ ydoc, provider });
     setStatus(provider.wsconnected ? 'connected' : 'connecting');
@@ -202,13 +214,14 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
 
     const syncFiles = () => {
       const list: FileMeta[] = [];
-      filesMap.forEach((v, id) => list.push({ id, name: v.name, ord: v.ord }));
+      filesMap.forEach((v, id) => list.push({ id, name: v.name, ord: v.ord, dir: v.dir }));
       list.sort((a, b) => a.ord - b.ord);
       setFiles(list);
-      setActiveId((cur) => cur ?? list[0]?.id ?? null);
+      const firstFile = list.find((f) => !f.dir);
+      setActiveId((cur) => (cur && list.some((f) => f.id === cur && !f.dir) ? cur : firstFile?.id ?? null));
       setOpenTabs((tabs) => {
-        const valid = tabs.filter((t) => list.some((f) => f.id === t));
-        if (valid.length === 0 && list[0]) return [list[0].id];
+        const valid = tabs.filter((t) => list.some((f) => f.id === t && !f.dir));
+        if (valid.length === 0 && firstFile) return [firstFile.id];
         return valid;
       });
     };
@@ -290,18 +303,6 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
       localStorage.setItem('exist:code-theme', next);
       return next;
     });
-  }
-
-  function downloadActive() {
-    if (!activeFile || !conn) return;
-    const text = conn.ydoc.getText(`file:${activeId}`).toString();
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = activeFile.name;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   function runActive() {
@@ -409,22 +410,48 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
       return next;
     });
   }
-  function createFile() {
+  function createEntry() {
     const map = filesMapRef.current;
-    const name = draftName.trim();
-    setCreating(false);
+    const raw = draftName.trim();
+    const c = creating;
+    setCreating(null);
     setDraftName('');
-    if (!map || !name || !creatingRef.current) return;
+    if (!map || !raw || !c || !creatingRef.current) return;
     creatingRef.current = false; // 두 번째 호출(blur) 무시
+    const fullName = c.dir ? `${c.dir}/${raw}` : raw;
+    if (files.some((f) => f.name === fullName)) return; // 중복 방지
     const ord = files.reduce((m, f) => Math.max(m, f.ord), 0) + 1;
     const id = crypto.randomUUID();
-    map.set(id, { name, ord });
-    openFile(id);
+    map.set(id, { name: fullName, ord, dir: c.kind === 'folder' });
+    if (c.kind === 'folder') {
+      setCollapsed((s) => {
+        const n = new Set(s);
+        n.delete(fullName);
+        return n;
+      });
+      setCurrentDir(fullName);
+    } else {
+      openFile(id);
+    }
   }
-  function startCreating() {
+  function startCreating(dir: string, kind: 'file' | 'folder') {
     creatingRef.current = true;
-    setCreating(true);
+    setCreating({ dir, kind });
     setDraftName('');
+    setCollapsed((s) => {
+      const n = new Set(s);
+      n.delete(dir);
+      return n;
+    });
+  }
+  function toggleFolder(path: string) {
+    setCurrentDir(path);
+    setCollapsed((s) => {
+      const n = new Set(s);
+      if (n.has(path)) n.delete(path);
+      else n.add(path);
+      return n;
+    });
   }
   function deleteFile(id: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -435,9 +462,48 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
     conn?.ydoc.getText(`file:${id}`).delete(0, conn.ydoc.getText(`file:${id}`).length);
     setOpenTabs((tabs) => tabs.filter((t) => t !== id));
     if (id === activeId) {
-      const remaining = files.filter((f) => f.id !== id);
+      const remaining = files.filter((f) => f.id !== id && !f.dir);
       setActiveId(remaining[0]?.id ?? null);
     }
+  }
+  function deleteFolder(path: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const map = filesMapRef.current;
+    if (!map) return;
+    if (!confirm(`폴더 "${basename(path)}" 와 그 안의 모든 항목을 삭제할까요?`)) return;
+    const victims = files.filter((f) => f.name === path || f.name.startsWith(path + '/'));
+    victims.forEach((f) => {
+      if (!f.dir) conn?.ydoc.getText(`file:${f.id}`).delete(0, conn.ydoc.getText(`file:${f.id}`).length);
+      map.delete(f.id);
+    });
+    const ids = new Set(victims.map((v) => v.id));
+    setOpenTabs((tabs) => tabs.filter((t) => !ids.has(t)));
+    if (activeId && ids.has(activeId)) {
+      setActiveId(files.find((f) => !f.dir && !ids.has(f.id))?.id ?? null);
+    }
+  }
+
+  async function exportZip() {
+    if (!conn) return;
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    let count = 0;
+    files
+      .filter((f) => !f.dir)
+      .forEach((f) => {
+        zip.file(f.name, conn.ydoc.getText(`file:${f.id}`).toString());
+        count++;
+      });
+    // 빈 폴더도 포함
+    files.filter((f) => f.dir).forEach((f) => zip.folder(f.name));
+    if (count === 0) zip.file('README.txt', 'exist 코드 프로젝트');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${roomId.replace(/^code-/, 'project_')}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const statusLabel =
@@ -446,54 +512,113 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
 
   const canRun = !!activeFile && runtimeForExt(activeFile.name.split('.').pop()?.toLowerCase() ?? '') !== null;
 
+  // 폴더 경로(명시적 + 파일 경로에서 유추한 조상)
+  const folderPaths = new Set<string>();
+  files.forEach((f) => {
+    if (f.dir) folderPaths.add(f.name);
+    let d = dirname(f.name);
+    while (d) {
+      folderPaths.add(d);
+      d = dirname(d);
+    }
+  });
+
+  const createInput = (dir: string, depth: number) => (
+    <div key={`new:${dir}`} className="vsc-file creating" style={{ paddingLeft: 10 + depth * 14 }}>
+      <span className="vsc-file-ic">{creating?.kind === 'folder' ? '📁' : '📄'}</span>
+      <input
+        className="vsc-file-input"
+        autoFocus
+        placeholder={creating?.kind === 'folder' ? '폴더명' : '파일명.js'}
+        value={draftName}
+        onChange={(e) => setDraftName(e.target.value)}
+        onBlur={createEntry}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') createEntry();
+          else if (e.key === 'Escape') {
+            creatingRef.current = false;
+            setCreating(null);
+            setDraftName('');
+          }
+        }}
+      />
+    </div>
+  );
+
+  const renderTree = (parent: string, depth: number): React.ReactNode[] => {
+    const subFolders = [...folderPaths].filter((p) => dirname(p) === parent).sort();
+    const subFiles = files
+      .filter((f) => !f.dir && dirname(f.name) === parent)
+      .sort((a, b) => a.ord - b.ord);
+    const out: React.ReactNode[] = [];
+    for (const fp of subFolders) {
+      const open = !collapsed.has(fp);
+      out.push(
+        <div
+          key={`d:${fp}`}
+          className={`vsc-file vsc-folder${currentDir === fp ? ' cur' : ''}`}
+          style={{ paddingLeft: 10 + depth * 14 }}
+          onClick={() => toggleFolder(fp)}
+          title={fp}
+        >
+          <span className="vsc-chev">{open ? '▾' : '▸'}</span>
+          <span className="vsc-file-ic">📁</span>
+          <span className="vsc-file-name">{basename(fp)}</span>
+          <button className="vsc-file-del" title="폴더 삭제" onClick={(e) => deleteFolder(fp, e)}>
+            <CloseIcon size={11} />
+          </button>
+        </div>,
+      );
+      if (open) {
+        out.push(...renderTree(fp, depth + 1));
+        if (creating && creating.dir === fp) out.push(createInput(fp, depth + 1));
+      }
+    }
+    for (const f of subFiles) {
+      out.push(
+        <div
+          key={f.id}
+          className={`vsc-file${f.id === activeId ? ' active' : ''}`}
+          style={{ paddingLeft: 10 + depth * 14 }}
+          onClick={() => openFile(f.id)}
+          title={f.name}
+        >
+          <span className="vsc-file-ic">{fileIcon(f.name)}</span>
+          <span className="vsc-file-name">{basename(f.name)}</span>
+          <button className="vsc-file-del" title="삭제" onClick={(e) => deleteFile(f.id, e)}>
+            <CloseIcon size={11} />
+          </button>
+        </div>,
+      );
+    }
+    return out;
+  };
+
   return (
     <div className={`vsc ${theme}`}>
       {/* 파일 탐색기 */}
       <div className="vsc-sidebar">
         <div className="vsc-sidebar-head">
-          <span>탐색기</span>
-          <button className="vsc-newfile" title="새 파일" onClick={startCreating}>
-            <PlusIcon size={15} />
-          </button>
+          <span>탐색기{currentDir && <span className="vsc-curdir"> · {basename(currentDir)}/</span>}</span>
+          <span className="vsc-head-btns">
+            <button className="vsc-newfile" title="새 파일" onClick={() => startCreating(currentDir, 'file')}>
+              <PlusIcon size={15} />
+            </button>
+            <button className="vsc-newfile" title="새 폴더" onClick={() => startCreating(currentDir, 'folder')}>
+              📁
+            </button>
+            {currentDir && (
+              <button className="vsc-newfile" title="최상위로" onClick={() => setCurrentDir('')}>
+                ⤴
+              </button>
+            )}
+          </span>
         </div>
         <div className="vsc-files">
-          {files.map((f) => (
-            <div
-              key={f.id}
-              className={`vsc-file${f.id === activeId ? ' active' : ''}`}
-              onClick={() => openFile(f.id)}
-              title={f.name}
-            >
-              <span className="vsc-file-ic">{fileIcon(f.name)}</span>
-              <span className="vsc-file-name">{f.name}</span>
-              <button className="vsc-file-del" title="삭제" onClick={(e) => deleteFile(f.id, e)}>
-                <CloseIcon size={11} />
-              </button>
-            </div>
-          ))}
-          {creating && (
-            <div className="vsc-file creating">
-              <span className="vsc-file-ic">📄</span>
-              <input
-                className="vsc-file-input"
-                autoFocus
-                placeholder="파일명.js"
-                value={draftName}
-                onChange={(e) => setDraftName(e.target.value)}
-                onBlur={createFile}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') createFile();
-                  else if (e.key === 'Escape') {
-                    creatingRef.current = false;
-                    setCreating(false);
-                    setDraftName('');
-                  }
-                }}
-              />
-            </div>
-          )}
+          {renderTree('', 0)}
+          {creating && creating.dir === '' && createInput('', 0)}
           {files.length === 0 && !creating && (
-            <div className="vsc-empty">+ 로 파일을 만들어보세요</div>
+            <div className="vsc-empty">파일/폴더를 만들어보세요</div>
           )}
         </div>
       </div>
@@ -531,9 +656,8 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
             </button>
             <button
               className="vsc-act"
-              onClick={downloadActive}
-              disabled={!activeFile}
-              title="현재 파일 다운로드"
+              onClick={exportZip}
+              title="전체 프로젝트 zip 내보내기"
             >
               <DownloadIcon size={16} />
             </button>
