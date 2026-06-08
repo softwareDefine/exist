@@ -3,6 +3,19 @@ import crypto from 'node:crypto';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { byPositionDesc } from './positions.js';
+import { notifyUser } from './notify.js';
+
+/** 조직의 관리자(owner/admin) userId 목록 — 알림 대상 */
+function managerIds(orgId: number): number[] {
+  return (
+    db
+      .prepare(
+        `SELECT user_id FROM organization_members
+         WHERE org_id = ? AND status = 'active' AND role IN ('owner','admin')`,
+      )
+      .all(orgId) as { user_id: number }[]
+  ).map((r) => r.user_id);
+}
 
 /*
  * 조직(organization) — 회사·팀 단위.
@@ -144,6 +157,15 @@ router.post('/join', (req: AuthedRequest, res) => {
     `INSERT INTO organization_members (org_id, user_id, role, status)
      VALUES (?, ?, 'member', 'pending')`,
   ).run(org.id, req.userId);
+
+  // 관리자에게 가입 신청 도착 알림
+  for (const mid of managerIds(org.id)) {
+    notifyUser(mid, {
+      from: org.name,
+      text: `${req.username}님이 ${org.name} 가입을 신청했어요`,
+      kind: 'org-request',
+    });
+  }
   res.json({ ok: true, orgName: org.name, status: 'pending' });
 });
 
@@ -237,6 +259,17 @@ router.post('/:id/members/:userId/approve', (req: AuthedRequest, res) => {
        SET status = 'active', position = ?, department = ?
      WHERE org_id = ? AND user_id = ?`,
   ).run(position, department, orgId, targetId);
+
+  // 신청자에게 승인 알림 (직급·부서가 있으면 함께)
+  const org = db.prepare('SELECT name FROM organizations WHERE id = ?').get(orgId) as
+    | { name: string }
+    | undefined;
+  const detail = [department, position].filter(Boolean).join(' ');
+  notifyUser(targetId, {
+    from: org?.name ?? '조직',
+    text: `${org?.name ?? '조직'} 가입이 승인됐어요${detail ? ` — ${detail}` : ''}`,
+    kind: 'org-approved',
+  });
   res.json({ ok: true });
 });
 

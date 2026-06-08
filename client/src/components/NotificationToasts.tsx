@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 import { getSocket } from '../lib/socket';
+import { useOrgStore } from '../orgStore';
 
 interface Toast {
   id: number;
   from: string;
   text: string;
+}
+
+interface NotifyPayload {
+  from: string;
+  text: string;
+  kind?: 'org-approved' | 'org-request';
 }
 
 let nextId = 1;
@@ -15,10 +22,14 @@ export default function NotificationToasts() {
 
   useEffect(() => {
     const socket = getSocket();
-    function onNotify({ from, text }: { from: string; text: string }) {
+    function onNotify({ from, text, kind }: NotifyPayload) {
       const id = nextId++;
       setToasts((prev) => [...prev, { id, from, text }]);
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 12_000);
+      // 조직 가입/승인 알림이면 조직 목록·대기수 갱신
+      if (kind === 'org-approved' || kind === 'org-request') {
+        void useOrgStore.getState().load();
+      }
     }
     socket.on('agent:notify', onNotify);
     return () => {

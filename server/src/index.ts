@@ -15,6 +15,7 @@ import agentRouter, { getUserContext } from './agent.js';
 import workspacesRouter from './workspaces.js';
 import orgsRouter from './orgs.js';
 import { attachSync } from './sync.js';
+import { initNotifier } from './notify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
@@ -78,6 +79,7 @@ io.use((socket, next) => {
 
 attachSfu(io);
 attachSync(server);
+initNotifier(io); // orgs 등 라우터에서 notifyUser 사용 가능하게
 
 // ── presence: 접속 중인 사용자 (exist의 존재감 레이어) ──
 const online = new Map<number, { username: string; count: number }>();
