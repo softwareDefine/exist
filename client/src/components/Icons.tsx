@@ -331,6 +331,16 @@ export function DocIcon({ size }: IconProps) {
   );
 }
 
+export function SlideIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="3.5" y="5" width="17" height="12" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 20h8M12 17v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M7 9.5h7M7 12.5h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function PlayIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

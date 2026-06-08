@@ -8,6 +8,7 @@ import CanvasBoard from './CanvasBoard';
 import CodeDocEditor from './CodeDocEditor';
 import DocEditor from './DocEditor';
 import SheetEditor from './SheetEditor';
+import SlideEditor from './SlideEditor';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import MeetingSchedule from './MeetingSchedule';
@@ -20,6 +21,7 @@ import {
   CodeIcon,
   DocIcon,
   SheetIcon,
+  SlideIcon,
   UsersIcon,
   CheckIcon,
   CheckMarkIcon,
@@ -125,7 +127,7 @@ function chatDateLabel(ts: number): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'code' | 'doc' | 'sheet' | 'schedule';
+type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'code' | 'doc' | 'sheet' | 'slide' | 'schedule';
 
 interface Props {
   code: string;
@@ -148,6 +150,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
   const [codeMounted, setCodeMounted] = useState(false); // 코드 편집기도 한 번 열면 유지
   const [docMounted, setDocMounted] = useState(false); // 문서 편집기도 한 번 열면 유지
   const [sheetMounted, setSheetMounted] = useState(false); // 시트 편집기도 한 번 열면 유지
+  const [slideMounted, setSlideMounted] = useState(false); // 슬라이드도 한 번 열면 유지
   const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null); // 무빙 통화창 위치
   const pipDragRef = useRef<{ dx: number; dy: number } | null>(null);
   const [todos, setTodos] = useState<MeetingTodo[]>([]);
@@ -195,6 +198,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     if (subtab === 'code') setCodeMounted(true);
     if (subtab === 'doc') setDocMounted(true);
     if (subtab === 'sheet') setSheetMounted(true);
+    if (subtab === 'slide') setSlideMounted(true);
   }, [subtab]);
 
   // 무빙 통화창 드래그
@@ -372,6 +376,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
           onClick={() => setSubtab('sheet')}
         >
           <SheetIcon size={14} /> 시트
+        </button>
+        <button
+          className={`hub-tab${subtab === 'slide' ? ' active' : ''}`}
+          onClick={() => setSubtab('slide')}
+        >
+          <SlideIcon size={14} /> 발표
         </button>
       </div>
 
@@ -731,6 +741,16 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
             style={{ display: subtab === 'sheet' ? 'block' : 'none' }}
           >
             <SheetEditor roomId={`sheet-${code.toUpperCase()}`} />
+          </div>
+        )}
+
+        {/* 발표(슬라이드) 공동편집 — Yjs 실시간 */}
+        {slideMounted && (
+          <div
+            className="hub-editor-pane"
+            style={{ display: subtab === 'slide' ? 'block' : 'none' }}
+          >
+            <SlideEditor roomId={`slide-${code.toUpperCase()}`} />
           </div>
         )}
 
