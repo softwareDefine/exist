@@ -217,7 +217,7 @@ router.get('/:id', (req: AuthedRequest, res) => {
   });
 });
 
-/** 가입 승인 (관리자) */
+/** 가입 승인 (관리자) — 직급·부서를 함께 지정할 수 있음 */
 router.post('/:id/members/:userId/approve', (req: AuthedRequest, res) => {
   const orgId = Number(req.params.id);
   const targetId = Number(req.params.userId);
@@ -228,9 +228,15 @@ router.post('/:id/members/:userId/approve', (req: AuthedRequest, res) => {
   if (!m || m.status !== 'pending') {
     return res.status(404).json({ error: '대기 중인 신청이 아니에요' });
   }
+  const position =
+    req.body?.position != null ? String(req.body.position).trim().slice(0, 20) || null : null;
+  const department =
+    req.body?.department != null ? String(req.body.department).trim().slice(0, 30) || null : null;
   db.prepare(
-    `UPDATE organization_members SET status = 'active' WHERE org_id = ? AND user_id = ?`,
-  ).run(orgId, targetId);
+    `UPDATE organization_members
+       SET status = 'active', position = ?, department = ?
+     WHERE org_id = ? AND user_id = ?`,
+  ).run(position, department, orgId, targetId);
   res.json({ ok: true });
 });
 

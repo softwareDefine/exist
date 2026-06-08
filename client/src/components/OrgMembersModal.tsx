@@ -39,6 +39,8 @@ export default function OrgMembersModal({ orgId, onClose }: Props) {
   const reloadOrgs = useOrgStore((s) => s.load);
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [copied, setCopied] = useState(false);
+  // 승인 전 입력할 직급·부서 (대기자 userId별)
+  const [draft, setDraft] = useState<Record<number, { position: string; department: string }>>({});
 
   const load = useCallback(async () => {
     if (orgId == null) return;
@@ -67,9 +69,19 @@ export default function OrgMembersModal({ orgId, onClose }: Props) {
   if (orgId == null) return null;
 
   async function approve(userId: number) {
-    await api(`/api/orgs/${orgId}/members/${userId}/approve`, { method: 'POST' });
+    const d = draft[userId];
+    await api(`/api/orgs/${orgId}/members/${userId}/approve`, {
+      method: 'POST',
+      body: { position: d?.position || null, department: d?.department || null },
+    });
     await load();
     await reloadOrgs();
+  }
+  function setDraft_(userId: number, patch: Partial<{ position: string; department: string }>) {
+    setDraft((prev) => {
+      const cur = prev[userId] ?? { position: '', department: '' };
+      return { ...prev, [userId]: { ...cur, ...patch } };
+    });
   }
   async function remove(userId: number) {
     await api(`/api/orgs/${orgId}/members/${userId}`, { method: 'DELETE' });
@@ -127,19 +139,46 @@ export default function OrgMembersModal({ orgId, onClose }: Props) {
               <div className="org-section">
                 <div className="org-section-title">가입 대기 ({detail.pending.length})</div>
                 {detail.pending.map((p) => (
-                  <div key={p.userId} className="org-member-row">
-                    <span className="org-member-id">
-                      <span className="org-avatar">{p.avatar}</span>
-                      {p.username}
-                    </span>
-                    <span className="org-member-actions">
-                      <button className="org-btn approve" onClick={() => approve(p.userId)}>
-                        승인
-                      </button>
-                      <button className="org-btn reject" onClick={() => remove(p.userId)}>
-                        거절
-                      </button>
-                    </span>
+                  <div key={p.userId} className="org-member-card pending">
+                    <div className="org-member-top">
+                      <span className="org-member-id">
+                        <span className="org-avatar">{p.avatar}</span>
+                        {p.username}
+                        <span className="org-role member">대기</span>
+                      </span>
+                      <span className="org-member-actions">
+                        <button className="org-btn approve" onClick={() => approve(p.userId)}>
+                          승인
+                        </button>
+                        <button className="org-btn reject" onClick={() => remove(p.userId)}>
+                          거절
+                        </button>
+                      </span>
+                    </div>
+                    {/* 승인하면서 직급·부서를 미리 정할 수 있어요 (선택) */}
+                    <div className="org-member-fields">
+                      <select
+                        className="org-field-select"
+                        value={draft[p.userId]?.position ?? ''}
+                        onChange={(e) => setDraft_(p.userId, { position: e.target.value })}
+                        title="직급 (선택)"
+                      >
+                        <option value="">직급 미지정</option>
+                        {POSITIONS.map((pos) => (
+                          <option key={pos} value={pos}>
+                            {pos}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="org-field-input"
+                        value={draft[p.userId]?.department ?? ''}
+                        placeholder="부서 (선택, 예: 개발팀)"
+                        maxLength={30}
+                        title="부서 (선택)"
+                        onChange={(e) => setDraft_(p.userId, { department: e.target.value })}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
