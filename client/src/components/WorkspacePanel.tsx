@@ -85,16 +85,20 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     prevRects.current = newRects;
   });
 
-  /** 회의 탭 순서 재배열 (드래그) — fromCode를 toCode 자리로 */
-  function reorderTabs(fromCode: string, toCode: string) {
+  /** 회의 탭 이동 (드래그) — fromCode를 toCode의 앞/뒤로 삽입.
+   *  순서가 실제로 바뀔 때만 갱신(같은 위치 반복 호출은 무시 → 진동 방지) */
+  function moveTab(fromCode: string, toCode: string, after: boolean) {
     if (fromCode === toCode) return;
     setMeetingTabs((prev) => {
       const arr = [...prev];
       const fi = arr.findIndex((t) => t.code === fromCode);
-      const ti = arr.findIndex((t) => t.code === toCode);
-      if (fi < 0 || ti < 0) return prev;
+      if (fi < 0) return prev;
       const [moved] = arr.splice(fi, 1);
-      arr.splice(ti, 0, moved);
+      const ti = arr.findIndex((t) => t.code === toCode);
+      if (ti < 0) return prev;
+      arr.splice(after ? ti + 1 : ti, 0, moved);
+      // 순서가 그대로면 원본 유지 (불필요 리렌더·진동 방지)
+      if (arr.length === prev.length && arr.every((t, i) => t.code === prev[i].code)) return prev;
       return arr;
     });
   }
@@ -296,8 +300,11 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
-              // 크롬 탭처럼 드래그하는 동안 실시간으로 자리바꿈
-              if (dragCode && dragCode !== t.code) reorderTabs(dragCode, t.code);
+              // 마우스가 대상 탭 중앙을 넘었을 때만 그 앞/뒤로 이동 (진동 방지)
+              if (!dragCode || dragCode === t.code) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const after = e.clientX > rect.left + rect.width / 2;
+              moveTab(dragCode, t.code, after);
             }}
             onDrop={(e) => {
               e.preventDefault();
