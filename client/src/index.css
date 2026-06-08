@@ -1399,13 +1399,95 @@ input:focus {
 
 .hub-dash {
   flex: 1;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
   overflow-y: auto;
 }
 
 .hub-loading {
+  color: var(--text-sub);
+  margin: auto;
+}
+
+/* 대시보드 정보 섹션 카드 */
+.hub-section {
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 20px 22px;
+}
+
+.hub-section-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+.hub-section-title b {
+  color: var(--green);
+}
+
+.hub-section-title .hub-roster-org {
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.hub-section-title .hub-preview-more {
+  margin-left: auto;
+}
+
+.hub-section-empty {
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+/* 회의 정보 섹션 */
+.hub-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.hub-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.hub-meta-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 56px;
+  color: var(--text-sub);
+  font-weight: 700;
+}
+
+.hub-meta-val {
+  color: var(--text);
+}
+
+/* 통화 섹션 */
+.hub-call-status {
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.hub-call-idle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--text-sub);
 }
 
@@ -1544,7 +1626,9 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .hub-thumb {
@@ -1654,7 +1738,7 @@ input:focus {
 
 /* ── 참가자 명함(roster) — 조직 회의 직급/부서 ── */
 .hub-roster {
-  margin: 8px 0 22px;
+  margin: 0;
 }
 
 .hub-roster-head {
@@ -1688,7 +1772,7 @@ input:focus {
 
 .hub-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 8px;
 }
 
@@ -1728,6 +1812,7 @@ input:focus {
   font-size: 14px;
   font-weight: 800;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .hub-pcard-pos {
@@ -1860,9 +1945,7 @@ input:focus {
 
 /* 허브 대시보드 — 최근 채팅 미리보기 */
 .hub-preview {
-  margin-top: 18px;
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
+  margin: 0;
 }
 
 .hub-preview-head {

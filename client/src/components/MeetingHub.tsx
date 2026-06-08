@@ -5,7 +5,15 @@ import { usePresence } from '../lib/usePresence';
 import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
 import CanvasBoard from './CanvasBoard';
-import { PhoneIcon, CalendarIcon, ClockIcon, ChatIcon, GridIcon, PenIcon } from './Icons';
+import {
+  PhoneIcon,
+  CalendarIcon,
+  ClockIcon,
+  ChatIcon,
+  GridIcon,
+  PenIcon,
+  UsersIcon,
+} from './Icons';
 
 interface Participant {
   username: string;
@@ -210,119 +218,140 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
             {!detail ? (
               <div className="hub-loading">회의 정보를 불러오는 중…</div>
             ) : (
-              <div className="hub-card">
-                <div className="hub-head">
-                  <div
-                    className="hub-thumb"
-                    style={{
-                      background: `linear-gradient(135deg, hsl(${(detail.id * 67) % 360} 60% 55%), hsl(${(detail.id * 67 + 40) % 360} 60% 45%))`,
-                    }}
-                  >
-                    {detail.title.slice(0, 1)}
-                  </div>
-                  <div className="hub-title-wrap">
-                    <h2 className="hub-title">{detail.title}</h2>
-                    <div className="hub-sub">
-                      호스트 <b>{detail.host}</b>
-                      {detail.isHost && ' (나)'}
+              <>
+                {/* 1. 회의 정보 */}
+                <section className="hub-section hub-info-section">
+                  <div className="hub-head">
+                    <div
+                      className="hub-thumb"
+                      style={{
+                        background: `linear-gradient(135deg, hsl(${(detail.id * 67) % 360} 60% 55%), hsl(${(detail.id * 67 + 40) % 360} 60% 45%))`,
+                      }}
+                    >
+                      {detail.title.slice(0, 1)}
                     </div>
-                  </div>
-                </div>
-
-                <div className="hub-rows">
-                  <div className="hub-row">
-                    <span className="hub-label">코드</span>
-                    <button className="hub-code" onClick={copyCode} title="클릭해서 복사">
-                      {detail.code} {copied ? '✓' : ''}
-                    </button>
-                  </div>
-                  {range && (
-                    <div className="hub-row">
-                      <span className="hub-label">
-                        <CalendarIcon size={14} /> 일정
-                      </span>
-                      <span>{range}</span>
-                    </div>
-                  )}
-                  <div className="hub-row">
-                    <span className="hub-label">
-                      <ClockIcon size={14} /> 통화
-                    </span>
-                    <span className={detail.online > 0 ? 'hub-live' : ''}>
-                      {detail.online > 0 ? (
-                        <>
-                          <i className="live-dot" /> 지금 {detail.online}명 통화 중
-                        </>
-                      ) : (
-                        '아직 아무도 없어요'
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                {/* 참가자 — 조직 회의면 부서별 명함, 개인 회의면 단순 목록 */}
-                <div className="hub-roster">
-                  <div className="hub-roster-head">
-                    참가자 <b>{detail.participants.length}</b>
-                    {detail.orgName && <span className="hub-roster-org">· {detail.orgName}</span>}
-                  </div>
-                  {groupByDept(detail.participants).map((group) => (
-                    <div key={group.dept ?? '__none'} className="hub-dept">
-                      {group.dept && <div className="hub-dept-name">{group.dept}</div>}
-                      <div className="hub-cards">
-                        {group.people.map((p) => (
-                          <div
-                            key={p.username}
-                            className={`hub-pcard${presence.has(p.username) ? ' online' : ''}`}
-                          >
-                            <span className="hub-pcard-avatar">{p.avatar || '🙂'}</span>
-                            <span className="hub-pcard-info">
-                              <span className="hub-pcard-name">
-                                {p.username}
-                                {p.position && <span className="hub-pcard-pos">{p.position}</span>}
-                                {p.role === 'owner' && <span className="hub-pcard-badge">소유자</span>}
-                                {p.role === 'admin' && (
-                                  <span className="hub-pcard-badge admin">관리자</span>
-                                )}
-                              </span>
-                              <span className="hub-pcard-sub">
-                                {p.department || (detail.orgName ? '부서 미지정' : '')}
-                                {p.username === detail.host && (
-                                  <span className="hub-pcard-host"> · 호스트</span>
-                                )}
-                              </span>
-                            </span>
-                            <i className="presence-dot" title={presence.has(p.username) ? '접속 중' : '오프라인'} />
-                          </div>
-                        ))}
+                    <div className="hub-title-wrap">
+                      <h2 className="hub-title">{detail.title}</h2>
+                      <div className="hub-sub">
+                        호스트 <b>{detail.host}</b>
+                        {detail.isHost && ' (나)'}
                       </div>
                     </div>
-                  ))}
-                </div>
-
-                <button className="hub-join" onClick={joinCall}>
-                  <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여하기'}
-                </button>
-
-                {/* 최근 채팅 미리보기 */}
-                {messages.length > 0 && (
-                  <div className="hub-preview">
-                    <div className="hub-preview-head">
-                      <span>
-                        <ChatIcon size={13} /> 최근 채팅
-                      </span>
-                      <button className="hub-preview-more" onClick={() => setSubtab('chat')}>
-                        더 보기 ›
+                  </div>
+                  <div className="hub-meta">
+                    <div className="hub-meta-item">
+                      <span className="hub-meta-label">코드</span>
+                      <button className="hub-code" onClick={copyCode} title="클릭해서 복사">
+                        {detail.code} {copied ? '✓' : ''}
                       </button>
                     </div>
-                    {messages.slice(-3).map((m, i) => (
-                      <div key={i} className="hub-preview-msg">
-                        <b>{m.from}</b> {m.text}
+                    <div className="hub-meta-item">
+                      <span className="hub-meta-label">
+                        <CalendarIcon size={13} /> 일정
+                      </span>
+                      <span className="hub-meta-val">{range ?? '미정'}</span>
+                    </div>
+                    {detail.orgName && (
+                      <div className="hub-meta-item">
+                        <span className="hub-meta-label">소속</span>
+                        <span className="hub-meta-val">{detail.orgName}</span>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* 2. 통화 정보 */}
+                <section className="hub-section">
+                  <div className="hub-section-title">
+                    <PhoneIcon size={15} /> 통화
+                  </div>
+                  <div className="hub-call-status">
+                    {detail.online > 0 ? (
+                      <span className="hub-live">
+                        <i className="live-dot" /> 지금 {detail.online}명 통화 중
+                      </span>
+                    ) : (
+                      <span className="hub-call-idle">
+                        <ClockIcon size={14} /> 아직 통화에 아무도 없어요
+                      </span>
+                    )}
+                  </div>
+                  <button className="hub-join" onClick={joinCall}>
+                    <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여하기'}
+                  </button>
+                </section>
+
+                {/* 3. 사용자 정보 (참가자) — 조직 회의면 부서별 명함 */}
+                <section className="hub-section">
+                  <div className="hub-section-title">
+                    <UsersIcon size={15} /> 참가자 <b>{detail.participants.length}</b>
+                    {detail.orgName && <span className="hub-roster-org">· {detail.orgName}</span>}
+                  </div>
+                  <div className="hub-roster">
+                    {groupByDept(detail.participants).map((group) => (
+                      <div key={group.dept ?? '__none'} className="hub-dept">
+                        {group.dept && <div className="hub-dept-name">{group.dept}</div>}
+                        <div className="hub-cards">
+                          {group.people.map((p) => (
+                            <div
+                              key={p.username}
+                              className={`hub-pcard${presence.has(p.username) ? ' online' : ''}`}
+                            >
+                              <span className="hub-pcard-avatar">{p.avatar || '🙂'}</span>
+                              <span className="hub-pcard-info">
+                                <span className="hub-pcard-name">
+                                  {p.username}
+                                  {p.role === 'owner' && (
+                                    <span className="hub-pcard-badge">소유자</span>
+                                  )}
+                                  {p.role === 'admin' && (
+                                    <span className="hub-pcard-badge admin">관리자</span>
+                                  )}
+                                </span>
+                                <span className="hub-pcard-sub">
+                                  {p.position && <b className="hub-pcard-pos">{p.position}</b>}
+                                  {p.position && (p.department || detail.orgName) && ' · '}
+                                  {p.department || (detail.orgName ? '부서 미지정' : '')}
+                                  {p.username === detail.host && (
+                                    <span className="hub-pcard-host"> · 호스트</span>
+                                  )}
+                                </span>
+                              </span>
+                              <i
+                                className="presence-dot"
+                                title={presence.has(p.username) ? '접속 중' : '오프라인'}
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </section>
+
+                {/* 4. 각종 정보 — 최근 채팅 */}
+                <section className="hub-section">
+                  <div className="hub-section-title">
+                    <ChatIcon size={15} /> 최근 채팅
+                    {messages.length > 0 && (
+                      <button className="hub-preview-more" onClick={() => setSubtab('chat')}>
+                        더 보기 ›
+                      </button>
+                    )}
+                  </div>
+                  {messages.length > 0 ? (
+                    <div className="hub-preview">
+                      {messages.slice(-3).map((m, i) => (
+                        <div key={i} className="hub-preview-msg">
+                          <b>{m.from}</b> {m.text}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="hub-section-empty">아직 대화가 없어요</div>
+                  )}
+                </section>
+              </>
             )}
           </div>
         )}
