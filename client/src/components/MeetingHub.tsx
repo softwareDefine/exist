@@ -437,27 +437,45 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                       </span>
                     )}
                   </div>
+                  {todos.length > 0 &&
+                    (() => {
+                      const done = todos.filter((t) => t.done).length;
+                      const pct = Math.round((done / todos.length) * 100);
+                      return (
+                        <div className="hub-todo-progress">
+                          <div className="hub-todo-bar">
+                            <div className="hub-todo-bar-fill" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="hub-todo-pct">{pct}%</span>
+                        </div>
+                      );
+                    })()}
                   <div className="hub-todos">
-                    {todos.map((t) => (
-                      <div key={t.id} className={`hub-todo${t.done ? ' done' : ''}`}>
-                        <label className="hub-todo-label">
-                          <input
-                            type="checkbox"
-                            checked={!!t.done}
-                            onChange={() => void toggleTodo(t)}
-                          />
-                          <span className="hub-todo-text">{t.title}</span>
-                        </label>
-                        {t.author && <span className="hub-todo-author">{t.author}</span>}
-                        <button
-                          className="hub-todo-del"
-                          onClick={() => void deleteTodo(t)}
-                          title="삭제"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                    {[...todos]
+                      .sort((a, b) => a.done - b.done)
+                      .map((t) => (
+                        <div key={t.id} className={`hub-todo${t.done ? ' done' : ''}`}>
+                          <label className="hub-todo-label">
+                            <input
+                              type="checkbox"
+                              checked={!!t.done}
+                              onChange={() => void toggleTodo(t)}
+                            />
+                            <span className="hub-todo-check" aria-hidden>
+                              <CheckIcon size={12} />
+                            </span>
+                            <span className="hub-todo-text">{t.title}</span>
+                          </label>
+                          {t.author && <span className="hub-todo-author">{t.author}</span>}
+                          <button
+                            className="hub-todo-del"
+                            onClick={() => void deleteTodo(t)}
+                            title="삭제"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
                     {todos.length === 0 && (
                       <div className="hub-section-empty">함께 할 일을 추가해보세요</div>
                     )}

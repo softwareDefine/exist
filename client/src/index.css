@@ -1703,10 +1703,40 @@ input:focus {
   color: var(--green);
 }
 
+/* 진행률 바 */
+.hub-todo-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.hub-todo-bar {
+  flex: 1;
+  height: 7px;
+  background: #eef0f2;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.hub-todo-bar-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.hub-todo-pct {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--green);
+  flex-shrink: 0;
+}
+
 .hub-todos {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   margin-bottom: 10px;
 }
 
@@ -1732,10 +1762,26 @@ input:focus {
 }
 
 .hub-todo-label input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--green);
+  display: none;
+}
+
+.hub-todo-check {
+  width: 19px;
+  height: 19px;
+  border: 1.6px solid #cfcfcf;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: transparent;
   flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.hub-todo.done .hub-todo-check {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
 }
 
 .hub-todo-text {
