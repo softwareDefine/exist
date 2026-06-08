@@ -193,4 +193,68 @@ router.post('/sql', (req, res) => {
   }
 });
 
+/** git push — 프로젝트 파일을 임시 repo에 커밋 후 원격으로 push */
+router.post('/git', async (req, res) => {
+  const {
+    remote,
+    token,
+    branch = 'main',
+    message = 'exist에서 업로드',
+    name = 'exist',
+    email = 'exist@local',
+    files,
+  } = req.body as {
+    remote: string;
+    token: string;
+    branch?: string;
+    message?: string;
+    name?: string;
+    email?: string;
+    files: RunFile[];
+  };
+  if (!remote || !token || !Array.isArray(files)) {
+    return res.status(400).json({ error: 'remote · token · files 필요' });
+  }
+  const lines: { type: string; text: string }[] = [];
+  const redact = (s: string) => s.split(token).join('***');
+  const authRemote = remote.replace(/^https:\/\//, `https://x-access-token:${token}@`);
+
+  const dir = path.join(os.tmpdir(), 'exist-git-' + crypto.randomUUID());
+  fs.mkdirSync(dir, { recursive: true });
+  try {
+    for (const f of files) {
+      const safe = path.normalize(f.path).replace(/^(\.\.[/\\])+/, '');
+      const full = path.join(dir, safe);
+      if (!full.startsWith(dir)) continue;
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, f.content ?? '');
+    }
+    const steps = [
+      `git init -b ${branch}`,
+      `git config user.name "${name}"`,
+      `git config user.email "${email}"`,
+      `git add -A`,
+      `git commit -m "${message.replace(/"/g, "'")}"`,
+      `git remote add origin "${authRemote}"`,
+      `git push -u origin ${branch} --force`,
+    ];
+    for (const step of steps) {
+      const r = await runShell(step, dir);
+      const out = (r.stdout + r.stderr).trim();
+      if (out) lines.push({ type: r.code === 0 ? 'log' : 'error', text: redact(out) });
+      if (r.code !== 0) {
+        if (/not (found|recognized)|is not recognized/i.test(r.stderr)) {
+          lines.push({ type: 'error', text: '서버 PC에 git 이 설치되어 있지 않아요.' });
+        }
+        lines.push({ type: 'error', text: `✗ 실패: ${redact(step)}` });
+        return res.json({ lines });
+      }
+    }
+    lines.push({ type: 'info', text: `✓ ${branch} 브랜치로 푸시 완료` });
+    res.json({ lines });
+  } finally {
+    fs.rm(dir, { recursive: true, force: true }, () => {});
+  }
+});
+
 export default router;

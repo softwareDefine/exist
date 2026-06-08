@@ -204,6 +204,13 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   const [output, setOutput] = useState<OutLine[]>([]);
   const [showOutput, setShowOutput] = useState(false);
   const [running, setRunning] = useState(false);
+  const [showGit, setShowGit] = useState(false);
+  const [git, setGit] = useState({
+    remote: localStorage.getItem('exist:git-remote') ?? '',
+    token: '',
+    branch: 'main',
+    message: 'exist에서 업로드',
+  });
 
   // ── 연결 + 파일 목록 ──
   useEffect(() => {
@@ -347,6 +354,29 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
       setOutput(r.lines.length ? r.lines : [{ type: 'info', text: '(출력 없음)' }]);
     } catch (e) {
       setOutput([{ type: 'error', text: '서버 실행 실패: ' + String((e as Error)?.message ?? e) }]);
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function pushGit() {
+    if (!conn) return;
+    localStorage.setItem('exist:git-remote', git.remote);
+    setShowGit(false);
+    setShowOutput(true);
+    setRunning(true);
+    setOutput([{ type: 'info', text: '▶ git push 중… (잠시 걸릴 수 있어요)' }]);
+    const projFiles = files
+      .filter((f) => !f.dir)
+      .map((f) => ({ path: f.name, content: conn.ydoc.getText(`file:${f.id}`).toString() }));
+    try {
+      const r = await api<{ lines: OutLine[] }>('/api/run/git', {
+        method: 'POST',
+        body: { ...git, files: projFiles },
+      });
+      setOutput(r.lines);
+    } catch (e) {
+      setOutput([{ type: 'error', text: 'git 실패: ' + String((e as Error)?.message ?? e) }]);
     } finally {
       setRunning(false);
     }
@@ -695,10 +725,54 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
               className="vsc-run"
               onClick={runActive}
               disabled={!canRun || running}
-              title={canRun ? '실행 (JS·Python)' : '실행 미지원 파일'}
+              title={canRun ? '실행' : '실행 미지원 파일'}
             >
               <PlayIcon size={13} /> {running ? '실행 중…' : '실행'}
             </button>
+            <div className="vsc-git-wrap">
+              <button className="vsc-act" onClick={() => setShowGit((v) => !v)} title="Git 업로드(push)">
+                ⬆ git
+              </button>
+              {showGit && (
+                <>
+                  <div className="vsc-git-back" onClick={() => setShowGit(false)} />
+                  <div className="vsc-git-menu" onClick={(e) => e.stopPropagation()}>
+                    <div className="vsc-git-title">GitHub 업로드 (push)</div>
+                    <input
+                      placeholder="원격 URL (https://github.com/유저/레포.git)"
+                      value={git.remote}
+                      onChange={(e) => setGit({ ...git, remote: e.target.value })}
+                    />
+                    <input
+                      type="password"
+                      placeholder="액세스 토큰 (PAT)"
+                      value={git.token}
+                      onChange={(e) => setGit({ ...git, token: e.target.value })}
+                    />
+                    <div className="vsc-git-row">
+                      <input
+                        placeholder="브랜치"
+                        value={git.branch}
+                        onChange={(e) => setGit({ ...git, branch: e.target.value })}
+                      />
+                      <input
+                        placeholder="커밋 메시지"
+                        value={git.message}
+                        onChange={(e) => setGit({ ...git, message: e.target.value })}
+                      />
+                    </div>
+                    <button
+                      className="vsc-git-push"
+                      onClick={pushGit}
+                      disabled={!git.remote || !git.token || running}
+                    >
+                      ⬆ 푸시 (강제)
+                    </button>
+                    <div className="vsc-git-hint">토큰은 저장되지 않고 푸시에만 사용돼요</div>
+                  </div>
+                </>
+              )}
+            </div>
             <button
               className="vsc-act"
               onClick={exportZip}
