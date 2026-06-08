@@ -41,6 +41,8 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   // 새로고침해도 열린 회의 탭 복원
   const [meetingTabs, setMeetingTabs] = useState<{ code: string; title: string }[]>(loadSavedTabs);
+  // 회의별 소속 조직명 (MeetingHub가 상세 로드 시 알려줌)
+  const [tabOrgs, setTabOrgs] = useState<Record<string, string>>({});
   const [active, setActive] = useState<ActiveTab | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null); // 오버레이 전체화면 회의 코드
   const [renaming, setRenaming] = useState<number | null>(null);
@@ -55,6 +57,22 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
       /* 저장 실패 무시 */
     }
   }, [meetingTabs]);
+
+  // 회의 상세에서 조직명 수신 → 탭 배지
+  useEffect(() => {
+    function onOrg(e: Event) {
+      const { code, orgName } = (e as CustomEvent<{ code: string; orgName: string | null }>).detail;
+      setTabOrgs((prev) => {
+        if ((prev[code] ?? null) === (orgName ?? null)) return prev;
+        const next = { ...prev };
+        if (orgName) next[code] = orgName;
+        else delete next[code];
+        return next;
+      });
+    }
+    window.addEventListener('meeting:org', onOrg);
+    return () => window.removeEventListener('meeting:org', onOrg);
+  }, []);
 
   // 회의 채팅 수신 → 비활성 탭이면 안읽음 배지
   useEffect(() => {
@@ -196,7 +214,11 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             {(unread.get(t.code) ?? 0) > 0 && (
               <span className="tab-badge">{unread.get(t.code)}</span>
             )}
-            <PhoneIcon size={14} /> {t.title}
+            <PhoneIcon size={14} />
+            <span className="ws-tab-text">
+              {tabOrgs[t.code] && <span className="ws-tab-org">{tabOrgs[t.code]}</span>}
+              {t.title}
+            </span>
             <span
               className="tab-close"
               title="회의 나가기"

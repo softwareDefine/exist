@@ -95,7 +95,15 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     async function load() {
       try {
         const d = await api<MeetingDetail>(`/api/meetings/${code}`);
-        if (alive) setDetail(d);
+        if (alive) {
+          setDetail(d);
+          // 회의 탭 제목 옆 조직 배지용 (WorkspacePanel 수신)
+          window.dispatchEvent(
+            new CustomEvent('meeting:org', {
+              detail: { code: code.toUpperCase(), orgName: d.orgName },
+            }),
+          );
+        }
       } catch {
         /* 전역 토스트 */
       }
