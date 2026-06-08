@@ -6,6 +6,7 @@ import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
 import CanvasBoard from './CanvasBoard';
 import Avatar from './Avatar';
+import MeetingThumb from './MeetingThumb';
 import {
   PhoneIcon,
   CalendarIcon,
@@ -34,6 +35,7 @@ interface MeetingDetail {
   isHost: boolean;
   orgId: number | null;
   orgName: string | null;
+  thumbnail: string | null;
   online: number;
   participants: Participant[];
 }
@@ -243,14 +245,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                 {/* 1. 회의 정보 — 상단 풀폭 */}
                 <section className="hub-section full hub-info-section">
                   <div className="hub-head">
-                    <div
+                    <MeetingThumb
+                      id={detail.id}
+                      title={detail.title}
+                      thumbnail={detail.thumbnail}
                       className="hub-thumb"
-                      style={{
-                        background: `linear-gradient(135deg, hsl(${(detail.id * 67) % 360} 60% 55%), hsl(${(detail.id * 67 + 40) % 360} 60% 45%))`,
-                      }}
-                    >
-                      {detail.title.slice(0, 1)}
-                    </div>
+                    />
                     <div className="hub-title-wrap">
                       <h2 className="hub-title">{detail.title}</h2>
                       <div className="hub-sub">

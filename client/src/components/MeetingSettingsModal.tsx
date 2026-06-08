@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import { useAuthStore } from '../store';
+import MeetingThumb from './MeetingThumb';
 
 interface MeetingInfo {
+  id: number;
   code: string;
   title: string;
   starts_at: string | null;
   ends_at: string | null;
+  thumbnail?: string | null;
 }
 
 interface Props {
@@ -24,16 +28,21 @@ function toLocalInput(v: string | null): string {
 }
 
 export default function MeetingSettingsModal({ meeting, onClose, onChanged }: Props) {
+  const token = useAuthStore((s) => s.token);
   const [title, setTitle] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [thumb, setThumb] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!meeting) return;
     setTitle(meeting.title);
     setStart(toLocalInput(meeting.starts_at));
     setEnd(toLocalInput(meeting.ends_at));
+    setThumb(meeting.thumbnail ?? null);
     setConfirmDelete(false);
   }, [meeting]);
 
@@ -47,6 +56,33 @@ export default function MeetingSettingsModal({ meeting, onClose, onChanged }: Pr
   }, [meeting, onClose]);
 
   if (!meeting) return null;
+
+  async function uploadThumb(file: File) {
+    if (!file.type.startsWith('image/')) {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: '이미지 파일만 올릴 수 있어요' }));
+      return;
+    }
+    setUploading(true);
+    try {
+      const res = await fetch(`/api/meetings/${meeting!.code}/thumbnail`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': file.type },
+        body: file,
+      });
+      const data = (await res.json()) as { thumbnail?: string; error?: string };
+      if (!res.ok || !data.thumbnail) throw new Error(data.error ?? '업로드 실패');
+      setThumb(data.thumbnail);
+      onChanged();
+    } catch (err) {
+      window.dispatchEvent(
+        new CustomEvent('app:error', {
+          detail: err instanceof Error ? err.message : '사진 업로드에 실패했어요',
+        }),
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -80,11 +116,43 @@ export default function MeetingSettingsModal({ meeting, onClose, onChanged }: Pr
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">회의 설정</div>
+
+        {/* 회의 사진 */}
+        <div className="meeting-photo">
+          <MeetingThumb
+            id={meeting.id}
+            title={title || meeting.title}
+            thumbnail={thumb}
+            className="meeting-photo-thumb"
+          />
+          <div className="meeting-photo-actions">
+            <button
+              className="avatar-upload-btn"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? '올리는 중…' : thumb ? '📷 사진 변경' : '📷 사진 추가'}
+            </button>
+            <span className="avatar-upload-hint">JPG·PNG, 최대 5MB · 호스트만</span>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void uploadThumb(f);
+              e.target.value = '';
+            }}
+          />
+        </div>
+
         <form onSubmit={save}>
-          <div className="modal-head">회의 설정</div>
           <label className="modal-label">
             회의 이름
-            <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} />
           </label>
           <label className="modal-label">
             시작

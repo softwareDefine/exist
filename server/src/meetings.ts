@@ -1,11 +1,19 @@
 import { Router } from 'express';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { invalidateBrief } from './agent.js';
 import { getRoomSize } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const MAX_THUMB = 5 * 1024 * 1024;
 
 const router = Router();
 router.use(requireAuth);
@@ -87,7 +95,7 @@ router.get('/recent', (req: AuthedRequest, res) => {
 
   const rows = db
     .prepare(
-      `SELECT m.id, m.code, m.title, m.org_id, m.starts_at, m.ends_at, mp.joined_at FROM meetings m
+      `SELECT m.id, m.code, m.title, m.org_id, m.thumbnail, m.starts_at, m.ends_at, mp.joined_at FROM meetings m
        JOIN meeting_participants mp ON mp.meeting_id = m.id
        WHERE ${where} ORDER BY mp.joined_at DESC LIMIT 7`,
     )
@@ -99,7 +107,7 @@ router.get('/recent', (req: AuthedRequest, res) => {
 router.get('/:code', (req: AuthedRequest, res) => {
   const meeting = db
     .prepare(
-      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, m.org_id,
+      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, m.org_id, m.thumbnail,
               u.username AS host, o.name AS org_name
        FROM meetings m JOIN users u ON u.id = m.host_id
        LEFT JOIN organizations o ON o.id = m.org_id
@@ -114,6 +122,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
         ends_at: string | null;
         host_id: number;
         org_id: number | null;
+        thumbnail: string | null;
         host: string;
         org_name: string | null;
       }
@@ -157,6 +166,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
     isHost: meeting.host_id === req.userId,
     orgId: meeting.org_id,
     orgName: meeting.org_name,
+    thumbnail: meeting.thumbnail,
     online: getRoomSize(meeting.code),
     participants: participants.map((p) => ({
       username: p.username,
@@ -191,6 +201,44 @@ router.patch('/:code', (req: AuthedRequest, res) => {
      WHERE id = ?`,
   ).run(title ?? null, starts_at ?? null, ends_at ?? null, meeting.id);
   res.json({ ok: true });
+});
+
+/** 회의 사진(썸네일) 업로드 (호스트만) — 이미지 raw body, 최대 5MB */
+router.post('/:code/thumbnail', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  if (meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트만 사진을 바꿀 수 있어요' });
+  }
+  const ct = String(req.headers['content-type'] ?? '');
+  if (!ct.startsWith('image/')) {
+    return res.status(400).json({ error: '이미지 파일만 올릴 수 있어요' });
+  }
+  const ext = ct.split('/')[1]?.replace(/[^\w]/g, '').slice(0, 5) || 'png';
+  const filename = `mthumb-${crypto.randomUUID()}.${ext}`;
+  const chunks: Buffer[] = [];
+  let size = 0;
+  req.on('data', (c: Buffer) => {
+    size += c.length;
+    if (size > MAX_THUMB) {
+      res.status(413).json({ error: '사진이 너무 커요 (최대 5MB)' });
+      req.destroy();
+      return;
+    }
+    chunks.push(c);
+  });
+  req.on('end', () => {
+    if (res.headersSent) return;
+    if (size === 0) return res.status(400).json({ error: '빈 파일이에요' });
+    fs.writeFileSync(path.join(UPLOAD_DIR, filename), Buffer.concat(chunks));
+    const url = `/api/workspaces/uploads/${filename}`;
+    db.prepare('UPDATE meetings SET thumbnail = ? WHERE id = ?').run(url, meeting.id);
+    res.json({ thumbnail: url });
+  });
 });
 
 /** 회의 삭제 (호스트만) — 참가 기록/채팅도 함께 */

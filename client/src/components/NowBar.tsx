@@ -5,6 +5,7 @@ import Logo from './Logo';
 import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
+import MeetingThumb from './MeetingThumb';
 
 export interface Todo {
   id: number;
@@ -19,6 +20,7 @@ export interface Meeting {
   title: string;
   starts_at: string | null;
   ends_at: string | null;
+  thumbnail?: string | null;
 }
 
 /** "7월 8일 (오후) 4시 40분" 형식 */
@@ -50,12 +52,6 @@ function formatStart(start: Date, now: Date): string {
   tomorrow.setDate(now.getDate() + 1);
   if (start.toDateString() === tomorrow.toDateString()) return `내일 ${time}`;
   return `${start.getMonth() + 1}/${start.getDate()} ${time}`;
-}
-
-function thumbStyle(id: number): React.CSSProperties {
-  return {
-    background: `linear-gradient(135deg, hsl(${(id * 67) % 360} 60% 55%), hsl(${(id * 67 + 40) % 360} 60% 45%))`,
-  };
 }
 
 interface CurrentCtx {
@@ -116,9 +112,12 @@ function CurrentBlock({
       onClick={onOpen ? () => onOpen(ctx.meeting) : undefined}
       title={onOpen ? '클릭하면 회의 공간이 열려요' : undefined}
     >
-      <div className="nb-thumb" style={thumbStyle(ctx.meeting.id)}>
-        {ctx.meeting.title.slice(0, 1)}
-      </div>
+      <MeetingThumb
+        id={ctx.meeting.id}
+        title={ctx.meeting.title}
+        thumbnail={ctx.meeting.thumbnail}
+        className="nb-thumb"
+      />
       <div className="nb-current-text">
         <div className="title" title={ctx.meeting.title}>
           {ctx.meeting.title}
@@ -362,7 +361,7 @@ export default function NowBar({
                 onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
                 title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
               >
-                <div className="nb-mini-thumb" style={thumbStyle(m.id)} />
+                <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
                 <span className="nb-next-title">{m.title}</span>
                 <span className="nb-next-start">
                   <b>시작</b> {formatStart(new Date(m.starts_at!), now)}
@@ -442,7 +441,7 @@ export default function NowBar({
                         onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
                         title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
                       >
-                        <div className="nb-mini-thumb" style={thumbStyle(m.id)} />
+                        <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
                         <span className="nb-next-title">{m.title}</span>
                         <span className="nb-next-start">
                           <b>시작</b> {formatStart(new Date(m.starts_at!), now)}

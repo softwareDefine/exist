@@ -134,4 +134,11 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 회의 썸네일 사진 (없으면 그라디언트+첫글자 폴백)
+try {
+  db.exec(`ALTER TABLE meetings ADD COLUMN thumbnail TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 export default db;

@@ -7,6 +7,7 @@ import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspaceP
 import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, ClockIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
+import MeetingThumb from '../components/MeetingThumb';
 import OrgSwitcher from '../components/OrgSwitcher';
 import { useOrgStore } from '../orgStore';
 
@@ -120,14 +121,7 @@ export default function DashboardPage() {
                 onClick={() => openMeetingTab(m.code, m.title)}
                 title="클릭하면 옆 탭에서 회의가 열려요"
               >
-                <div
-                  className="thumb"
-                  style={{
-                    background: `linear-gradient(135deg, hsl(${(m.id * 67) % 360} 60% 55%), hsl(${(m.id * 67 + 40) % 360} 60% 45%))`,
-                  }}
-                >
-                  {m.title.slice(0, 1)}
-                </div>
+                <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="thumb" />
                 <div>
                   <div className="name">{m.title}</div>
                   <div className="actions" onClick={(e) => e.stopPropagation()}>
