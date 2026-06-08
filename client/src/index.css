@@ -4990,12 +4990,18 @@ input:focus {
   right: 16px;
   bottom: 16px;
   width: 320px;
-  height: 190px;
+  height: 180px; /* 16:9 */
   z-index: 60;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   border: 1px solid #2a2e37;
+  cursor: move;
+}
+
+.hub-call.mini .video-tile video,
+.hub-call.mini .video-grid video {
+  object-fit: cover;
 }
 
 /* 무빙 통화창 드래그 바 */
@@ -5850,8 +5856,8 @@ input:focus {
 
   /* 미니 PiP — 모바일에선 더 작게 */
   .hub-call.mini {
-    width: 220px;
-    height: 132px;
+    width: 240px;
+    height: 135px;
     right: 10px;
     bottom: 10px;
   }

@@ -221,6 +221,9 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
   }, []);
 
   function startPipDrag(e: React.MouseEvent) {
+    const t = e.target as HTMLElement;
+    // 컨트롤(마이크/카메라/나가기 등)·버튼 위에선 드래그 시작 안 함
+    if (t.closest('button') || t.closest('.meeting-controls')) return;
     const el = (e.currentTarget as HTMLElement).closest('.hub-call') as HTMLElement | null;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -491,7 +494,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                               onChange={() => void toggleTodo(t)}
                             />
                             <span className="hub-todo-check" aria-hidden>
-                              <CheckMarkIcon size={12} />
+                              <CheckMarkIcon size={16} />
                             </span>
                             <span className="hub-todo-text">{t.title}</span>
                           </label>
@@ -640,16 +643,17 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                 ? { left: pipPos.x, top: pipPos.y, right: 'auto', bottom: 'auto' }
                 : undefined
             }
+            onMouseDown={subtab !== 'call' ? startPipDrag : undefined}
           >
             {subtab !== 'call' && (
-              <div className="hub-pip-bar" onMouseDown={startPipDrag}>
+              <div className="hub-pip-bar">
                 <span className="hub-pip-grip" title="드래그해서 옮기기">
-                  ⠿ 통화
+                  ⠿ 통화 · 드래그하여 이동
                 </span>
                 <button
                   className="hub-pip-expand"
                   onClick={() => setSubtab('call')}
-                  title="통화 화면으로"
+                  title="통화 화면 크게 보기"
                 >
                   ⤢
                 </button>

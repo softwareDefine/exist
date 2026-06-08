@@ -395,7 +395,7 @@ export default function NowBar({
             {shownTodos.map((todo) => (
               <div key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
                 <span className="nowbar-todo-check" aria-hidden>
-                  <CheckMarkIcon size={11} />
+                  <CheckMarkIcon size={14} />
                 </span>
                 <span className="nowbar-todo-text">{todo.title}</span>
               </div>
@@ -482,7 +482,7 @@ export default function NowBar({
                       onChange={() => onToggleTodo?.(todo)}
                     />
                     <span className="nowbar-todo-check" aria-hidden>
-                      <CheckMarkIcon size={11} />
+                      <CheckMarkIcon size={14} />
                     </span>
                     <span className="nowbar-todo-text">{todo.title}</span>
                   </label>
