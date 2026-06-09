@@ -83,6 +83,43 @@
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
+/* 로고 다크/라이트 자동 전환 */
+.logo-asset-light {
+  display: none;
+}
+.dark .logo-asset-dark {
+  display: none;
+}
+.dark .logo-asset-light {
+  display: inline-block;
+}
+
+/* 다크: 입력 요소 기본 어둡게 */
+.dark input,
+.dark textarea,
+.dark select {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--text-sub);
+}
+
+/* 다크: 흰 종이(문서/시트/발표) 위 입력은 라이트 유지 */
+.dark .sheet-formula,
+.dark .sheet-cell-input,
+.dark .doc-tab-input {
+  background: #fff;
+  color: #1c2024;
+}
+.dark .slide-el-input {
+  background: transparent;
+  color: #1c2024;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -209,7 +246,7 @@ input:focus {
   opacity: 1;
   transform: translate(7px, 7px);
   z-index: 2;
-  background: #f6f6f6;
+  background: var(--surface-2);
   pointer-events: none;
 }
 
@@ -658,7 +695,7 @@ input:focus {
   height: 34px;
   border: 1px solid #c9d8ea;
   border-radius: 6px;
-  background: #f4f8fd;
+  background: var(--surface-2);
   overflow: hidden;
   align-self: center;
 }
@@ -673,7 +710,7 @@ input:focus {
   position: absolute;
   top: 2px;
   font-size: 10px;
-  color: #345;
+  color: var(--text-sub);
   border-left: 1px solid rgba(40, 70, 110, 0.45);
   padding-left: 3px;
   height: 100%;
@@ -832,7 +869,7 @@ input:focus {
 }
 
 .profile-item:hover:not(:disabled) {
-  background: #f4f4f4;
+  background: var(--surface-2);
 }
 
 .profile-item:disabled {
@@ -844,7 +881,7 @@ input:focus {
   margin-left: auto;
   font-size: 11px;
   color: var(--text-sub);
-  background: #f1f1f1;
+  background: var(--surface-2);
   border-radius: 6px;
   padding: 2px 6px;
 }
@@ -897,7 +934,7 @@ input:focus {
 }
 
 .nowbar-sidebar-toggle:hover {
-  background: #f0f0f0;
+  background: var(--surface-2);
   color: var(--text);
 }
 
@@ -1082,7 +1119,7 @@ input:focus {
 }
 
 .modal-cancel {
-  background: #f1f1f1;
+  background: var(--surface-2);
   color: #555;
 }
 
@@ -1353,10 +1390,10 @@ input:focus {
   border: none;
   background: none;
   padding: 2px;
-  color: #2b2b2b;
+  color: var(--text);
   display: grid;
   place-items: center;
-  opacity: 0.75;
+  opacity: 0.7;
 }
 
 .recent-card .actions button:hover {
@@ -1488,7 +1525,7 @@ input:focus {
   border: 1px solid var(--border);
   border-bottom: none;
   border-radius: 10px 10px 0 0;
-  background: #fafafa;
+  background: var(--surface-2);
   font-size: 18px;
   color: #888;
   flex-shrink: 0;
@@ -1560,7 +1597,7 @@ input:focus {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #fafafa;
+  background: var(--surface-2);
   overflow: hidden;
 }
 
@@ -1857,7 +1894,7 @@ input:focus {
   font-weight: 800;
   padding: 4px 10px;
   border-radius: 8px;
-  background: #f0f0f0;
+  background: var(--surface-2);
   color: var(--text-sub);
 }
 
@@ -1872,7 +1909,7 @@ input:focus {
 }
 
 .hub-sched-badge.done {
-  background: #f0f0f0;
+  background: var(--surface-2);
   color: #999;
 }
 
@@ -2015,7 +2052,7 @@ input:focus {
 }
 
 .hub-todo:hover {
-  background: #f7f7f8;
+  background: var(--surface-2);
 }
 
 .hub-todo-label {
@@ -2198,7 +2235,7 @@ input:focus {
 }
 
 .msched-day:hover {
-  background: #f5f5f6;
+  background: var(--surface-2);
 }
 
 .msched-day.sel {
@@ -2284,7 +2321,7 @@ input:focus {
 
 /* 선택일 패널 */
 .msched-day-panel {
-  background: #fafafa;
+  background: var(--surface-2);
   padding: 20px 22px;
   min-height: 0;
   overflow-y: auto;
@@ -2325,7 +2362,7 @@ input:focus {
   gap: 8px;
   padding: 8px 10px;
   border-radius: 9px;
-  background: #f7f7f8;
+  background: var(--surface-2);
 }
 
 .msched-event-time {
@@ -3827,7 +3864,7 @@ input:focus {
 }
 
 .vsc.light .vsc-sidebar {
-  background: #f3f3f3;
+  background: var(--surface-2);
   border-right-color: #e3e3e3;
 }
 
@@ -4614,7 +4651,7 @@ input:focus {
 }
 
 .notif-bell:hover {
-  background: #f0f0f0;
+  background: var(--surface-2);
 }
 
 .notif-count {
@@ -4737,7 +4774,7 @@ input:focus {
 }
 
 .notif-foot-btn:hover {
-  background: #f5f5f5;
+  background: var(--surface-2);
   color: var(--green);
 }
 
@@ -4977,7 +5014,7 @@ input:focus {
   font-weight: 800;
   padding: 2px 7px;
   border-radius: 6px;
-  background: #f0f0f0;
+  background: var(--surface-2);
   color: var(--text-sub);
 }
 
@@ -5203,7 +5240,7 @@ input:focus {
   gap: 11px;
   padding: 9px 10px;
   border-radius: 10px;
-  background: #fafafa;
+  background: var(--surface-2);
 }
 
 .orgchart-avatar {
