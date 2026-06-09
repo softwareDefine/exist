@@ -8,7 +8,7 @@ import db from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // 아바타 이미지는 워크스페이스와 같은 업로드 디렉토리에 저장 (서빙도 그쪽 재사용)
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+const UPLOAD_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const MAX_AVATAR = 5 * 1024 * 1024;
 
