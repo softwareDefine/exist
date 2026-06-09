@@ -9,6 +9,7 @@ import CodeDocEditor from './CodeDocEditor';
 import DocEditor from './DocEditor';
 import SheetEditor from './SheetEditor';
 import SlideEditor from './SlideEditor';
+import DatePicker from './DatePicker';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import MeetingSchedule from './MeetingSchedule';
@@ -848,16 +849,16 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               </div>
               {detail.isHost ? (
                 <div className="hub-period-edit">
-                  <input
-                    type="date"
-                    value={detail.period?.start ?? ''}
-                    onChange={(e) => void updatePeriod(e.target.value || null, detail.period?.end ?? null)}
+                  <DatePicker
+                    value={detail.period?.start ?? null}
+                    placeholder="시작일"
+                    onChange={(v) => void updatePeriod(v, detail.period?.end ?? null)}
                   />
                   <span className="hub-period-tilde">~</span>
-                  <input
-                    type="date"
-                    value={detail.period?.end ?? ''}
-                    onChange={(e) => void updatePeriod(detail.period?.start ?? null, e.target.value || null)}
+                  <DatePicker
+                    value={detail.period?.end ?? null}
+                    placeholder="종료일"
+                    onChange={(v) => void updatePeriod(detail.period?.start ?? null, v)}
                   />
                   {detail.period && (
                     <button className="hub-set-btn" onClick={() => void updatePeriod(null, null)}>

@@ -2620,6 +2620,146 @@ input:focus {
   color: var(--text-sub);
 }
 
+/* 커스텀 날짜 선택기 */
+.datepick {
+  position: relative;
+  display: inline-flex;
+}
+
+.datepick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 130px;
+}
+
+.datepick-btn:hover {
+  border-color: var(--green);
+}
+
+.datepick-ph {
+  color: var(--text-sub);
+  font-weight: 500;
+}
+
+.datepick-back {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+
+.datepick-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 61;
+  width: 268px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  padding: 12px;
+}
+
+.datepick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.datepick-head span {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.datepick-head button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 18px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.datepick-head button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.datepick-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+
+.datepick-dow span {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  padding: 4px 0;
+}
+
+.datepick-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.datepick-day {
+  aspect-ratio: 1;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.datepick-day:hover {
+  background: var(--surface-2);
+}
+
+.datepick-day.today {
+  color: var(--green);
+  font-weight: 800;
+}
+
+.datepick-day.sel {
+  background: var(--green);
+  color: #fff;
+  font-weight: 800;
+}
+
+.datepick-clear {
+  width: 100%;
+  margin-top: 8px;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-sub);
+  border-radius: 8px;
+  padding: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.datepick-clear:hover {
+  background: var(--surface-3);
+}
+
 .hub-period-view {
   display: flex;
   align-items: center;
