@@ -1,17 +1,19 @@
 import { Router } from 'express';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { getRoomSize } from './sfu.js';
 
 /*
  * exist AI agent — 사용자의 일정·투두 상태(목표 vs 현재)를 분석해
- * nowbar에 띄울 한 줄 브리핑을 생성한다.
+ * nowbar에 띄울 한 줄 브리핑 + 보여줄 카드를 결정한다.
  *
- * ANTHROPIC_API_KEY가 있으면 Claude API, 없으면 규칙 기반 폴백.
+ * OPENAI_API_KEY가 있으면 OpenAI API, 없으면 규칙 기반 폴백.
+ * (모델: OPENAI_MODEL, 기본 gpt-4o-mini)
  */
 
-const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
+const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 interface TodoRow {
   title: string;
@@ -154,7 +156,7 @@ interface Decision {
   reason: string;
 }
 
-/** Claude API 기반 — 브리핑 + 지금 보여줄 nowbar 카드를 함께 결정 */
+/** OpenAI API 기반 — 브리핑 + 지금 보여줄 nowbar 카드를 함께 결정 */
 async function aiDecision(ctx: UserContext): Promise<Decision> {
   const payload = {
     current_time: ctx.now.toISOString(),
@@ -167,29 +169,29 @@ async function aiDecision(ctx: UserContext): Promise<Decision> {
     })),
   };
 
-  const response = await anthropic!.messages.create({
-    model: 'claude-opus-4-8',
-    max_tokens: 1200,
-    thinking: { type: 'adaptive' },
-    output_config: { effort: 'low' },
-    system:
-      '너는 재택근무 플랫폼 exist의 AI 비서로, 상단 상태바(nowbar)를 관리한다. ' +
-      'nowbar에는 카드 3개가 있고, 사용자의 일정·할 일 데이터를 보고 지금 가장 유용한 카드 하나를 고른다.\n' +
-      '카드: 0 = 일정(다가오는·예정된 회의), 1 = 할 일(미완료 todo), 2 = 진행 타임라인(지금 진행 중인 회의의 진행도).\n' +
-      '판단 기준: 지금 통화 중이거나 진행 중인 회의가 있으면 2. 곧 시작하는 회의가 임박하면 0. ' +
-      '마감이 급한 할 일이 있으면 1. 그 외엔 사용자에게 가장 도움 되는 것. ' +
-      '진행 중인 회의가 없으면 절대 2를 고르지 않는다.\n' +
-      '응답은 오직 JSON 한 개. 형식: {"brief": string, "card": 0|1|2, "reason": string}. ' +
-      'brief는 nowbar 한 줄 브리핑(한국어 50자 이내, 가장 시급한 것 하나, 인사말·이모지 없이). ' +
-      'reason은 그 카드를 고른 이유(한국어 20자 이내). 데이터에 없는 수치·사실은 만들지 않는다.',
-    messages: [{ role: 'user', content: JSON.stringify(payload) }],
+  const system =
+    '너는 재택근무 플랫폼 exist의 AI 비서로, 상단 상태바(nowbar)를 관리한다. ' +
+    'nowbar에는 카드 3개가 있고, 사용자의 일정·할 일 데이터를 보고 지금 가장 유용한 카드 하나를 고른다.\n' +
+    '카드: 0 = 일정(다가오는·예정된 회의), 1 = 할 일(미완료 todo), 2 = 진행 타임라인(지금 진행 중인 회의의 진행도).\n' +
+    '판단 기준: 지금 통화 중이거나 진행 중인 회의가 있으면 2. 곧 시작하는 회의가 임박하면 0. ' +
+    '마감이 급한 할 일이 있으면 1. 그 외엔 사용자에게 가장 도움 되는 것. ' +
+    '진행 중인 회의가 없으면 절대 2를 고르지 않는다.\n' +
+    '응답은 오직 JSON 한 개. 형식: {"brief": string, "card": 0|1|2, "reason": string}. ' +
+    'brief는 nowbar 한 줄 브리핑(한국어 50자 이내, 가장 시급한 것 하나, 인사말·이모지 없이). ' +
+    'reason은 그 카드를 고른 이유(한국어 20자 이내). 데이터에 없는 수치·사실은 만들지 않는다.';
+
+  const response = await openai!.chat.completions.create({
+    model: OPENAI_MODEL,
+    temperature: 0.3,
+    max_tokens: 300,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: JSON.stringify(payload) },
+    ],
   });
 
-  const raw = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-    .map((b) => b.text)
-    .join('')
-    .trim();
+  const raw = response.choices[0]?.message?.content?.trim() ?? '';
   if (!raw) throw new Error('empty AI response');
 
   const parsed = extractJson(raw) as { brief?: unknown; card?: unknown; reason?: unknown };
@@ -224,12 +226,12 @@ export async function generateBrief(userId: number): Promise<BriefResult> {
   }
 
   let result: BriefResult;
-  if (anthropic) {
+  if (openai) {
     try {
       const d = await aiDecision(ctx);
       result = { text: d.brief, source: 'ai', card: d.card, reason: d.reason };
     } catch (err) {
-      console.error('[agent] Claude API 실패, 규칙 기반 폴백:', err);
+      console.error('[agent] OpenAI API 실패, 규칙 기반 폴백:', err);
       const dec = ruleBasedDecision(ctx);
       result = { text: ruleBasedBrief(ctx), source: 'rule', card: dec.card, reason: dec.reason };
     }
