@@ -23,7 +23,50 @@ function parseRef(ref: string): { r: number; c: number } | null {
   return { r, c };
 }
 
-/** 수식 평가 — =SUM(A1:A3), =A1+B2*2 등. 셀 참조는 재귀 평가(사이클 가드). */
+// 범위(A1:B3)의 셀 값들을 순회
+function rangeValues(
+  a: string,
+  b: string,
+  cells: Y.Map<unknown>,
+  seen: Set<string>,
+): { nums: number[]; raws: string[] } {
+  const ra = parseRef(a);
+  const rb = parseRef(b);
+  const nums: number[] = [];
+  const raws: string[] = [];
+  if (!ra || !rb) return { nums, raws };
+  for (let r = Math.min(ra.r, rb.r); r <= Math.max(ra.r, rb.r); r++) {
+    for (let c = Math.min(ra.c, rb.c); c <= Math.max(ra.c, rb.c); c++) {
+      const k = cellKey(r, c);
+      const s = evalCell(cells.get(k) as string, cells, new Set(seen), k);
+      raws.push(s);
+      const v = parseFloat(s);
+      if (!isNaN(v) && s.trim() !== '') nums.push(v);
+    }
+  }
+  return { nums, raws };
+}
+
+// 조건 매칭 (">5", "<=3", "=foo", "foo")
+function matchCriteria(val: string, crit: string): boolean {
+  crit = crit.trim().replace(/^["']|["']$/g, '');
+  const m = /^(>=|<=|<>|>|<|=)?(.*)$/.exec(crit);
+  const op = m?.[1] ?? '=';
+  const target = (m?.[2] ?? '').trim();
+  const vn = parseFloat(val);
+  const tn = parseFloat(target);
+  const bothNum = !isNaN(vn) && !isNaN(tn);
+  switch (op) {
+    case '>': return bothNum && vn > tn;
+    case '<': return bothNum && vn < tn;
+    case '>=': return bothNum && vn >= tn;
+    case '<=': return bothNum && vn <= tn;
+    case '<>': return val !== target;
+    default: return bothNum ? vn === tn : val === target;
+  }
+}
+
+/** 수식 평가 — Excel형 함수/연산자 지원. 셀 참조 재귀 평가(사이클 가드). */
 function evalCell(
   raw: string | undefined,
   cells: Y.Map<unknown>,
@@ -31,58 +74,126 @@ function evalCell(
   key: string,
 ): string {
   if (raw == null || raw === '') return '';
-  if (raw[0] !== '=') return raw;
+  if (typeof raw !== 'string' || raw[0] !== '=') return String(raw);
   if (seen.has(key)) return '#순환';
   seen.add(key);
   try {
-    let expr = raw.slice(1).toUpperCase();
-    // 범위 함수: SUM/AVERAGE/MIN/MAX(A1:B3)
+    let expr = raw.slice(1);
+    // 1) 조건 범위 함수: COUNTIF/SUMIF(range, criteria)
     expr = expr.replace(
-      /(SUM|AVERAGE|AVG|MIN|MAX|COUNT)\(\s*([A-Z]\d+)\s*:\s*([A-Z]\d+)\s*\)/g,
-      (_m, fn: string, a: string, b: string) => {
-        const ra = parseRef(a);
-        const rb = parseRef(b);
-        if (!ra || !rb) return '0';
-        const nums: number[] = [];
-        for (let r = Math.min(ra.r, rb.r); r <= Math.max(ra.r, rb.r); r++) {
-          for (let c = Math.min(ra.c, rb.c); c <= Math.max(ra.c, rb.c); c++) {
-            const k = cellKey(r, c);
-            const v = parseFloat(evalCell(cells.get(k) as string, cells, new Set(seen), k));
-            if (!isNaN(v)) nums.push(v);
+      /\b(COUNTIF|SUMIF)\s*\(\s*([A-Za-z]\d+)\s*:\s*([A-Za-z]\d+)\s*,\s*("[^"]*"|[^),]+)\s*(?:,\s*([A-Za-z]\d+)\s*:\s*([A-Za-z]\d+)\s*)?\)/gi,
+      (_m, fn: string, a: string, b: string, crit: string, sa?: string, sb?: string) => {
+        const { raws } = rangeValues(a, b, cells, seen);
+        const sumRange = sa && sb ? rangeValues(sa, sb, cells, seen).raws : raws;
+        let count = 0;
+        let sum = 0;
+        raws.forEach((v, idx) => {
+          if (matchCriteria(v, crit)) {
+            count++;
+            const n = parseFloat(sumRange[idx]);
+            if (!isNaN(n)) sum += n;
           }
-        }
+        });
+        return fn.toUpperCase() === 'COUNTIF' ? String(count) : String(sum);
+      },
+    );
+    // 2) 집계 범위 함수
+    expr = expr.replace(
+      /\b(SUM|AVERAGE|AVG|MIN|MAX|COUNT|COUNTA|PRODUCT|MEDIAN)\s*\(\s*([A-Za-z]\d+)\s*:\s*([A-Za-z]\d+)\s*\)/gi,
+      (_m, fn: string, a: string, b: string) => {
+        const { nums, raws } = rangeValues(a, b, cells, seen);
         const sum = nums.reduce((s, n) => s + n, 0);
-        switch (fn) {
-          case 'SUM':
-            return String(sum);
+        switch (fn.toUpperCase()) {
+          case 'SUM': return String(sum);
           case 'AVERAGE':
-          case 'AVG':
-            return nums.length ? String(sum / nums.length) : '0';
-          case 'MIN':
-            return nums.length ? String(Math.min(...nums)) : '0';
-          case 'MAX':
-            return nums.length ? String(Math.max(...nums)) : '0';
-          case 'COUNT':
-            return String(nums.length);
+          case 'AVG': return nums.length ? String(sum / nums.length) : '0';
+          case 'MIN': return nums.length ? String(Math.min(...nums)) : '0';
+          case 'MAX': return nums.length ? String(Math.max(...nums)) : '0';
+          case 'COUNT': return String(nums.length);
+          case 'COUNTA': return String(raws.filter((s) => s.trim() !== '').length);
+          case 'PRODUCT': return String(nums.reduce((s, n) => s * n, 1));
+          case 'MEDIAN': {
+            if (!nums.length) return '0';
+            const sorted = [...nums].sort((x, y) => x - y);
+            const mid = Math.floor(sorted.length / 2);
+            return String(sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2);
+          }
         }
         return '0';
       },
     );
-    // 단일 셀 참조 치환
-    expr = expr.replace(/[A-Z]\d+/g, (ref) => {
-      const rf = parseRef(ref);
-      if (!rf) return '0';
-      const k = cellKey(rf.r, rf.c);
-      const v = parseFloat(evalCell(cells.get(k) as string, cells, new Set(seen), k));
-      return isNaN(v) ? '0' : String(v);
+    // 문자열 리터럴 보호 (셀참조/연산자 치환이 문자열 내부를 건드리지 않게)
+    const strs: string[] = [];
+    expr = expr.replace(/"[^"]*"/g, (m) => {
+      strs.push(m);
+      return `\x00${strs.length - 1}\x00`;
     });
-    // 산술만 허용
-    if (!/^[\d.+\-*/() ]*$/.test(expr)) return '#오류';
+    // 3) 단일 셀 참조 → 값(숫자면 숫자, 아니면 따옴표 문자열, 빈칸은 0)
+    expr = expr.replace(/\b[A-Za-z]\d+\b/g, (ref) => {
+      const rf = parseRef(ref.toUpperCase());
+      if (!rf) return ref; // 함수명 등은 보존
+      const k = cellKey(rf.r, rf.c);
+      const s = evalCell(cells.get(k) as string, cells, new Set(seen), k);
+      if (s.trim() === '') return '0';
+      const n = parseFloat(s);
+      return !isNaN(n) && /^-?[\d.]+$/.test(s.trim()) ? s : JSON.stringify(s);
+    });
+    // 4) 연산자 변환: <> → !=, = → == (>=,<= 보호), & → 문자열 결합
+    expr = expr
+      .replace(/>=/g, '@GE@')
+      .replace(/<=/g, '@LE@')
+      .replace(/<>/g, '!=')
+      .replace(/(?<![=!<>])=(?!=)/g, '==')
+      .replace(/@GE@/g, '>=')
+      .replace(/@LE@/g, '<=')
+      .replace(/&/g, '+');
+    // 문자열 복원
+    expr = expr.replace(/\x00(\d+)\x00/g, (_m, i) => strs[+i]);
     if (expr.trim() === '') return '';
+    // 5) 스칼라 함수 스코프와 함께 평가
+    const fns = [
+      'IF', 'AND', 'OR', 'NOT', 'ROUND', 'ROUNDUP', 'ROUNDDOWN', 'ABS', 'SQRT',
+      'POWER', 'MOD', 'INT', 'IFERROR', 'CONCAT', 'CONCATENATE', 'LEN', 'LEFT',
+      'RIGHT', 'MID', 'UPPER', 'LOWER', 'TRIM', 'MINF', 'MAXF', 'SUMF',
+    ];
+    const impl: Record<string, unknown> = {
+      IF: (c: unknown, t: unknown, f: unknown = false) => (c ? t : f),
+      AND: (...a: unknown[]) => a.every(Boolean),
+      OR: (...a: unknown[]) => a.some(Boolean),
+      NOT: (a: unknown) => !a,
+      ROUND: (x: number, n = 0) => Math.round(x * 10 ** n) / 10 ** n,
+      ROUNDUP: (x: number, n = 0) => Math.ceil(x * 10 ** n) / 10 ** n,
+      ROUNDDOWN: (x: number, n = 0) => Math.floor(x * 10 ** n) / 10 ** n,
+      ABS: Math.abs,
+      SQRT: Math.sqrt,
+      POWER: (x: number, y: number) => x ** y,
+      MOD: (x: number, y: number) => x % y,
+      INT: Math.floor,
+      IFERROR: (v: unknown, fb: unknown) => (typeof v === 'number' && !isFinite(v)) || v == null || (typeof v === 'string' && v[0] === '#') ? fb : v,
+      CONCAT: (...a: unknown[]) => a.map(String).join(''),
+      CONCATENATE: (...a: unknown[]) => a.map(String).join(''),
+      LEN: (s: unknown) => String(s).length,
+      LEFT: (s: unknown, n = 1) => String(s).slice(0, n),
+      RIGHT: (s: unknown, n = 1) => String(s).slice(-n),
+      MID: (s: unknown, start: number, len: number) => String(s).substr(start - 1, len),
+      UPPER: (s: unknown) => String(s).toUpperCase(),
+      LOWER: (s: unknown) => String(s).toLowerCase(),
+      TRIM: (s: unknown) => String(s).trim(),
+      MINF: (...a: number[]) => Math.min(...a),
+      MAXF: (...a: number[]) => Math.max(...a),
+      SUMF: (...a: number[]) => a.reduce((s, n) => s + (Number(n) || 0), 0),
+    };
+    // 남은 MIN(/MAX(/SUM(/COUNT( 스칼라 인자형 → MINF 등으로
+    expr = expr.replace(/\bMIN\s*\(/gi, 'MINF(').replace(/\bMAX\s*\(/gi, 'MAXF(').replace(/\bSUM\s*\(/gi, 'SUMF(');
     // eslint-disable-next-line no-new-func
-    const result = Function(`"use strict";return (${expr})`)();
-    if (typeof result !== 'number' || !isFinite(result)) return '#오류';
-    return String(Math.round(result * 1e10) / 1e10);
+    const result = Function(...fns, `"use strict"; return (${expr});`)(...fns.map((f) => impl[f]));
+    if (result === '' || result == null) return '';
+    if (typeof result === 'number') {
+      if (!isFinite(result)) return '#오류';
+      return String(Math.round(result * 1e10) / 1e10);
+    }
+    if (typeof result === 'boolean') return result ? 'TRUE' : 'FALSE';
+    return String(result);
   } catch {
     return '#오류';
   }
