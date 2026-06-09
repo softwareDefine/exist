@@ -3,7 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database(path.join(__dirname, '..', 'exist.sqlite'));
+// 데이터 디렉터리 — 배포(Docker)에선 DATA_DIR 볼륨, 개발은 server/
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..');
+const db = new Database(path.join(DATA_DIR, 'exist.sqlite'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`

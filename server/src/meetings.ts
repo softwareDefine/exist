@@ -12,7 +12,7 @@ import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+const UPLOAD_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const MAX_THUMB = 5 * 1024 * 1024;
 

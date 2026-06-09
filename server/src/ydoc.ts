@@ -18,7 +18,7 @@ import db from './db.js';
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const YDOCS_DIR = path.join(__dirname, '..', 'ydocs');
+const YDOCS_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'ydocs');
 fs.mkdirSync(YDOCS_DIR, { recursive: true });
 
 const messageSync = 0;

@@ -7,7 +7,7 @@ import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+const UPLOAD_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const router = Router();
