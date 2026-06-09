@@ -651,7 +651,18 @@ export default function NowBar({
           <div className="nb-next-list">
             {notifs.slice(1, 3).map((n) => (
               <div key={n.id} className="nb-next-row">
-                <span className="nb-notif-dot" />
+                {n.meeting ? (
+                  <MeetingThumb
+                    id={n.meeting.id}
+                    title={n.meeting.title}
+                    thumbnail={n.meeting.thumbnail}
+                    className="nb-mini-thumb"
+                  />
+                ) : (
+                  <span className="nb-notif-bell mini">
+                    <BellIcon size={11} />
+                  </span>
+                )}
                 <span className="nb-next-title">{n.text}</span>
                 <span className="nb-next-start">{relTime(n.ts)}</span>
               </div>

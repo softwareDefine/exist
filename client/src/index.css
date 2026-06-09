@@ -768,6 +768,13 @@ input:focus {
   border-radius: 8px;
 }
 
+.nb-notif-bell.mini {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
 .nb-notif-erow-body {
   min-width: 0;
   flex: 1;
@@ -6315,8 +6322,33 @@ input:focus {
 }
 
 .notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   padding: 11px 16px;
   border-top: 1px solid var(--border);
+}
+
+.notif-thumb {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.notif-thumb.bell {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.notif-item-main {
+  flex: 1;
+  min-width: 0;
 }
 
 .notif-item.unread {

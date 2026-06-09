@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
 import { BellIcon } from './Icons';
+import MeetingThumb from './MeetingThumb';
 
 interface Notification {
   id: number;
@@ -11,6 +12,7 @@ interface Notification {
   read: boolean;
   cleared?: boolean;
   ts: number;
+  meeting?: { id: number; title: string; thumbnail: string | null };
 }
 
 function relTime(ts: number): string {
@@ -143,11 +145,25 @@ export default function NotificationCenter() {
                   key={n.id}
                   className={`notif-item${n.read ? '' : ' unread'}${n.cleared ? ' cleared' : ''}`}
                 >
-                  <div className="notif-item-top">
-                    <span className="notif-from">{n.from}</span>
-                    <span className="notif-time">{relTime(n.ts)}</span>
+                  {n.meeting ? (
+                    <MeetingThumb
+                      id={n.meeting.id}
+                      title={n.meeting.title}
+                      thumbnail={n.meeting.thumbnail}
+                      className="notif-thumb"
+                    />
+                  ) : (
+                    <span className="notif-thumb bell" aria-hidden>
+                      <BellIcon size={15} />
+                    </span>
+                  )}
+                  <div className="notif-item-main">
+                    <div className="notif-item-top">
+                      <span className="notif-from">{n.from}</span>
+                      <span className="notif-time">{relTime(n.ts)}</span>
+                    </div>
+                    <div className="notif-text">{n.text}</div>
                   </div>
-                  <div className="notif-text">{n.text}</div>
                 </div>
               ))
             )}
