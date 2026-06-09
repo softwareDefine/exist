@@ -687,6 +687,9 @@ input:focus {
 .nb-current-text .countdown {
   font-size: 14px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .nb-current-text .countdown b {
@@ -703,8 +706,9 @@ input:focus {
   align-items: center;
   gap: 12px;
   min-width: 0;
-  flex-shrink: 0;
-  max-width: 280px;
+  flex: 1; /* 알림 텍스트가 길어 여유 있게 (옆 리스트로 안 삐져나오게) */
+  max-width: 460px;
+  overflow: hidden;
 }
 
 .nb-notif-bell {
@@ -2760,10 +2764,18 @@ input:focus {
   flex-wrap: wrap;
 }
 
+.msched-call-ic {
+  display: inline-flex;
+  align-items: center;
+  color: var(--green-dark);
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
 .msched-call-sw {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   flex: none;
   border: 1.5px solid var(--border);
   border-radius: 8px;

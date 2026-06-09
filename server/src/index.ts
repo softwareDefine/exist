@@ -171,7 +171,7 @@ setInterval(() => {
         notifyUser(userId, {
           from: 'exist AI',
           text: ev.is_call
-            ? `📞 '${ev.etitle}' 통화 ${min}분 뒤 시작 — 들어오세요 (${ev.mtitle})`
+            ? `'${ev.etitle}' 통화 ${min}분 뒤 시작 — 들어오세요 (${ev.mtitle})`
             : `'${ev.etitle}' ${min}분 뒤 시작 — ${ev.mtitle}`,
           meetingCode: ev.code,
           kind: ev.is_call ? 'call' : undefined,

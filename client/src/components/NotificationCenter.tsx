@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
-import { BellIcon } from './Icons';
+import { BellIcon, PhoneIcon } from './Icons';
 import MeetingThumb from './MeetingThumb';
 
 interface Notification {
@@ -175,7 +175,7 @@ export default function NotificationCenter() {
                           setOpen(false);
                         }}
                       >
-                        📞 지금 들어가기
+                        <PhoneIcon size={13} /> 지금 들어가기
                       </button>
                     )}
                   </div>

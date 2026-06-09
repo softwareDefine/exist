@@ -73,29 +73,40 @@ interface NotifItem {
   meeting?: { id: number; code?: string | null; title: string; thumbnail: string | null };
 }
 
-/** 알림 도착 시 짧은 알림음 (Web Audio, 에셋 없이) */
+/** 알림음 (Web Audio, 에셋 없이) — 통화는 또렷한 3톤, 일반은 부드러운 2톤 */
 let nbAudioCtx: AudioContext | null = null;
-function playNotifSound() {
+function playNotifSound(kind?: string | null) {
   try {
-    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AC =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     nbAudioCtx = nbAudioCtx || new AC();
     const ctx = nbAudioCtx;
     if (ctx.state === 'suspended') void ctx.resume();
     const t0 = ctx.currentTime;
-    [880, 1175].forEach((freq, i) => {
+    const tone = (freq: number, at: number, dur: number, vol: number) => {
       const o = ctx.createOscillator();
       const g = ctx.createGain();
-      o.type = 'sine';
+      o.type = 'triangle'; // sine보다 부드럽고 풍부한 차임
       o.frequency.value = freq;
       o.connect(g);
       g.connect(ctx.destination);
-      const t = t0 + i * 0.11;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.14, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
-      o.start(t);
-      o.stop(t + 0.18);
-    });
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(vol, at + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0008, at + dur);
+      o.start(at);
+      o.stop(at + dur + 0.03);
+    };
+    if (kind === 'call') {
+      // 통화: 맑은 상승 3음 (들어오라는 느낌)
+      tone(659, t0, 0.5, 0.14); // E5
+      tone(880, t0 + 0.13, 0.5, 0.14); // A5
+      tone(1109, t0 + 0.26, 0.6, 0.15); // C#6
+    } else {
+      // 일반: 부드러운 '딩-동' 2음 차임
+      tone(784, t0, 0.45, 0.12); // G5
+      tone(523, t0 + 0.14, 0.6, 0.12); // C5
+    }
   } catch {
     /* 무시 */
   }
@@ -386,7 +397,7 @@ export default function NowBar({
       setNotifs((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [{ ...n, ts }, ...prev].slice(0, 10),
       );
-      playNotifSound(); // 알림음
+      playNotifSound(n.kind); // 알림음 (통화/일반 구분)
       setNotifFlash(true);
       if (flashTimer.current) clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setNotifFlash(false), NOTIF_FLASH_MS);

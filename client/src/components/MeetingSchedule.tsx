@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
+import { PhoneIcon } from './Icons';
 
 interface MEvent {
   id: number;
@@ -219,7 +220,11 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
                   </span>
                 )}
                 <span className="msched-event-title">
-                  {ev.is_call ? '📞 ' : ''}
+                  {ev.is_call ? (
+                    <span className="msched-call-ic">
+                      <PhoneIcon size={12} />
+                    </span>
+                  ) : null}
                   {ev.title}
                 </span>
                 <span className="msched-event-author">{ev.author}</span>
@@ -263,7 +268,7 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
               disabled={!time}
               title={time ? '통화로 등록 (10분 전 알림)' : '시작 시간을 먼저 정하세요'}
             >
-              📞 통화
+              <PhoneIcon size={14} /> 통화
               <span className={`msched-sw${isCall ? ' on' : ''}`}>
                 <i />
               </span>

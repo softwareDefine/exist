@@ -639,7 +639,7 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   for (const p of others) {
     notifyUser(p.user_id, {
       from: me?.username ?? meeting.title,
-      text: `'${meeting.title}'에 ${isCall ? '📞 통화' : '일정'} 추가 — ${cleanTitle} (${when})`,
+      text: `'${meeting.title}'에 ${isCall ? '통화' : '일정'} 추가 — ${cleanTitle} (${when})`,
       meetingCode: code,
     });
   }
