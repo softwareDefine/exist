@@ -608,7 +608,7 @@ export default function MeetingView({
           <ScreenIcon size={21} />
         </button>
         <button
-          className={chatOpen ? 'active' : ''}
+          className={`chat-toggle${chatOpen ? ' active' : ''}`}
           onClick={() => {
             setChatOpen((v) => !v);
             setUnread(0);

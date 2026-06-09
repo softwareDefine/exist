@@ -7172,6 +7172,7 @@ input:focus {
 
 .hub-call.mini .meeting-header,
 .hub-call.mini .chat-panel,
+.hub-call.mini .meeting-controls .chat-toggle,
 .hub-call.mini .kick-btn {
   display: none;
 }
