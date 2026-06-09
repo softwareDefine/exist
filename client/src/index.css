@@ -3407,6 +3407,17 @@ input:focus {
   flex: none;
 }
 
+.cm-sched-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-sub);
+}
+.cm-sched-hint b {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .cm-recur-opts {
   display: flex;
   flex-wrap: wrap;

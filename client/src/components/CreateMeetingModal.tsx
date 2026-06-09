@@ -4,7 +4,6 @@ import { api } from '../api';
 import { useOrgStore, type OrgContext } from '../orgStore';
 import { CloseIcon, CalendarIcon, CopyIcon, CheckMarkIcon, BuildingIcon } from './Icons';
 import Avatar from './Avatar';
-import DatePicker from './DatePicker';
 
 interface Person {
   username: string;
@@ -38,7 +37,6 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [recur, setRecur] = useState<Recur>('none');
-  const [recurUntil, setRecurUntil] = useState<string | null>(null);
   const [invite, setInvite] = useState<Person[]>([]);
   const [pq, setPq] = useState('');
   const [results, setResults] = useState<Person[]>([]);
@@ -54,7 +52,6 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
     setStart('');
     setEnd('');
     setRecur('none');
-    setRecurUntil(null);
     setInvite([]);
     setPq('');
     setResults([]);
@@ -122,9 +119,11 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
           title,
           org_id: orgCtx === 'personal' ? null : orgCtx,
           starts_at: schedOn ? start || null : null,
-          ends_at: schedOn ? end || null : null,
+          // 반복(정기 그룹)이면 종료 = 반복이 끝나는 날(recur_until)로 쓰고
+          // 회차별 지속시간(ends_at)은 비운다. 단발 회의일 때만 종료가 그 회의의 끝.
+          ends_at: schedOn && recur === 'none' ? end || null : null,
           recur: schedOn ? recur : 'none',
-          recur_until: schedOn && recur !== 'none' ? recurUntil : null,
+          recur_until: schedOn && recur !== 'none' ? end?.slice(0, 10) || null : null,
           invite: invite.map((p) => p.username),
         },
       });
@@ -302,7 +301,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                 {schedOn && (
                   <div className="cm-sched">
                     <label className="cm-sched-row">
-                      <span>시작</span>
+                      <span>{recur === 'none' ? '시작' : '시작일'}</span>
                       <input
                         type="datetime-local"
                         value={start}
@@ -310,7 +309,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                       />
                     </label>
                     <label className="cm-sched-row">
-                      <span>종료</span>
+                      <span>{recur === 'none' ? '종료' : '종료일'}</span>
                       <input
                         type="datetime-local"
                         value={end}
@@ -334,15 +333,11 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                       </div>
                     </div>
                     {recur !== 'none' && (
-                      <label className="cm-sched-row">
-                        <span>반복 끝날</span>
-                        <DatePicker
-                          value={recurUntil}
-                          onChange={setRecurUntil}
-                          placeholder="안 정하면 계속 반복"
-                          min={start ? start.slice(0, 10) : new Date().toISOString().slice(0, 10)}
-                        />
-                      </label>
+                      <p className="cm-sched-hint">
+                        {RECUR_OPTS.find((o) => o.id === recur)?.label} 반복돼요. 위 <b>종료일</b>까지
+                        이어지고, 안 정하면 계속 반복해요. 세부 일정·통화는 만든 뒤 일정 탭에서
+                        추가하면 돼요.
+                      </p>
                     )}
                   </div>
                 )}
