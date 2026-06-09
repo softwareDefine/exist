@@ -145,7 +145,7 @@ setInterval(() => {
     // 회의 일정 이벤트(통화 등, 시간 있는 것)도 30/10분 전 리마인더
     const events = db
       .prepare(
-        `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, m.code, m.title AS mtitle
+        `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.is_call, m.code, m.title AS mtitle
          FROM meeting_events e
          JOIN meetings m ON m.id = e.meeting_id
          JOIN meeting_participants mp ON mp.meeting_id = m.id
@@ -156,6 +156,7 @@ setInterval(() => {
       etitle: string;
       date: string;
       time: string;
+      is_call: number;
       code: string;
       mtitle: string;
     }[];
@@ -169,7 +170,9 @@ setInterval(() => {
         due.forEach((t) => notified.add(`${userId}:ev${ev.eid}:${t}`));
         notifyUser(userId, {
           from: 'exist AI',
-          text: `'${ev.etitle}' ${min}분 뒤 시작 — ${ev.mtitle}`,
+          text: ev.is_call
+            ? `📞 '${ev.etitle}' 통화 ${min}분 뒤 시작 — 들어오세요 (${ev.mtitle})`
+            : `'${ev.etitle}' ${min}분 뒤 시작 — ${ev.mtitle}`,
           meetingCode: ev.code,
         });
       }

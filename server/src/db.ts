@@ -189,6 +189,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 일정 이벤트가 '통화'인지 — 1이면 10분 전 "통화 들어오세요" 알림
+try {
+  db.exec(`ALTER TABLE meeting_events ADD COLUMN is_call INTEGER NOT NULL DEFAULT 0`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 알림이 어느 회의에서 왔는지 — meeting_code (null이면 회의 무관)
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN meeting_code TEXT`);

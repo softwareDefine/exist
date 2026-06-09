@@ -592,7 +592,7 @@ router.get('/:code/events', (req: AuthedRequest, res) => {
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const rows = db
     .prepare(
-      `SELECT e.id, e.title, e.date, e.time, e.end_time, u.username AS author, e.created_by
+      `SELECT e.id, e.title, e.date, e.time, e.end_time, e.is_call, u.username AS author, e.created_by
        FROM meeting_events e JOIN users u ON u.id = e.created_by
        WHERE e.meeting_id = ? ORDER BY e.date, COALESCE(e.time, '99:99')`,
     )
@@ -602,7 +602,7 @@ router.get('/:code/events', (req: AuthedRequest, res) => {
 
 /** 회의 일정 이벤트 추가 */
 router.post('/:code/events', (req: AuthedRequest, res) => {
-  const { title, date, time, end_time } = req.body ?? {};
+  const { title, date, time, end_time, is_call } = req.body ?? {};
   if (!title || !String(title).trim()) return res.status(400).json({ error: '일정 제목을 입력하세요' });
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
     return res.status(400).json({ error: '날짜를 확인하세요' });
@@ -618,12 +618,13 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   if (t && tEnd && tEnd <= t) {
     return res.status(400).json({ error: '종료 시간이 시작보다 빨라요' });
   }
+  const isCall = is_call ? 1 : 0;
   const cleanTitle = String(title).trim().slice(0, 80);
   const info = db
     .prepare(
-      'INSERT INTO meeting_events (meeting_id, title, date, time, end_time, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO meeting_events (meeting_id, title, date, time, end_time, is_call, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(meeting.id, cleanTitle, String(date), t, tEnd, req.userId);
+    .run(meeting.id, cleanTitle, String(date), t, tEnd, isCall, req.userId);
 
   // 회의 참가자 전원(작성자 제외)에게 일정 알림 — 회의 썸네일과 함께
   const me = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as
@@ -638,12 +639,12 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   for (const p of others) {
     notifyUser(p.user_id, {
       from: me?.username ?? meeting.title,
-      text: `'${meeting.title}'에 일정 추가 — ${cleanTitle} (${when})`,
+      text: `'${meeting.title}'에 ${isCall ? '📞 통화' : '일정'} 추가 — ${cleanTitle} (${when})`,
       meetingCode: code,
     });
   }
 
-  res.json({ id: info.lastInsertRowid, title, date, time: t, end_time: tEnd });
+  res.json({ id: info.lastInsertRowid, title, date, time: t, end_time: tEnd, is_call: isCall });
 });
 
 /** 회의 일정 이벤트 삭제 (작성자 또는 호스트) */

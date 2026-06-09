@@ -2724,6 +2724,67 @@ input:focus {
   opacity: 0.5;
 }
 
+/* 통화 on/off 스위치 — 시작~종료 옆 */
+.msched-add-times {
+  flex-wrap: wrap;
+}
+
+.msched-call-sw {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--surface);
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.msched-call-sw.on {
+  border-color: transparent;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.msched-call-sw:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.msched-sw {
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  flex: none;
+  transition: background 0.15s;
+}
+
+.msched-sw.on {
+  background: var(--green);
+}
+
+.msched-sw i {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.msched-sw.on i {
+  transform: translateX(13px);
+}
+
 .msched-add-hint {
   margin: 8px 0 0;
   font-size: 12px;

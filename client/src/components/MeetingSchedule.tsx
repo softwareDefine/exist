@@ -8,6 +8,7 @@ interface MEvent {
   date: string; // YYYY-MM-DD
   time: string | null; // HH:MM (시작)
   end_time: string | null; // HH:MM (종료)
+  is_call?: number; // 1이면 통화 일정 (10분 전 "통화 들어오세요" 알림)
   author: string;
   created_by: number;
 }
@@ -34,6 +35,7 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [isCall, setIsCall] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -96,11 +98,18 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
     }
     await api(`/api/meetings/${code}/events`, {
       method: 'POST',
-      body: { title, date: selected, time: time || null, end_time: time ? endTime || null : null },
+      body: {
+        title,
+        date: selected,
+        time: time || null,
+        end_time: time ? endTime || null : null,
+        is_call: isCall && !!time, // 통화는 시작 시간이 있어야 의미 있음
+      },
     });
     setTitle('');
     setTime('');
     setEndTime('');
+    setIsCall(false);
     void load();
     window.dispatchEvent(new CustomEvent('exist:schedule-changed')); // nowbar 일정 갱신
   }
@@ -209,7 +218,10 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
                     {ev.end_time ? `~${ev.end_time}` : ''}
                   </span>
                 )}
-                <span className="msched-event-title">{ev.title}</span>
+                <span className="msched-event-title">
+                  {ev.is_call ? '📞 ' : ''}
+                  {ev.title}
+                </span>
                 <span className="msched-event-author">{ev.author}</span>
                 {(ev.created_by === userId || isHost) && (
                   <button className="msched-event-del" onClick={() => void removeEvent(ev.id)}>
@@ -244,11 +256,26 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
                 disabled={!time}
               />
             </label>
+            <button
+              type="button"
+              className={`msched-call-sw${isCall ? ' on' : ''}`}
+              onClick={() => time && setIsCall((v) => !v)}
+              disabled={!time}
+              title={time ? '통화로 등록 (10분 전 알림)' : '시작 시간을 먼저 정하세요'}
+            >
+              📞 통화
+              <span className={`msched-sw${isCall ? ' on' : ''}`}>
+                <i />
+              </span>
+            </button>
           </div>
           <button type="submit" className="msched-add-btn" disabled={!title.trim()}>
             일정 추가
           </button>
-          <p className="msched-add-hint">🔔 추가하면 회의 참가자 전원에게 알림이 가요</p>
+          <p className="msched-add-hint">
+            🔔 추가하면 참가자 전원에게 알림
+            {isCall && ' · 통화는 10분 전에 "들어오세요" 알림'}
+          </p>
         </form>
       </div>
     </div>
