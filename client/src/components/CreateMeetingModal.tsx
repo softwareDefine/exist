@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useOrgStore, type OrgContext } from '../orgStore';
 import { CloseIcon, CalendarIcon, CopyIcon, CheckMarkIcon, BuildingIcon } from './Icons';
+import Avatar from './Avatar';
+
+interface Person {
+  username: string;
+  avatar: string | null;
+}
 
 interface Props {
   open: boolean;
@@ -19,7 +25,11 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
   const [schedOn, setSchedOn] = useState(false);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
-  const [created, setCreated] = useState<{ code: string; title: string } | null>(null);
+  const [invite, setInvite] = useState<Person[]>([]);
+  const [pq, setPq] = useState('');
+  const [results, setResults] = useState<Person[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [created, setCreated] = useState<{ code: string; title: string; invited: number } | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -29,9 +39,51 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
     setSchedOn(false);
     setStart('');
     setEnd('');
+    setInvite([]);
+    setPq('');
+    setResults([]);
     setCreated(null);
     setCopied(false);
   }, [open, current]);
+
+  // 초대할 사람 검색 (디바운스)
+  useEffect(() => {
+    if (!open) return;
+    const q = pq.trim();
+    if (!q) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(async () => {
+      try {
+        const orgParam = orgCtx === 'personal' ? '' : `&org=${orgCtx}`;
+        const rows = await api<Person[]>(
+          `/api/meetings/users/search?q=${encodeURIComponent(q)}${orgParam}`,
+        );
+        setResults(rows);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [pq, open, orgCtx]);
+
+  // 조직(회의 위치)을 바꾸면 초대 후보가 달라지므로 선택 초기화
+  const firstOrg = useRef(true);
+  useEffect(() => {
+    if (!open) return;
+    if (firstOrg.current) {
+      firstOrg.current = false;
+      return;
+    }
+    setInvite([]);
+    setPq('');
+    setResults([]);
+  }, [orgCtx, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -48,20 +100,30 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
     e.preventDefault();
     if (!title.trim()) return;
     try {
-      const m = await api<{ code: string; title: string }>('/api/meetings', {
+      const m = await api<{ code: string; title: string; invited: string[] }>('/api/meetings', {
         method: 'POST',
         body: {
           title,
           org_id: orgCtx === 'personal' ? null : orgCtx,
           starts_at: schedOn ? start || null : null,
           ends_at: schedOn ? end || null : null,
+          invite: invite.map((p) => p.username),
         },
       });
-      setCreated({ code: m.code, title });
+      setCreated({ code: m.code, title, invited: m.invited?.length ?? 0 });
       onCreated();
     } catch {
       /* 전역 에러 토스트 */
     }
+  }
+
+  function addPerson(p: Person) {
+    if (!invite.some((x) => x.username === p.username)) setInvite((v) => [...v, p]);
+    setPq('');
+    setResults([]);
+  }
+  function removePerson(username: string) {
+    setInvite((v) => v.filter((x) => x.username !== username));
   }
 
   async function copyCode() {
@@ -82,7 +144,11 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
           <div className="cm-done">
             <div className="cm-done-emoji">🎉</div>
             <h2 className="cm-done-title">회의가 만들어졌어요</h2>
-            <p className="cm-done-sub">팀원에게 코드를 공유하면 바로 참여할 수 있어요</p>
+            <p className="cm-done-sub">
+              {created.invited > 0
+                ? `${created.invited}명을 초대했어요. 코드로도 참여할 수 있어요`
+                : '팀원에게 코드를 공유하면 바로 참여할 수 있어요'}
+            </p>
             <button className="cm-code" onClick={copyCode} title="클릭해서 복사">
               <span className="cm-code-val">{created.code}</span>
               <span className="cm-code-copy">
@@ -149,6 +215,55 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
                       <span className="cm-org-name">{o.name}</span>
                     </button>
                   ))}
+                </div>
+              </div>
+
+              <div className="cm-field">
+                <span className="cm-field-label">
+                  사람 초대 <span className="cm-field-opt">선택</span>
+                </span>
+                {invite.length > 0 && (
+                  <div className="cm-invited">
+                    {invite.map((p) => (
+                      <span className="cm-chip" key={p.username}>
+                        <Avatar value={p.avatar} className="cm-chip-av" />
+                        {p.username}
+                        <button type="button" onClick={() => removePerson(p.username)}>
+                          <CloseIcon size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="cm-search">
+                  <input
+                    className="cm-input"
+                    value={pq}
+                    onChange={(e) => setPq(e.target.value)}
+                    placeholder="이름으로 검색해서 초대"
+                  />
+                  {pq.trim() && (
+                    <div className="cm-results">
+                      {searching && <div className="cm-results-empty">찾는 중…</div>}
+                      {!searching &&
+                        results.filter((r) => !invite.some((x) => x.username === r.username))
+                          .length === 0 && <div className="cm-results-empty">검색 결과 없음</div>}
+                      {results
+                        .filter((r) => !invite.some((x) => x.username === r.username))
+                        .map((r) => (
+                          <button
+                            type="button"
+                            className="cm-result"
+                            key={r.username}
+                            onClick={() => addPerson(r)}
+                          >
+                            <Avatar value={r.avatar} className="cm-result-av" />
+                            <span className="cm-result-name">{r.username}</span>
+                            <span className="cm-result-add">+ 추가</span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

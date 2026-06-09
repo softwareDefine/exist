@@ -54,11 +54,39 @@ router.post('/', (req: AuthedRequest, res) => {
       'INSERT INTO meetings (code, title, host_id, org_id, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
     .run(code, title, req.userId, orgId, starts_at ?? null, ends_at ?? null);
+  const meetingId = info.lastInsertRowid as number;
   db.prepare('INSERT INTO meeting_participants (meeting_id, user_id) VALUES (?, ?)').run(
-    info.lastInsertRowid,
+    meetingId,
     req.userId,
   );
-  res.json({ id: info.lastInsertRowid, code, title, org_id: orgId });
+
+  // 초대한 사람들 바로 참가자로 추가 + 알림
+  const invited: string[] = [];
+  const list = Array.isArray(req.body?.invite) ? req.body.invite : [];
+  const me = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as
+    | { username: string }
+    | undefined;
+  for (const raw of list.slice(0, 30)) {
+    const uname = String(raw ?? '').trim();
+    if (!uname) continue;
+    const u = db.prepare('SELECT id, username FROM users WHERE username = ?').get(uname) as
+      | { id: number; username: string }
+      | undefined;
+    if (!u || u.id === req.userId) continue;
+    // 조직 회의는 그 조직의 active 멤버만 초대 가능
+    if (orgId != null && !isMember(orgId, u.id)) continue;
+    db.prepare(
+      'INSERT OR IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?, ?)',
+    ).run(meetingId, u.id);
+    invited.push(u.username);
+    emitToUser(u.id, 'meeting:invited', { code, title });
+    notifyUser(u.id, {
+      from: me?.username ?? '누군가',
+      text: `'${title}' 회의에 초대했어요. (코드 ${code})`,
+    });
+  }
+
+  res.json({ id: meetingId, code, title, org_id: orgId, invited });
 });
 
 /** 코드로 회의 참여 */
@@ -73,6 +101,43 @@ router.post('/join', (req: AuthedRequest, res) => {
     'INSERT OR IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?, ?)',
   ).run(meeting.id, req.userId);
   res.json({ id: meeting.id, code: meeting.code, title: meeting.title });
+});
+
+/** 사용자 검색 — 회의에 초대할 사람 찾기 (username 부분일치, 본인 제외)
+ *  ?org=<id> 가 주어지면 그 조직의 active 멤버만 검색 (개인 회의는 전체 사용자) */
+router.get('/users/search', (req: AuthedRequest, res) => {
+  const q = String(req.query.q ?? '').trim();
+  if (!q) return res.json([]);
+
+  const orgParam = req.query.org;
+  let rows: { username: string; avatar: string | null }[];
+
+  if (orgParam != null && orgParam !== '' && orgParam !== 'personal') {
+    const orgId = Number(orgParam);
+    if (!Number.isInteger(orgId)) return res.status(400).json({ error: '잘못된 조직입니다' });
+    if (!isMember(orgId, req.userId!)) {
+      return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
+    }
+    rows = db
+      .prepare(
+        `SELECT u.username, u.avatar FROM users u
+         JOIN organization_members om ON om.user_id = u.id
+         WHERE om.org_id = ? AND om.status = 'active' AND u.id != ? AND u.username LIKE ?
+         ORDER BY CASE WHEN u.username = ? THEN 0 WHEN u.username LIKE ? THEN 1 ELSE 2 END, u.username
+         LIMIT 8`,
+      )
+      .all(orgId, req.userId, `%${q}%`, q, `${q}%`) as typeof rows;
+  } else {
+    rows = db
+      .prepare(
+        `SELECT username, avatar FROM users
+         WHERE username LIKE ? AND id != ?
+         ORDER BY CASE WHEN username = ? THEN 0 WHEN username LIKE ? THEN 1 ELSE 2 END, username
+         LIMIT 8`,
+      )
+      .all(`%${q}%`, req.userId, q, `${q}%`) as typeof rows;
+  }
+  res.json(rows);
 });
 
 /** 최근 회의 목록 — 조직 컨텍스트로 필터
