@@ -7580,6 +7580,7 @@ input:focus {
 
 .chat-messages {
   flex: 1;
+  min-height: 0; /* flex 자식 스크롤 — 없으면 메시지 쌓일 때 영역이 늘어나 입력창을 밀어냄 */
   overflow-y: auto;
   padding: 14px;
   display: flex;
@@ -7599,6 +7600,8 @@ input:focus {
   flex-direction: column;
   gap: 4px;
   max-width: 85%;
+  align-self: flex-start; /* 받은 메시지는 왼쪽, 버블은 내용 크기만큼 */
+  align-items: flex-start;
 }
 
 .chat-msg.mine {
