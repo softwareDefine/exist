@@ -239,6 +239,8 @@ interface Props {
   meetings?: Meeting[];
   /** 회의 그룹들(최근 회의) — 왼쪽에 하나를 띄우고 오른쪽은 그 그룹의 일정/할일/진행도 */
   groups?: Meeting[];
+  /** 사이드바에서 클릭해 띄울 회의 그룹 코드 (있으면 자동선택보다 우선) */
+  focusedCode?: string | null;
   onToggleTodo?: (todo: Todo) => void;
   onAddTodo?: (title: string) => void;
   /** 일정 클릭 → 회의 탭 열기 */
@@ -293,6 +295,7 @@ function ProfileMenu({
 export default function NowBar({
   meetings = [],
   groups = [],
+  focusedCode,
   onOpenMeeting,
   onSchedule,
   onToggleSidebar,
@@ -426,6 +429,7 @@ export default function NowBar({
     };
   });
   const best =
+    (focusedCode ? ranked.find((r) => r.g.code === focusedCode) : null) ||
     ranked.find((r) => r.ongoing) ||
     [...ranked].sort((a, b) => a.nextT - b.nextT).find((r) => r.future.length > 0) ||
     ranked[0] ||

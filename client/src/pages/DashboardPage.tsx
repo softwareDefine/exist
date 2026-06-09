@@ -34,12 +34,15 @@ export default function DashboardPage() {
 
   // 회의 탭 열기 요청 (우측 패널로 전달)
   const [meetingRequest, setMeetingRequest] = useState<MeetingTabRequest | null>(null);
+  // nowbar가 띄울 회의 그룹 (최근회의 클릭 시 그 회의로 고정)
+  const [focusedCode, setFocusedCode] = useState<string | null>(null);
 
   // 회의 설정 모달 (일정/설정 버튼)
   const [settingsMeeting, setSettingsMeeting] = useState<Meeting | null>(null);
 
   function openMeetingTab(code: string, title: string, tab?: string) {
     setMeetingRequest({ code, title, ts: Date.now(), tab });
+    setFocusedCode(code); // nowbar가 이 회의 그룹을 띄우도록
   }
 
   function toggleSidebar() {
@@ -112,6 +115,7 @@ export default function DashboardPage() {
         todos={todos}
         meetings={schedule}
         groups={recent}
+        focusedCode={focusedCode}
         onToggleTodo={toggleTodo}
         onAddTodo={addTodo}
         onOpenMeeting={(m) => openMeetingTab(m.code, m.title)}
