@@ -7224,63 +7224,21 @@ input:focus {
   white-space: nowrap;
 }
 
-/* mini PiP — 박스를 컨테이너로 삼아, 크기에 따라 보이는 인원을 늘린다 */
-.hub-call.mini {
-  container-type: inline-size;
-  container-name: pip;
-}
-
-/* 타일이 박스를 꽉 채움 (16:9 강제 해제, cover 크롭) */
+/* mini PiP — 박스가 16:9 패널 격자(--pip-cols 열 × 180px 행)로 스냅됨.
+   보이는 칸 수 = 표시되는 인원. 넘치는 타일은 overflow로 잘림 */
 .hub-call.mini .video-area {
   gap: 0;
 }
 
 .hub-call.mini .video-grid {
   display: grid;
-  gap: 2px;
+  gap: 0; /* 박스가 정확히 행×180으로 스냅되므로 여백 없이 딱 맞춤 */
   height: 100%;
   min-height: 0;
-  align-content: stretch;
-  grid-template-columns: 1fr; /* 1명: 한 칸 꽉 */
-}
-
-.hub-call.mini .video-grid:not(.count-1) {
-  grid-template-columns: 1fr 1fr; /* 2명+: 기본 2열 */
-  grid-auto-rows: 1fr;
-}
-
-/* 아주 작을 때(content ≤269px): 1명만 — 상대(첫 피어) 한 명 크게 (혼자면 본인) */
-@container pip (max-width: 269px) {
-  .hub-call.mini .video-grid:not(.count-1) {
-    grid-template-columns: 1fr;
-  }
-  .hub-call.mini .video-grid:not(.count-1) > .video-tile {
-    display: none; /* 로컬(나) 숨김 */
-  }
-  .hub-call.mini .video-grid:not(.count-1) > .peer-cell:nth-child(n + 3) {
-    display: none; /* 첫 피어만 남김 */
-  }
-}
-
-/* 작을 때(270~439px): 최대 2명 — 로컬 + 첫 피어, 나머지 숨김 */
-@container pip (min-width: 270px) and (max-width: 439px) {
-  .hub-call.mini .video-grid > .peer-cell:nth-child(n + 3) {
-    display: none;
-  }
-}
-
-/* 중간: 최대 4명(2×2) */
-@container pip (min-width: 440px) and (max-width: 639px) {
-  .hub-call.mini .video-grid > .peer-cell:nth-child(n + 5) {
-    display: none;
-  }
-}
-
-/* 큼: 3열로 전원 표시 */
-@container pip (min-width: 640px) {
-  .hub-call.mini .video-grid:not(.count-1) {
-    grid-template-columns: repeat(3, 1fr);
-  }
+  align-content: start;
+  grid-template-columns: repeat(var(--pip-cols, 1), 1fr);
+  grid-auto-rows: 180px; /* PIP_TILE_H — 각 행 한 패널 높이, 넘으면 잘림 */
+  overflow: hidden;
 }
 
 .hub-call.mini .video-grid .video-tile {

@@ -173,6 +173,10 @@ interface Props {
   gotoTab?: { tab: string; ts: number };
 }
 
+/** PiP 한 칸(영상 패널) 기준 크기 — 16:9. 리사이즈는 이 단위로 스냅된다 */
+const PIP_TILE_W = 320;
+const PIP_TILE_H = 180;
+
 /** 회의 탭 = 대시보드(메인) + 통화/채팅 서브탭 */
 export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: Props) {
   const user = useAuthStore((s) => s.user);
@@ -193,11 +197,11 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null); // 무빙 통화창 위치
   const [pipW, setPipW] = useState<number>(() => {
     const s = Number(localStorage.getItem('exist:pipW'));
-    return s >= 180 && s <= 960 ? s : 320; // 기본 320×180
+    return s >= PIP_TILE_W && s <= PIP_TILE_W * 4 ? s : PIP_TILE_W; // 기본 1칸(320)
   });
   const [pipH, setPipH] = useState<number>(() => {
     const s = Number(localStorage.getItem('exist:pipH'));
-    return s >= 110 && s <= 640 ? s : 180;
+    return s >= PIP_TILE_H && s <= PIP_TILE_H * 3 ? s : PIP_TILE_H;
   });
   const pipDragRef = useRef<{ dx: number; dy: number } | null>(null);
   const pipResizeRef = useRef<{ right: number; bottom: number } | null>(null); // 리사이즈 앵커(우하단 고정)
@@ -205,6 +209,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const pipRafRef = useRef<number | null>(null);
   const pipLatest = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const pipSizeLatest = useRef<{ w: number; h: number }>({ w: 320, h: 180 });
+  const onlineRef = useRef<number>(1); // 통화 인원 — 리사이즈 캡(다 들어가면 그만)용
   const [todos, setTodos] = useState<MeetingTodo[]>([]);
   const [todoInput, setTodoInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -281,11 +286,20 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       const el = pipElRef.current;
       if (!el) return;
 
-      // 리사이즈 (우하단 앵커 고정, 가로·세로 자유 — 비율 고정 없음)
+      // 리사이즈 (우하단 앵커 고정) — 한 화면(16:9 패널) 단위로 딱딱 스냅
       const a = pipResizeRef.current;
       if (a) {
-        const w = Math.round(Math.max(180, Math.min(960, a.right - 6, a.right - e.clientX)));
-        const h = Math.round(Math.max(110, Math.min(640, a.bottom - 6, a.bottom - e.clientY)));
+        const N = onlineRef.current; // 통화 인원 — 다 들어가면 더 못 키움
+        const maxCols = Math.max(1, Math.min(4, Math.floor((a.right - 6) / PIP_TILE_W)));
+        const maxRows = Math.max(1, Math.min(4, Math.floor((a.bottom - 6) / PIP_TILE_H)));
+        let cols = Math.max(1, Math.min(maxCols, Math.round((a.right - e.clientX) / PIP_TILE_W)));
+        let rows = Math.max(1, Math.min(maxRows, Math.round((a.bottom - e.clientY) / PIP_TILE_H)));
+        // 빈 열·행이 생기지 않게 — 모든 참가자가 들어갈 최소 격자까지만 허용
+        cols = Math.min(cols, Math.ceil(N / rows));
+        rows = Math.min(rows, Math.ceil(N / cols));
+        cols = Math.min(cols, Math.ceil(N / rows));
+        const w = cols * PIP_TILE_W;
+        const h = rows * PIP_TILE_H;
         const left = a.right - w;
         const top = a.bottom - h;
         pipSizeLatest.current = { w, h };
@@ -299,6 +313,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
             el.style.top = `${top}px`;
             el.style.right = 'auto';
             el.style.bottom = 'auto';
+            el.style.setProperty('--pip-cols', String(cols));
           });
         }
         return;
@@ -351,6 +366,11 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       if (pipRafRef.current != null) cancelAnimationFrame(pipRafRef.current);
     };
   }, []);
+
+  // 통화 인원을 ref로 추적 (리사이즈 핸들러가 최신 값을 보도록)
+  useEffect(() => {
+    onlineRef.current = Math.max(1, detail?.online ?? 1);
+  }, [detail?.online]);
 
   function startPipDrag(e: React.MouseEvent) {
     const t = e.target as HTMLElement;
@@ -1039,11 +1059,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
             className={`hub-call${subtab === 'call' ? '' : ' mini'}`}
             style={
               subtab !== 'call'
-                ? {
+                ? ({
                     width: pipW,
                     height: pipH,
+                    '--pip-cols': Math.max(1, Math.round(pipW / PIP_TILE_W)),
                     ...(pipPos ? { left: pipPos.x, top: pipPos.y, right: 'auto', bottom: 'auto' } : {}),
-                  }
+                  } as React.CSSProperties)
                 : undefined
             }
             onMouseDown={subtab !== 'call' ? startPipDrag : undefined}
