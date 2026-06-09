@@ -102,10 +102,12 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
     setTime('');
     setEndTime('');
     void load();
+    window.dispatchEvent(new CustomEvent('exist:schedule-changed')); // nowbar 일정 갱신
   }
   async function removeEvent(id: number) {
     await api(`/api/meetings/${code}/events/${id}`, { method: 'DELETE' });
     void load();
+    window.dispatchEvent(new CustomEvent('exist:schedule-changed'));
   }
 
   function selectedLabel(): string {

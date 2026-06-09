@@ -73,6 +73,16 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgCurrent]);
 
+  // 회의 일정 이벤트가 추가/삭제되면 nowbar 일정도 다시 불러오기
+  useEffect(() => {
+    function onChanged() {
+      void refresh();
+    }
+    window.addEventListener('exist:schedule-changed', onChanged);
+    return () => window.removeEventListener('exist:schedule-changed', onChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function joinMeeting(e: React.FormEvent) {
     e.preventDefault();
     if (!code.trim()) return;
