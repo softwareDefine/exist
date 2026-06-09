@@ -2466,6 +2466,206 @@ input:focus {
   position: relative;
 }
 
+/* 회의 설정 탭 */
+.hub-settings {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.hub-set-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 20px 22px;
+}
+
+.hub-set-hostonly {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+
+.hub-set-people {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hub-set-person {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 8px;
+  border-radius: 11px;
+}
+
+.hub-set-person:hover {
+  background: var(--surface-2);
+}
+
+.hub-set-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  flex: none;
+}
+
+.hub-set-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.hub-set-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hub-set-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--surface-3);
+  color: var(--text-sub);
+}
+
+.hub-set-badge.host {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.hub-set-badge.admin {
+  background: #e7f0ff;
+  color: #1971c2;
+}
+
+.dark .hub-set-badge.admin {
+  background: #16304d;
+  color: #74b1ff;
+}
+
+.hub-set-online {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.hub-set-sub {
+  font-size: 12.5px;
+  color: var(--text-sub);
+}
+
+.hub-set-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.hub-set-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hub-set-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.hub-set-btn.danger:hover {
+  border-color: #e5484d;
+  color: #e5484d;
+}
+
+.hub-perm {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+  border-top: 1px solid var(--border);
+}
+
+.hub-perm:first-of-type {
+  border-top: none;
+}
+
+.hub-perm-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 2px;
+}
+
+.hub-perm-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.hub-perm-desc {
+  font-size: 12.5px;
+  color: var(--text-sub);
+}
+
+.hub-switch {
+  width: 44px;
+  height: 25px;
+  border-radius: 13px;
+  border: none;
+  background: var(--surface-3);
+  position: relative;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.15s;
+}
+
+.hub-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: left 0.15s;
+}
+
+.hub-switch.on {
+  background: var(--green);
+}
+
+.hub-switch.on i {
+  left: 22px;
+}
+
+.hub-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* 코드/문서/시트 공동편집 래퍼 (회의코드 칩 .hub-code와 충돌 방지용 별도 클래스) */
 .hub-editor-pane {
   flex: 1;

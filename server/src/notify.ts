@@ -19,6 +19,14 @@ export interface NotifyPayload {
 }
 
 /** userId에게 알림 — DB 저장 후 접속 소켓에 푸시(저장된 id·시각 포함) */
+/** 특정 유저의 모든 소켓에 임의 이벤트 전송 (강퇴 등) */
+export function emitToUser(userId: number, event: string, payload: unknown) {
+  if (!io) return;
+  for (const s of io.sockets.sockets.values()) {
+    if (s.data.userId === userId) s.emit(event, payload);
+  }
+}
+
 export function notifyUser(userId: number, payload: NotifyPayload) {
   const info = db
     .prepare('INSERT INTO notifications (user_id, from_name, text, kind) VALUES (?, ?, ?, ?)')

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { invalidateBrief } from './agent.js';
+import { emitToUser, notifyUser } from './notify.js';
 import { getRoomSize } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
@@ -107,7 +108,7 @@ router.get('/recent', (req: AuthedRequest, res) => {
 router.get('/:code', (req: AuthedRequest, res) => {
   const meeting = db
     .prepare(
-      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, m.org_id, m.thumbnail,
+      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, m.org_id, m.thumbnail, m.settings,
               u.username AS host, o.name AS org_name
        FROM meetings m JOIN users u ON u.id = m.host_id
        LEFT JOIN organizations o ON o.id = m.org_id
@@ -123,6 +124,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
         host_id: number;
         org_id: number | null;
         thumbnail: string | null;
+        settings: string | null;
         host: string;
         org_name: string | null;
       }
@@ -167,6 +169,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
     orgId: meeting.org_id,
     orgName: meeting.org_name,
     thumbnail: meeting.thumbnail,
+    settings: meeting.settings ? JSON.parse(meeting.settings) : { locked: false, guestEdit: true, muteOnJoin: false },
     online: getRoomSize(meeting.code),
     participants: participants.map((p) => ({
       username: p.username,
@@ -174,8 +177,66 @@ router.get('/:code', (req: AuthedRequest, res) => {
       role: p.role,
       position: p.position,
       department: p.department,
+      isHost: p.username === meeting.host,
     })),
   });
+});
+
+/** 회의 설정/권한 변경 (호스트만) */
+router.patch('/:code/settings', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '회의를 찾을 수 없어요' });
+  if (meeting.host_id !== req.userId) return res.status(403).json({ error: '호스트만 변경할 수 있어요' });
+  const { locked, guestEdit, muteOnJoin } = req.body ?? {};
+  const settings = { locked: !!locked, guestEdit: guestEdit !== false, muteOnJoin: !!muteOnJoin };
+  db.prepare('UPDATE meetings SET settings = ? WHERE id = ?').run(JSON.stringify(settings), meeting.id);
+  res.json({ settings });
+});
+
+/** 참가자 강퇴 (호스트만) */
+router.delete('/:code/participants/:username', (req: AuthedRequest, res) => {
+  const code = String(req.params.code ?? '').toUpperCase();
+  const meeting = db
+    .prepare('SELECT id, host_id, title FROM meetings WHERE code = ?')
+    .get(code) as { id: number; host_id: number; title: string } | undefined;
+  if (!meeting) return res.status(404).json({ error: '회의를 찾을 수 없어요' });
+  if (meeting.host_id !== req.userId) return res.status(403).json({ error: '호스트만 강퇴할 수 있어요' });
+  const target = db
+    .prepare('SELECT id, username FROM users WHERE username = ?')
+    .get(String(req.params.username)) as { id: number; username: string } | undefined;
+  if (!target) return res.status(404).json({ error: '사용자를 찾을 수 없어요' });
+  if (target.id === meeting.host_id) return res.status(400).json({ error: '호스트는 강퇴할 수 없어요' });
+  db.prepare('DELETE FROM meeting_participants WHERE meeting_id = ? AND user_id = ?').run(
+    meeting.id,
+    target.id,
+  );
+  emitToUser(target.id, 'meeting:kicked', { code, title: meeting.title });
+  notifyUser(target.id, {
+    from: meeting.title,
+    text: '회의에서 내보내졌어요.',
+  });
+  res.json({ ok: true });
+});
+
+/** 호스트 위임 (현재 호스트만) */
+router.patch('/:code/host', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '회의를 찾을 수 없어요' });
+  if (meeting.host_id !== req.userId) return res.status(403).json({ error: '호스트만 위임할 수 있어요' });
+  const target = db
+    .prepare('SELECT id FROM users WHERE username = ?')
+    .get(String(req.body?.username)) as { id: number } | undefined;
+  if (!target) return res.status(404).json({ error: '사용자를 찾을 수 없어요' });
+  db.prepare('UPDATE meetings SET host_id = ? WHERE id = ?').run(target.id, meeting.id);
+  res.json({ ok: true });
 });
 
 /** 회의 수정 (호스트만) — 제목/시작/종료 */

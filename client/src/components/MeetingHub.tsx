@@ -23,6 +23,7 @@ import {
   SheetIcon,
   SlideIcon,
   UsersIcon,
+  GearIcon,
   CheckIcon,
   CheckMarkIcon,
 } from './Icons';
@@ -33,6 +34,13 @@ interface Participant {
   role: 'owner' | 'admin' | 'member' | null;
   position: string | null;
   department: string | null;
+  isHost?: boolean;
+}
+
+interface MeetingSettings {
+  locked: boolean;
+  guestEdit: boolean;
+  muteOnJoin: boolean;
 }
 
 interface MeetingDetail {
@@ -47,6 +55,7 @@ interface MeetingDetail {
   orgName: string | null;
   thumbnail: string | null;
   online: number;
+  settings?: MeetingSettings;
   participants: Participant[];
 }
 
@@ -133,7 +142,17 @@ function chatDateLabel(ts: number): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'code' | 'doc' | 'sheet' | 'slide' | 'schedule';
+type SubTab =
+  | 'dash'
+  | 'call'
+  | 'chat'
+  | 'canvas'
+  | 'code'
+  | 'doc'
+  | 'sheet'
+  | 'slide'
+  | 'schedule'
+  | 'settings';
 
 interface Props {
   code: string;
@@ -216,6 +235,22 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     if (gotoTab?.tab) setSubtab(gotoTab.tab as SubTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gotoTab?.ts]);
+
+  // 강퇴 알림 — 이 회의에서 내보내지면 안내
+  useEffect(() => {
+    const socket = getSocket();
+    const onKicked = (data: { code: string }) => {
+      if (data.code?.toUpperCase() === code.toUpperCase()) {
+        window.dispatchEvent(
+          new CustomEvent('app:error', { detail: '회의에서 내보내졌어요.' }),
+        );
+      }
+    };
+    socket.on('meeting:kicked', onKicked);
+    return () => {
+      socket.off('meeting:kicked', onKicked);
+    };
+  }, [code]);
 
   // 무빙 통화창 드래그
   useEffect(() => {
@@ -322,6 +357,44 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     setChatInput('');
   }
 
+  async function reloadDetail() {
+    try {
+      const d = await api<MeetingDetail>(`/api/meetings/${code}`);
+      setDetail(d);
+    } catch {
+      /* 무시 */
+    }
+  }
+  async function kickParticipant(username: string) {
+    if (!confirm(`${username} 님을 회의에서 내보낼까요?`)) return;
+    try {
+      await api(`/api/meetings/${code}/participants/${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+      });
+      void reloadDetail();
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
+  async function transferHost(username: string) {
+    if (!confirm(`${username} 님에게 호스트를 위임할까요?`)) return;
+    try {
+      await api(`/api/meetings/${code}/host`, { method: 'PATCH', body: { username } });
+      void reloadDetail();
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
+  async function updateSettings(patch: Partial<MeetingSettings>) {
+    const cur = detail?.settings ?? { locked: false, guestEdit: true, muteOnJoin: false };
+    try {
+      await api(`/api/meetings/${code}/settings`, { method: 'PATCH', body: { ...cur, ...patch } });
+      void reloadDetail();
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
+
   async function sendChatFile(file: File) {
     if (!file || uploadingFile) return;
     setUploadingFile(true);
@@ -421,6 +494,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
           onClick={() => setSubtab('slide')}
         >
           <SlideIcon size={14} /> 발표
+        </button>
+        <button
+          className={`hub-tab${subtab === 'settings' ? ' active' : ''}`}
+          onClick={() => setSubtab('settings')}
+        >
+          <GearIcon size={14} /> 설정
         </button>
       </div>
 
@@ -686,6 +765,106 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               startsAt={detail.starts_at}
               endsAt={detail.ends_at}
             />
+          </div>
+        )}
+
+        {/* 설정 — 참가자 관리 + 권한 */}
+        {subtab === 'settings' && detail && (
+          <div className="hub-settings">
+            <section className="hub-set-card">
+              <div className="hub-section-title">
+                <UsersIcon size={15} /> 참가자 <b>{detail.participants.length}</b>
+              </div>
+              <div className="hub-set-people">
+                {detail.participants.map((p) => (
+                  <div key={p.username} className="hub-set-person">
+                    <Avatar value={p.avatar} className="hub-set-avatar" />
+                    <span className="hub-set-info">
+                      <span className="hub-set-name">
+                        {p.username}
+                        {p.isHost && <span className="hub-set-badge host">호스트</span>}
+                        {p.role === 'owner' && <span className="hub-set-badge">소유자</span>}
+                        {p.role === 'admin' && <span className="hub-set-badge admin">관리자</span>}
+                        {presence.has(p.username) && <i className="hub-set-online" title="접속 중" />}
+                      </span>
+                      <span className="hub-set-sub">
+                        {p.position && <b>{p.position}</b>}
+                        {p.position && p.department && ' · '}
+                        {p.department}
+                      </span>
+                    </span>
+                    {detail.isHost && !p.isHost && (
+                      <span className="hub-set-actions">
+                        <button className="hub-set-btn" onClick={() => void transferHost(p.username)}>
+                          호스트 위임
+                        </button>
+                        <button className="hub-set-btn danger" onClick={() => void kickParticipant(p.username)}>
+                          내보내기
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="hub-set-card">
+              <div className="hub-section-title">
+                <GearIcon size={15} /> 권한
+                {!detail.isHost && <span className="hub-set-hostonly">호스트만 변경 가능</span>}
+              </div>
+              {(() => {
+                const s = detail.settings ?? { locked: false, guestEdit: true, muteOnJoin: false };
+                const Toggle = ({
+                  on,
+                  label,
+                  desc,
+                  onToggle,
+                }: {
+                  on: boolean;
+                  label: string;
+                  desc: string;
+                  onToggle: () => void;
+                }) => (
+                  <div className="hub-perm">
+                    <span className="hub-perm-text">
+                      <span className="hub-perm-label">{label}</span>
+                      <span className="hub-perm-desc">{desc}</span>
+                    </span>
+                    <button
+                      className={`hub-switch${on ? ' on' : ''}`}
+                      disabled={!detail.isHost}
+                      onClick={onToggle}
+                      aria-label={label}
+                    >
+                      <i />
+                    </button>
+                  </div>
+                );
+                return (
+                  <>
+                    <Toggle
+                      on={s.locked}
+                      label="입장 잠금"
+                      desc="새로운 사람의 회의 참여를 막아요"
+                      onToggle={() => void updateSettings({ locked: !s.locked })}
+                    />
+                    <Toggle
+                      on={s.guestEdit}
+                      label="참가자 편집 허용"
+                      desc="참가자도 문서·시트·캔버스를 편집할 수 있어요"
+                      onToggle={() => void updateSettings({ guestEdit: !s.guestEdit })}
+                    />
+                    <Toggle
+                      on={s.muteOnJoin}
+                      label="입장 시 음소거"
+                      desc="통화 입장할 때 마이크를 끈 상태로 시작해요"
+                      onToggle={() => void updateSettings({ muteOnJoin: !s.muteOnJoin })}
+                    />
+                  </>
+                );
+              })()}
+            </section>
           </div>
         )}
 

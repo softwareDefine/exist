@@ -146,7 +146,7 @@ export default function DashboardPage() {
                     <button title="일정" onClick={() => openMeetingTab(m.code, m.title, 'schedule')}>
                       <CalendarIcon size={17} />
                     </button>
-                    <button title="설정" onClick={() => setSettingsMeeting(m)}>
+                    <button title="설정" onClick={() => openMeetingTab(m.code, m.title, 'settings')}>
                       <GearIcon size={17} />
                     </button>
                   </div>
