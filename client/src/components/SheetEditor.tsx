@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { useAuthStore } from '../store';
@@ -130,6 +130,9 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   const [merges, setMerges] = useState<MergeRange[]>([]);
   const [menu, setMenu] = useState<'fill' | 'text' | 'border' | null>(null);
   const [, bump] = useState(0);
+  const [contentVer, setContentVer] = useState(0); // 셀 값 변경 버전 (값 메모이즈용)
+  const rafRef = useRef(0);
+  const pendingSelRef = useRef<{ r: number; c: number } | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [peers, setPeers] = useState(1);
   const [sheets, setSheets] = useState<SheetMeta[]>([]);
@@ -221,8 +224,8 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     stylesRef.current = styles;
     mergesRef.current = mergeArr;
     setMerges(mergeArr.toArray());
-    bump((n) => n + 1);
-    const onCells = () => bump((n) => n + 1);
+    setContentVer((n) => n + 1);
+    const onCells = () => setContentVer((n) => n + 1);
     const onStyles = () => bump((n) => n + 1);
     const onMerges = () => setMerges(mergeArr.toArray());
     cells.observe(onCells);
@@ -451,6 +454,18 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     URL.revokeObjectURL(url);
   }
 
+  // 표시값 메모이즈 — 셀 값이 바뀔 때만 재계산(드래그 선택 중엔 재사용)
+  const valueGrid = useMemo(() => {
+    const g: string[][] = [];
+    for (let r = 0; r < ROWS; r++) {
+      const row: string[] = [];
+      for (let c = 0; c < COLS; c++) row.push(display(r, c));
+      g.push(row);
+    }
+    return g;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentVer, activeSheet?.cellsKey]);
+
   const statusLabel =
     status === 'connected' ? '실시간 연결됨' : status === 'connecting' ? '연결 중…' : '연결 끊김';
   const activeRaw = raw(sel.r, sel.c);
@@ -640,7 +655,16 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
                         }
                       }}
                       onMouseEnter={() => {
-                        if (draggingRef.current && !editing) setSel({ r, c });
+                        if (!draggingRef.current || editing) return;
+                        // rAF 스로틀: 프레임당 1회만 setSel → 드래그 렉 방지
+                        pendingSelRef.current = { r, c };
+                        if (!rafRef.current) {
+                          rafRef.current = requestAnimationFrame(() => {
+                            rafRef.current = 0;
+                            const p = pendingSelRef.current;
+                            if (p) setSel(p);
+                          });
+                        }
                       }}
                       onDoubleClick={() => startEdit(r, c)}
                     >
@@ -660,7 +684,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
                           }}
                         />
                       ) : (
-                        <span className="sheet-cell-val">{display(r, c)}</span>
+                        <span className="sheet-cell-val">{valueGrid[r]?.[c] ?? ''}</span>
                       )}
                     </td>
                   );

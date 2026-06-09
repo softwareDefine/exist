@@ -177,6 +177,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const filesMapRef = useRef<Y.Map<{ name: string; ord: number; dir?: boolean }> | null>(null);
+  const dragIdRef = useRef<string | null>(null);
 
   const [conn, setConn] = useState<{ ydoc: Y.Doc; provider: WebsocketProvider } | null>(null);
   const [files, setFiles] = useState<FileMeta[]>([]);
@@ -513,6 +514,31 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
       return n;
     });
   }
+  function moveEntry(id: string, targetDir: string) {
+    const map = filesMapRef.current;
+    if (!map) return;
+    const entry = files.find((f) => f.id === id);
+    if (!entry) return;
+    const oldName = entry.name;
+    const base = basename(oldName);
+    const newName = targetDir ? `${targetDir}/${base}` : base;
+    if (newName === oldName) return;
+    // 폴더를 자기 자신/하위로 이동 금지
+    if (entry.dir && (targetDir === oldName || targetDir.startsWith(oldName + '/'))) return;
+    if (files.some((f) => f.id !== id && f.name === newName)) return; // 충돌
+    if (entry.dir) {
+      files.forEach((f) => {
+        if (f.id === id || f.name.startsWith(oldName + '/')) {
+          const np = newName + f.name.slice(oldName.length);
+          const cur = map.get(f.id);
+          if (cur) map.set(f.id, { ...cur, name: np });
+        }
+      });
+    } else {
+      const cur = map.get(id);
+      if (cur) map.set(id, { ...cur, name: newName });
+    }
+  }
   function toggleFolder(path: string) {
     setCurrentDir(path);
     setCollapsed((s) => {
@@ -623,6 +649,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
     const out: React.ReactNode[] = [];
     for (const fp of subFolders) {
       const open = !collapsed.has(fp);
+      const folderEntry = files.find((f) => f.dir && f.name === fp);
       out.push(
         <div
           key={`d:${fp}`}
@@ -630,6 +657,24 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
           style={{ paddingLeft: 10 + depth * 14 }}
           onClick={() => toggleFolder(fp)}
           title={fp}
+          draggable={!!folderEntry}
+          onDragStart={(e) => {
+            if (folderEntry) dragIdRef.current = folderEntry.id;
+            e.stopPropagation();
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            (e.currentTarget as HTMLElement).classList.add('drop-target');
+          }}
+          onDragLeave={(e) => (e.currentTarget as HTMLElement).classList.remove('drop-target')}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            (e.currentTarget as HTMLElement).classList.remove('drop-target');
+            if (dragIdRef.current) moveEntry(dragIdRef.current, fp);
+            dragIdRef.current = null;
+          }}
         >
           <span className="vsc-chev">{open ? '▾' : '▸'}</span>
           <span className="vsc-file-ic">📁</span>
@@ -652,6 +697,11 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
           style={{ paddingLeft: 10 + depth * 14 }}
           onClick={() => openFile(f.id)}
           title={f.name}
+          draggable
+          onDragStart={(e) => {
+            dragIdRef.current = f.id;
+            e.stopPropagation();
+          }}
         >
           <span className="vsc-file-ic">{fileIcon(f.name)}</span>
           <span className="vsc-file-name">{basename(f.name)}</span>
@@ -685,7 +735,15 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
             )}
           </span>
         </div>
-        <div className="vsc-files">
+        <div
+          className="vsc-files"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            if (dragIdRef.current) moveEntry(dragIdRef.current, '');
+            dragIdRef.current = null;
+          }}
+        >
           {renderTree('', 0)}
           {creating && creating.dir === '' && createInput('', 0)}
           {files.length === 0 && !creating && (

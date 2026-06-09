@@ -3718,6 +3718,12 @@ input:focus {
   color: #fff;
 }
 
+.vsc-file.drop-target {
+  background: rgba(33, 200, 24, 0.18);
+  outline: 1px solid var(--green);
+  outline-offset: -1px;
+}
+
 .vsc-file-ic {
   font-size: 12px;
   flex: none;
@@ -4167,7 +4173,7 @@ input:focus {
 .vsc-statusbar {
   flex: none;
   height: 24px;
-  background: #007acc;
+  background: var(--green-dark);
   color: #fff;
   display: flex;
   align-items: center;
