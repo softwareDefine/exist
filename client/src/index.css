@@ -108,16 +108,10 @@
   color: var(--text-sub);
 }
 
-/* 다크: 흰 종이(문서/시트/발표) 위 입력은 라이트 유지 */
-.dark .sheet-formula,
-.dark .sheet-cell-input,
-.dark .doc-tab-input {
-  background: #fff;
-  color: #1c2024;
-}
+/* 발표 텍스트 입력은 캔버스 위에 투명 */
 .dark .slide-el-input {
   background: transparent;
-  color: #1c2024;
+  color: var(--text);
 }
 
 * {
@@ -3172,36 +3166,64 @@ input:focus {
   color: var(--green);
 }
 
-/* 다크모드: 문서/시트/발표는 흰 종이 유지(가독성) */
+/* 다크모드: 문서/시트/발표도 다크 테마 적용 */
 .dark .doc-editor,
 .dark .sheet-editor,
 .dark .slide-editor {
-  background: #e6e8eb;
+  background: var(--bg);
 }
-.dark .doc-page,
-.dark .slide-canvas,
-.dark .slide-thumb-canvas,
-.dark .doc-tabbar,
-.dark .doc-editor-bar,
-.dark .sheet-bar,
-.dark .sheet-tabbar,
-.dark .slide-bar,
-.dark .slide-list,
-.dark .sheet-cell-input {
-  background: #ffffff;
-  color: #1c2024;
+
+/* 문서 */
+.dark .doc-page {
+  background: var(--surface);
+  border-color: var(--border);
 }
+.dark .doc-prose {
+  color: var(--text);
+}
+.dark .doc-prose code {
+  background: var(--surface-3);
+  color: var(--text);
+}
+.dark .doc-prose blockquote {
+  color: var(--text-sub);
+}
+
+/* 시트 */
 .dark .sheet-grid td {
-  color: #1c2024;
+  color: var(--text);
+}
+.dark .sheet-grid th,
+.dark .sheet-grid td {
+  border-color: var(--border);
 }
 .dark .sheet-grid thead th,
 .dark .sheet-rownum {
-  background: #f6f7f9;
-  color: #6a6f78;
+  background: var(--surface-2);
+  color: var(--text-sub);
 }
-.dark .doc-prose,
-.dark .slide-canvas .slide-el {
-  color: #1c2024;
+.dark .sheet-corner {
+  background: var(--surface-3) !important;
+}
+.dark .sheet-cell-input {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* 발표 */
+.dark .slide-canvas,
+.dark .slide-thumb-canvas,
+.dark .slide-present-canvas {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.dark .slide-canvas .slide-el,
+.dark .slide-thumb-el,
+.dark .slide-present-canvas .slide-el {
+  color: var(--text);
+}
+.dark .slide-el-input {
+  color: var(--text);
 }
 
 /* ── 협업 슬라이드 (PowerPoint형) ── */

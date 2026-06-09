@@ -28,15 +28,7 @@ import { WebsocketProvider } from 'y-websocket';
 import { yCollab } from 'y-codemirror.next';
 import { useAuthStore } from '../store';
 import { api } from '../api';
-import {
-  PlusIcon,
-  CloseIcon,
-  CodeIcon,
-  PlayIcon,
-  DownloadIcon,
-  SunIcon,
-  MoonIcon,
-} from './Icons';
+import { PlusIcon, CloseIcon, CodeIcon, PlayIcon, DownloadIcon } from './Icons';
 
 const CURSOR_COLORS = ['#30a46c', '#e5484d', '#f76808', '#4f7cff', '#8e4ec6', '#0091ff', '#d6409f'];
 
@@ -198,9 +190,17 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   const creatingRef = useRef(false); // Enter/blur 중복 생성 방지
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [currentDir, setCurrentDir] = useState(''); // 새 파일/폴더가 만들어질 위치
-  const [theme, setTheme] = useState<'dark' | 'light'>(
-    () => (localStorage.getItem('exist:code-theme') as 'dark' | 'light') || 'dark',
+  // 코드 에디터 테마는 앱 전체 다크모드(html.dark)를 따라감
+  const [appDark, setAppDark] = useState(
+    () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
   );
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setAppDark(document.documentElement.classList.contains('dark')),
+    );
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
   const [output, setOutput] = useState<OutLine[]>([]);
   const [showOutput, setShowOutput] = useState(false);
   const [running, setRunning] = useState(false);
@@ -289,7 +289,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
         basicSetup,
         keymap.of([indentWithTab]),
         ext,
-        ...(theme === 'dark' ? [oneDark] : []),
+        ...(appDark ? [oneDark] : []),
         yCollab(ytext, conn.provider.awareness),
         EditorView.updateListener.of((u) => {
           if (u.selectionSet || u.docChanged) {
@@ -314,15 +314,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
       viewRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conn, activeId, activeFile?.name, theme]);
-
-  function toggleTheme() {
-    setTheme((t) => {
-      const next = t === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('exist:code-theme', next);
-      return next;
-    });
-  }
+  }, [conn, activeId, activeFile?.name, appDark]);
 
   function runActive() {
     if (!activeFile || !conn || running) return;
@@ -670,7 +662,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   };
 
   return (
-    <div className={`vsc ${theme}`}>
+    <div className={`vsc ${appDark ? 'dark' : 'light'}`}>
       {/* 파일 탐색기 */}
       <div className="vsc-sidebar">
         <div className="vsc-sidebar-head">
@@ -779,9 +771,6 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
               title="전체 프로젝트 zip 내보내기"
             >
               <DownloadIcon size={16} />
-            </button>
-            <button className="vsc-act" onClick={toggleTheme} title="테마 전환">
-              {theme === 'dark' ? <SunIcon size={16} /> : <MoonIcon size={15} />}
             </button>
           </div>
         </div>
