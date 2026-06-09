@@ -16,6 +16,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       ANNOUNCED_IP: ${ANNOUNCED_IP}
+      # 같은 공유기(LAN) 안 통화용 사설 IP — 헤어핀 NAT 회피. 맥미니 LAN IP.
+      LOCAL_IP: ${LOCAL_IP:-192.168.0.82}
       RTC_MIN_PORT: "40000"
       RTC_MAX_PORT: "40100"
     ports:

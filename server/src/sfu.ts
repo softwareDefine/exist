@@ -11,6 +11,7 @@ import type {
   RtpParameters,
   MediaKind,
   RtpCapabilities,
+  TransportListenInfo,
 } from 'mediasoup/types';
 import db from './db.js';
 
@@ -105,21 +106,35 @@ function closeRoomIfEmpty(room: Room) {
   }
 }
 
+/**
+ * ICE 후보로 알릴 주소들을 만든다.
+ * - LOCAL_IP: 같은 공유기(LAN) 안에서 접속할 때 쓰는 사설 IP (예: 192.168.0.82).
+ *   → 헤어핀 NAT 미지원 공유기에서도 LAN끼리는 직접 연결됨.
+ * - ANNOUNCED_IP: 외부망(인터넷)에서 접속할 때 쓰는 공인 IP.
+ * 둘 다 후보로 주면 클라가 ICE 연결성 검사로 되는 쪽을 자동 선택한다.
+ * 개발 환경(둘 다 미설정)에서는 127.0.0.1로 폴백.
+ */
+function buildListenInfos(): TransportListenInfo[] {
+  const announced = [process.env.LOCAL_IP, process.env.ANNOUNCED_IP].filter(
+    (v): v is string => !!v,
+  );
+  if (announced.length === 0) {
+    return [
+      { protocol: 'udp', ip: '127.0.0.1' },
+      { protocol: 'tcp', ip: '127.0.0.1' },
+    ];
+  }
+  const infos: TransportListenInfo[] = [];
+  for (const addr of announced) {
+    infos.push({ protocol: 'udp', ip: '0.0.0.0', announcedAddress: addr });
+    infos.push({ protocol: 'tcp', ip: '0.0.0.0', announcedAddress: addr });
+  }
+  return infos;
+}
+
 async function createWebRtcTransport(router: Router): Promise<WebRtcTransport> {
   return router.createWebRtcTransport({
-    // 개발: 로컬호스트. 배포 시 ANNOUNCED_IP에 공인 IP 설정
-    listenInfos: [
-      {
-        protocol: 'udp',
-        ip: '0.0.0.0',
-        announcedAddress: process.env.ANNOUNCED_IP ?? '127.0.0.1',
-      },
-      {
-        protocol: 'tcp',
-        ip: '0.0.0.0',
-        announcedAddress: process.env.ANNOUNCED_IP ?? '127.0.0.1',
-      },
-    ],
+    listenInfos: buildListenInfos(),
     enableUdp: true,
     enableTcp: true,
     preferUdp: true,
