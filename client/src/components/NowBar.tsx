@@ -6,7 +6,8 @@ import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
-import { PanelLeftIcon, CheckMarkIcon, SunIcon, MoonIcon, SparklesIcon } from './Icons';
+import { PanelLeftIcon, CheckMarkIcon, SunIcon, MoonIcon, SparklesIcon, BellIcon } from './Icons';
+import { getSocket } from '../lib/socket';
 
 function ThemeToggle() {
   const [dark, setDark] = useState(() =>
@@ -52,6 +53,24 @@ const RECUR_LABEL: Record<string, string> = {
 };
 
 const mkey = (m: Meeting) => m.occId ?? String(m.id);
+
+interface NotifItem {
+  id: number;
+  from: string;
+  text: string;
+  ts: number;
+}
+
+function relTime(ts: number): string {
+  const m = Math.floor((Date.now() - ts) / 60_000);
+  if (m < 1) return '방금';
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
+
+const NOTIF_FLASH_MS = 8000;
 
 /** "7월 8일 (오후) 4시 40분" 형식 */
 function formatNow(d: Date): string {
@@ -284,7 +303,7 @@ function SidebarToggle({ onToggle }: { onToggle?: () => void }) {
   );
 }
 
-const CARD_COUNT = 3;
+const CARD_COUNT = 4; // 0 일정 · 1 할 일 · 2 진행 타임라인 · 3 알림
 
 function ProfileMenu({
   avatar,
@@ -334,8 +353,11 @@ export default function NowBar({
   const [auto, setAuto] = useState(true);
   const [avatar, setAvatar] = useState('🐧');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notifs, setNotifs] = useState<NotifItem[]>([]);
+  const [notifFlash, setNotifFlash] = useState(false);
   const wheelLock = useRef(0);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 프로필 아바타 로드
   useEffect(() => {
@@ -347,6 +369,31 @@ export default function NowBar({
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 10_000);
     return () => clearInterval(t);
+  }, []);
+
+  // 알림 — 초기 로드 + 실시간 수신(새 알림 오면 알림 카드로 잠깐 플래시)
+  useEffect(() => {
+    void api<{ items: NotifItem[] }>('/api/notifications')
+      .then((d) => setNotifs(d.items.slice(0, 10)))
+      .catch(() => {});
+
+    const socket = getSocket();
+    function onNotify(n: NotifItem & { created_at?: string }) {
+      if (typeof n.id !== 'number') return;
+      const ts =
+        typeof n.ts === 'number' ? n.ts : n.created_at ? Date.parse(n.created_at) : Date.now();
+      setNotifs((prev) =>
+        prev.some((x) => x.id === n.id) ? prev : [{ ...n, ts }, ...prev].slice(0, 10),
+      );
+      setNotifFlash(true);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setNotifFlash(false), NOTIF_FLASH_MS);
+    }
+    socket.on('agent:notify', onNotify);
+    return () => {
+      socket.off('agent:notify', onNotify);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    };
   }, []);
 
   // AI 브리핑 — 2분마다 갱신
@@ -399,9 +446,14 @@ export default function NowBar({
   const ctx = currentMeeting(meetings, now);
   // 로컬 즉시 판단(폴백) — AI 응답 도착 전이나 오프라인에서 사용
   const localSug = suggestCard(ctx, meetings, todos, now);
-  // 진행 중 회의는 즉시성을 위해 로컬이 우선, 그 외엔 서버 AI 결정을 따른다
-  const targetCard = ctx?.ongoing ? 2 : aiCard ?? localSug.card;
-  const reasonText = aiSource === 'ai' && aiReason ? aiReason : localSug.reason;
+  // 우선순위: 새 알림 플래시 > 진행 중 회의 > 서버 AI 결정 > 로컬 폴백
+  const notifFresh = notifFlash && notifs.length > 0;
+  const targetCard = notifFresh ? 3 : ctx?.ongoing ? 2 : aiCard ?? localSug.card;
+  const reasonText = notifFresh
+    ? '새 알림이 왔어요'
+    : aiSource === 'ai' && aiReason
+      ? aiReason
+      : localSug.reason;
 
   // 자동 모드일 때 — 상황이 바뀌면 AI 판단대로 카드 전환
   useEffect(() => {
@@ -450,7 +502,8 @@ export default function NowBar({
   };
 
   // 아무 데이터도 없으면 온보딩 카드만
-  const isEmpty = meetings.filter((m) => m.starts_at).length === 0 && todos.length === 0;
+  const isEmpty =
+    meetings.filter((m) => m.starts_at).length === 0 && todos.length === 0 && notifs.length === 0;
 
   if (isEmpty) {
     return (
@@ -541,6 +594,46 @@ export default function NowBar({
           ) : (
             <div className="nb-next-empty">진행 중인 회의가 없어요</div>
           )}
+        </div>
+
+        {/* 카드 4 — 알림 모드 */}
+        <div className={`nowbar-card${stackCls(3)}`}>
+          <div className={`nb-notif-lead${notifFresh ? ' fresh' : ''}`}>
+            <span className="nb-notif-bell">
+              <BellIcon size={20} />
+            </span>
+            <div className="nb-current-text">
+              {notifs.length > 0 ? (
+                <>
+                  <div className="title" title={notifs[0].text}>
+                    {notifs[0].from}
+                  </div>
+                  <div className="countdown">{notifs[0].text}</div>
+                </>
+              ) : (
+                <>
+                  <div className="title">알림</div>
+                  <div className="countdown tag">새 알림이 없어요</div>
+                </>
+              )}
+            </div>
+            {notifs.length > 0 && (
+              <span className="nb-notif-time">{relTime(notifs[0].ts)}</span>
+            )}
+          </div>
+          <div className="nowbar-divider" />
+          <div className="nb-next-list">
+            {notifs.slice(1, 3).map((n) => (
+              <div key={n.id} className="nb-next-row">
+                <span className="nb-notif-dot" />
+                <span className="nb-next-title">{n.text}</span>
+                <span className="nb-next-start">{relTime(n.ts)}</span>
+              </div>
+            ))}
+            {notifs.length <= 1 && (
+              <div className="nb-next-empty">최근 알림이 여기 표시돼요</div>
+            )}
+          </div>
         </div>
 
         {/* AI 자동 관리 토글 */}
@@ -682,6 +775,30 @@ export default function NowBar({
                   </>
                 ) : (
                   <div className="nb-next-empty">진행 중인 회의가 없어요</div>
+                )}
+              </div>
+            )}
+
+            {card === 3 && (
+              <div className="nb-expand-notifs">
+                <div className="nb-expand-title">알림</div>
+                {notifs.length === 0 ? (
+                  <div className="nb-next-empty">새 알림이 없어요</div>
+                ) : (
+                  notifs.slice(0, 6).map((n) => (
+                    <div key={n.id} className="nb-notif-erow">
+                      <span className="nb-notif-bell sm">
+                        <BellIcon size={14} />
+                      </span>
+                      <div className="nb-notif-erow-body">
+                        <div className="nb-notif-erow-top">
+                          <span className="nb-notif-from">{n.from}</span>
+                          <span className="nb-notif-etime">{relTime(n.ts)}</span>
+                        </div>
+                        <div className="nb-notif-etext">{n.text}</div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             )}

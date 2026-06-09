@@ -692,6 +692,108 @@ input:focus {
   color: var(--text-sub);
 }
 
+/* 카드 4 — 알림 */
+.nb-notif-lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex-shrink: 0;
+  max-width: 280px;
+}
+
+.nb-notif-bell {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.nb-notif-lead.fresh .nb-notif-bell {
+  animation: nb-bell-ring 0.6s ease-in-out 2;
+}
+
+@keyframes nb-bell-ring {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-12deg); }
+  75% { transform: rotate(12deg); }
+}
+
+.nb-notif-time {
+  font-size: 12px;
+  color: var(--text-sub);
+  flex: none;
+  margin-left: 4px;
+}
+
+.nb-notif-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  flex: none;
+}
+
+/* 알림 확장 패널 */
+.nb-expand-notifs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nb-notif-erow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 9px;
+}
+
+.nb-notif-erow:hover {
+  background: var(--surface-2);
+}
+
+.nb-notif-bell.sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.nb-notif-erow-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.nb-notif-erow-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.nb-notif-from {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.nb-notif-etime {
+  font-size: 11.5px;
+  color: var(--text-sub);
+  flex: none;
+}
+
+.nb-notif-etext {
+  font-size: 13px;
+  color: var(--text-sub);
+  line-height: 1.4;
+  margin-top: 1px;
+}
+
 /* 카드 1 — 다음 일정 리스트 */
 .nb-next-list {
   display: flex;
