@@ -13,6 +13,9 @@ interface Row {
   read: number;
   cleared: number;
   created_at: string;
+  m_id: number | null;
+  m_title: string | null;
+  m_thumb: string | null;
 }
 
 /** 내 알림 목록 + 안읽음 수.
@@ -21,10 +24,12 @@ router.get('/', (req: AuthedRequest, res) => {
   const all = req.query.all === '1';
   const items = db
     .prepare(
-      `SELECT id, from_name AS "from", text, kind, read, cleared, created_at
-       FROM notifications
-       WHERE user_id = ?${all ? '' : ' AND cleared = 0'}
-       ORDER BY id DESC LIMIT 50`,
+      `SELECT n.id, n.from_name AS "from", n.text, n.kind, n.read, n.cleared, n.created_at,
+              m.id AS m_id, m.title AS m_title, m.thumbnail AS m_thumb
+       FROM notifications n
+       LEFT JOIN meetings m ON m.code = n.meeting_code
+       WHERE n.user_id = ?${all ? '' : ' AND n.cleared = 0'}
+       ORDER BY n.id DESC LIMIT 50`,
     )
     .all(req.userId) as Row[];
   // 안읽음은 항상 "치우지 않은 것" 기준
@@ -45,6 +50,7 @@ router.get('/', (req: AuthedRequest, res) => {
       read: !!n.read,
       cleared: !!n.cleared,
       ts: new Date(n.created_at + 'Z').getTime(),
+      meeting: n.m_id != null ? { id: n.m_id, title: n.m_title, thumbnail: n.m_thumb } : undefined,
     })),
   });
 });

@@ -840,6 +840,35 @@ input:focus {
   display: block;
 }
 
+/* 알림 카드 — 회의 썸네일 (종 아이콘 대체) */
+.nb-notif-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.nb-notif-lead.fresh .nb-notif-thumb {
+  animation: nb-bell-ring 0.6s ease-in-out 2;
+}
+
+.nb-notif-ethumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .nb-next-title {
   font-weight: 700;
   white-space: nowrap;

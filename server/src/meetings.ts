@@ -142,6 +142,7 @@ router.post('/', (req: AuthedRequest, res) => {
     notifyUser(u.id, {
       from: me?.username ?? '누군가',
       text: `'${title}' 회의에 초대했어요. (코드 ${code})`,
+      meetingCode: code,
     });
   }
 
@@ -431,6 +432,7 @@ router.delete('/:code/participants/:username', (req: AuthedRequest, res) => {
   notifyUser(target.id, {
     from: meeting.title,
     text: '회의에서 내보내졌어요.',
+    meetingCode: code,
   });
   res.json({ ok: true });
 });

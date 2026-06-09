@@ -16,6 +16,8 @@ export interface NotifyPayload {
   text: string;
   /** 클라가 받아 후처리(예: 조직 목록 새로고침)하도록 하는 신호 */
   kind?: 'org-approved' | 'org-request';
+  /** 이 알림이 발생한 회의 코드 — 있으면 알림에 회의 썸네일 표시 */
+  meetingCode?: string;
 }
 
 /** userId에게 알림 — DB 저장 후 접속 소켓에 푸시(저장된 id·시각 포함) */
@@ -29,15 +31,26 @@ export function emitToUser(userId: number, event: string, payload: unknown) {
 
 export function notifyUser(userId: number, payload: NotifyPayload) {
   const info = db
-    .prepare('INSERT INTO notifications (user_id, from_name, text, kind) VALUES (?, ?, ?, ?)')
-    .run(userId, payload.from, payload.text, payload.kind ?? null);
+    .prepare(
+      'INSERT INTO notifications (user_id, from_name, text, kind, meeting_code) VALUES (?, ?, ?, ?, ?)',
+    )
+    .run(userId, payload.from, payload.text, payload.kind ?? null, payload.meetingCode ?? null);
 
   if (!io) return;
+  // 회의 알림이면 썸네일 표시용 회의 정보를 함께 실어 보낸다
+  let meeting: { id: number; title: string; thumbnail: string | null } | null = null;
+  if (payload.meetingCode) {
+    meeting =
+      (db
+        .prepare('SELECT id, title, thumbnail FROM meetings WHERE code = ?')
+        .get(payload.meetingCode) as typeof meeting) ?? null;
+  }
   const full = {
     id: info.lastInsertRowid as number,
     from: payload.from,
     text: payload.text,
     kind: payload.kind,
+    meeting,
     created_at: new Date().toISOString(),
   };
   for (const s of io.sockets.sockets.values()) {

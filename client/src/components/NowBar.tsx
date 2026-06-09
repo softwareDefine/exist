@@ -59,6 +59,8 @@ interface NotifItem {
   from: string;
   text: string;
   ts: number;
+  /** 이 알림이 발생한 회의 — 있으면 종 대신 회의 썸네일 표시 */
+  meeting?: { id: number; title: string; thumbnail: string | null };
 }
 
 function relTime(ts: number): string {
@@ -609,9 +611,18 @@ export default function NowBar({
         {/* 알림 오버레이 — 새 알림 올 때만 front (점·휠 대상 아님) */}
         <div className={`nowbar-card nowbar-card-notif${viewCard === NOTIF_CARD ? ' front' : ' hidden'}`}>
           <div className={`nb-notif-lead${notifFresh ? ' fresh' : ''}`}>
-            <span className="nb-notif-bell">
-              <BellIcon size={20} />
-            </span>
+            {notifs[0]?.meeting ? (
+              <MeetingThumb
+                id={notifs[0].meeting.id}
+                title={notifs[0].meeting.title}
+                thumbnail={notifs[0].meeting.thumbnail}
+                className="nb-notif-thumb"
+              />
+            ) : (
+              <span className="nb-notif-bell">
+                <BellIcon size={20} />
+              </span>
+            )}
             <div className="nb-current-text">
               {notifs.length > 0 ? (
                 <>
@@ -797,9 +808,18 @@ export default function NowBar({
                 ) : (
                   notifs.slice(0, 6).map((n) => (
                     <div key={n.id} className="nb-notif-erow">
-                      <span className="nb-notif-bell sm">
-                        <BellIcon size={14} />
-                      </span>
+                      {n.meeting ? (
+                        <MeetingThumb
+                          id={n.meeting.id}
+                          title={n.meeting.title}
+                          thumbnail={n.meeting.thumbnail}
+                          className="nb-notif-ethumb"
+                        />
+                      ) : (
+                        <span className="nb-notif-bell sm">
+                          <BellIcon size={14} />
+                        </span>
+                      )}
                       <div className="nb-notif-erow-body">
                         <div className="nb-notif-erow-top">
                           <span className="nb-notif-from">{n.from}</span>
