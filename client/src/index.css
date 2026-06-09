@@ -3095,6 +3095,49 @@ input:focus {
   outline: 2px solid var(--green);
 }
 
+/* 시트 찾기·바꾸기 바 */
+.sheet-find {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.sheet-find input {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.sheet-find input:focus {
+  border-color: var(--green);
+}
+
+.sheet-find button {
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sheet-find-close {
+  background: var(--surface-3) !important;
+  color: var(--text-sub) !important;
+  margin-left: auto;
+}
+
 .sheet-scroll {
   flex: 1;
   min-height: 0;

@@ -322,6 +322,11 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   const cellsRef = useRef<Y.Map<unknown> | null>(null);
   const stylesRef = useRef<Y.Map<CellStyle> | null>(null);
   const mergesRef = useRef<Y.Array<MergeRange> | null>(null);
+  const undoRef = useRef<Y.UndoManager | null>(null);
+  const clipRef = useRef<{ rows: number; cols: number; cells: { v: string; s: CellStyle }[][] } | null>(null);
+  const [findOpen, setFindOpen] = useState(false);
+  const [findText, setFindText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
   const [merges, setMerges] = useState<MergeRange[]>([]);
   const [menu, setMenu] = useState<'fill' | 'text' | 'border' | null>(null);
   const [, bump] = useState(0);
@@ -418,6 +423,8 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     cellsRef.current = cells;
     stylesRef.current = styles;
     mergesRef.current = mergeArr;
+    const um = new Y.UndoManager([cells, styles, mergeArr], { captureTimeout: 350 });
+    undoRef.current = um;
     setMerges(mergeArr.toArray());
     setContentVer((n) => n + 1);
     const onCells = () => setContentVer((n) => n + 1);
@@ -430,6 +437,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
       cells.unobserve(onCells);
       styles.unobserve(onStyles);
       mergeArr.unobserve(onMerges);
+      um.destroy();
     };
   }, [activeSheet?.cellsKey]);
 
@@ -552,6 +560,157 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     return null;
   }
 
+  // ── 복사 / 잘라내기 / 붙여넣기 ──
+  function copyRange(cut: boolean) {
+    const cells = cellsRef.current;
+    const styles = stylesRef.current;
+    const ydoc = ydocRef.current;
+    if (!cells || !styles) return;
+    const { r1, c1, r2, c2 } = curRange();
+    const block: { v: string; s: CellStyle }[][] = [];
+    const tsv: string[] = [];
+    for (let r = r1; r <= r2; r++) {
+      const row: { v: string; s: CellStyle }[] = [];
+      const tline: string[] = [];
+      for (let c = c1; c <= c2; c++) {
+        row.push({ v: raw(r, c), s: { ...styleOf(r, c) } });
+        tline.push(display(r, c));
+      }
+      block.push(row);
+      tsv.push(tline.join('\t'));
+    }
+    clipRef.current = { rows: r2 - r1 + 1, cols: c2 - c1 + 1, cells: block };
+    navigator.clipboard?.writeText(tsv.join('\n')).catch(() => {});
+    if (cut && ydoc) {
+      ydoc.transact(() => {
+        for (let r = r1; r <= r2; r++)
+          for (let c = c1; c <= c2; c++) {
+            setCell(r, c, '');
+            styles.delete(cellKey(r, c));
+          }
+      });
+    }
+  }
+  function paste() {
+    const clip = clipRef.current;
+    const cells = cellsRef.current;
+    const styles = stylesRef.current;
+    const ydoc = ydocRef.current;
+    if (!clip || !cells || !styles || !ydoc) return;
+    const { r, c } = sel;
+    undoRef.current?.stopCapturing();
+    ydoc.transact(() => {
+      for (let dr = 0; dr < clip.rows; dr++)
+        for (let dc = 0; dc < clip.cols; dc++) {
+          const tr = r + dr;
+          const tc = c + dc;
+          if (tr >= ROWS || tc >= COLS) continue;
+          const src = clip.cells[dr][dc];
+          setCell(tr, tc, src.v);
+          const k = cellKey(tr, tc);
+          if (Object.keys(src.s).length) styles.set(k, { ...src.s });
+          else styles.delete(k);
+        }
+    });
+  }
+
+  // ── 행/열 삽입·삭제 (수식 참조 보정 포함) ──
+  function shiftFormula(f: string, type: 'row' | 'col', at: number, delta: number): string {
+    return f.replace(/([A-Za-z])(\d+)/g, (m, col: string, row: string) => {
+      const ci = col.toUpperCase().charCodeAt(0) - 65;
+      const ri = parseInt(row, 10) - 1;
+      if (ci < 0 || ci >= COLS || ri < 0) return m;
+      const idx = type === 'row' ? ri : ci;
+      let nidx = idx;
+      if (delta < 0) {
+        if (idx === at) return '#REF';
+        if (idx > at) nidx = idx - 1;
+      } else if (idx >= at) {
+        nidx = idx + delta;
+      }
+      const nci = type === 'col' ? nidx : ci;
+      const nri = type === 'row' ? nidx : ri;
+      if (nci < 0 || nri < 0 || nci >= COLS) return '#REF';
+      return String.fromCharCode(65 + nci) + (nri + 1);
+    });
+  }
+  function structural(type: 'row' | 'col', at: number, delta: number) {
+    const cells = cellsRef.current;
+    const styles = stylesRef.current;
+    const mg = mergesRef.current;
+    const ydoc = ydocRef.current;
+    if (!cells || !styles || !mg || !ydoc) return;
+    const cellEntries = [...cells.entries()];
+    const styleEntries = [...styles.entries()];
+    undoRef.current?.stopCapturing();
+    ydoc.transact(() => {
+      cells.clear();
+      styles.clear();
+      const place = (map: Y.Map<unknown>, entries: [string, unknown][], isCell: boolean) => {
+        for (const [k, v] of entries) {
+          const ref = parseRef(k);
+          if (!ref) continue;
+          let { r, c } = ref;
+          if (delta < 0) {
+            if (type === 'row') {
+              if (r === at) continue;
+              if (r > at) r -= 1;
+            } else {
+              if (c === at) continue;
+              if (c > at) c -= 1;
+            }
+          } else if (type === 'row') {
+            if (r >= at) r += 1;
+          } else if (c >= at) {
+            c += 1;
+          }
+          let val = v;
+          if (isCell && typeof v === 'string' && v[0] === '=') val = shiftFormula(v, type, at, delta);
+          map.set(cellKey(r, c), val);
+        }
+      };
+      place(cells, cellEntries as [string, unknown][], true);
+      place(styles as unknown as Y.Map<unknown>, styleEntries as [string, unknown][], false);
+      const newMerges: MergeRange[] = [];
+      for (const m of mg.toArray()) {
+        let { r1, c1, r2, c2 } = m;
+        if (delta < 0) {
+          if (type === 'row') {
+            if (r1 > at) r1--;
+            if (r2 >= at) r2--;
+            if (r2 < r1) continue;
+          } else {
+            if (c1 > at) c1--;
+            if (c2 >= at) c2--;
+            if (c2 < c1) continue;
+          }
+        } else if (type === 'row') {
+          if (r1 >= at) r1++;
+          if (r2 >= at) r2++;
+        } else {
+          if (c1 >= at) c1++;
+          if (c2 >= at) c2++;
+        }
+        newMerges.push({ r1, c1, r2, c2 });
+      }
+      mg.delete(0, mg.length);
+      if (newMerges.length) mg.push(newMerges);
+    });
+  }
+
+  function doReplaceAll() {
+    const cells = cellsRef.current;
+    const ydoc = ydocRef.current;
+    if (!cells || !ydoc || !findText) return;
+    ydoc.transact(() => {
+      cells.forEach((v, k) => {
+        if (typeof v === 'string' && v.includes(findText)) {
+          cells.set(k, v.split(findText).join(replaceText));
+        }
+      });
+    });
+  }
+
   function startEdit(r: number, c: number, initial?: string) {
     selectCell(r, c);
     setEditing({ r, c, value: initial ?? raw(r, c) });
@@ -601,6 +760,16 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
 
   function onGridKey(e: React.KeyboardEvent) {
     if (editing) return;
+    if (e.ctrlKey || e.metaKey) {
+      const k = e.key.toLowerCase();
+      if (k === 'z') { e.preventDefault(); if (e.shiftKey) undoRef.current?.redo(); else undoRef.current?.undo(); return; }
+      if (k === 'y') { e.preventDefault(); undoRef.current?.redo(); return; }
+      if (k === 'c') { e.preventDefault(); copyRange(false); return; }
+      if (k === 'x') { e.preventDefault(); copyRange(true); return; }
+      if (k === 'v') { e.preventDefault(); paste(); return; }
+      if (k === 'f') { e.preventDefault(); setFindOpen(true); return; }
+      return;
+    }
     const { r, c } = sel;
     const shift = e.shiftKey;
     const move = (nr: number, nc: number) => {
@@ -840,7 +1009,51 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
         <button className="sht-btn wide" onMouseDown={(e) => e.preventDefault()} onClick={unmergeSel} title="병합 해제">
           병합 해제
         </button>
+        <span className="sht-sep" />
+        <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => undoRef.current?.undo()} title="실행 취소 (Ctrl+Z)">
+          ↶
+        </button>
+        <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => undoRef.current?.redo()} title="다시 실행 (Ctrl+Y)">
+          ↷
+        </button>
+        <span className="sht-sep" />
+        <button className="sht-btn wide" onMouseDown={(e) => e.preventDefault()} onClick={() => structural('row', sel.r, 1)} title="위에 행 삽입">
+          행+
+        </button>
+        <button className="sht-btn wide" onMouseDown={(e) => e.preventDefault()} onClick={() => structural('row', sel.r, -1)} title="행 삭제">
+          행−
+        </button>
+        <button className="sht-btn wide" onMouseDown={(e) => e.preventDefault()} onClick={() => structural('col', sel.c, 1)} title="왼쪽에 열 삽입">
+          열+
+        </button>
+        <button className="sht-btn wide" onMouseDown={(e) => e.preventDefault()} onClick={() => structural('col', sel.c, -1)} title="열 삭제">
+          열−
+        </button>
+        <span className="sht-sep" />
+        <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setFindOpen((v) => !v)} title="찾기·바꾸기 (Ctrl+F)">
+          🔍
+        </button>
       </div>
+
+      {findOpen && (
+        <div className="sheet-find">
+          <input
+            placeholder="찾기"
+            value={findText}
+            onChange={(e) => setFindText(e.target.value)}
+            autoFocus
+          />
+          <input
+            placeholder="바꾸기"
+            value={replaceText}
+            onChange={(e) => setReplaceText(e.target.value)}
+          />
+          <button onClick={doReplaceAll}>모두 바꾸기</button>
+          <button className="sheet-find-close" onClick={() => setFindOpen(false)}>
+            ✕
+          </button>
+        </div>
+      )}
 
       <div className="sheet-scroll" tabIndex={0} onKeyDown={onGridKey}>
         <table className="sheet-grid">
