@@ -7243,8 +7243,21 @@ input:focus {
   grid-auto-rows: 1fr;
 }
 
-/* 작을 때(좁음): 최대 2명만 — 로컬 + 첫 피어, 나머지 숨김 */
-@container pip (max-width: 439px) {
+/* 아주 작을 때(content ≤269px): 1명만 — 상대(첫 피어) 한 명 크게 (혼자면 본인) */
+@container pip (max-width: 269px) {
+  .hub-call.mini .video-grid:not(.count-1) {
+    grid-template-columns: 1fr;
+  }
+  .hub-call.mini .video-grid:not(.count-1) > .video-tile {
+    display: none; /* 로컬(나) 숨김 */
+  }
+  .hub-call.mini .video-grid:not(.count-1) > .peer-cell:nth-child(n + 3) {
+    display: none; /* 첫 피어만 남김 */
+  }
+}
+
+/* 작을 때(270~439px): 최대 2명 — 로컬 + 첫 피어, 나머지 숨김 */
+@container pip (min-width: 270px) and (max-width: 439px) {
   .hub-call.mini .video-grid > .peer-cell:nth-child(n + 3) {
     display: none;
   }
