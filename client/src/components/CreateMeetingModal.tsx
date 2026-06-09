@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useOrgStore, type OrgContext } from '../orgStore';
+import { CloseIcon, CalendarIcon, CopyIcon, CheckMarkIcon, BuildingIcon } from './Icons';
 
 interface Props {
   open: boolean;
@@ -15,23 +16,23 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
   const current = useOrgStore((s) => s.current);
   const [title, setTitle] = useState('');
   const [orgCtx, setOrgCtx] = useState<OrgContext>('personal');
+  const [schedOn, setSchedOn] = useState(false);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [created, setCreated] = useState<{ code: string; title: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // 모달이 열리는 순간에만 초기화 (onClose 정체성 변화에 영향받지 않게 분리)
   useEffect(() => {
     if (!open) return;
     setTitle('');
-    setOrgCtx(current); // 현재 보고 있는 조직 컨텍스트를 기본값으로
+    setOrgCtx(current);
+    setSchedOn(false);
     setStart('');
     setEnd('');
     setCreated(null);
     setCopied(false);
   }, [open, current]);
 
-  // ESC 닫기
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -52,14 +53,14 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
         body: {
           title,
           org_id: orgCtx === 'personal' ? null : orgCtx,
-          starts_at: start || null,
-          ends_at: end || null,
+          starts_at: schedOn ? start || null : null,
+          ends_at: schedOn ? end || null : null,
         },
       });
       setCreated({ code: m.code, title });
       onCreated();
     } catch {
-      /* 전역 에러 토스트가 표시 */
+      /* 전역 에러 토스트 */
     }
   }
 
@@ -75,73 +76,125 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+    <div className="cm-overlay" onClick={onClose}>
+      <div className="cm-modal" onClick={(e) => e.stopPropagation()}>
         {created ? (
-          <>
-            <div className="modal-head">🎉 회의가 만들어졌어요</div>
-            <div className="modal-sub">팀원에게 코드를 공유하면 바로 참여할 수 있어요</div>
-            <div className="meeting-code-box" onClick={copyCode} title="클릭해서 복사">
-              {created.code}
-            </div>
-            <button className="modal-ghost" onClick={copyCode}>
-              {copied ? '✓ 복사됨' : '코드 복사하기'}
+          <div className="cm-done">
+            <div className="cm-done-emoji">🎉</div>
+            <h2 className="cm-done-title">회의가 만들어졌어요</h2>
+            <p className="cm-done-sub">팀원에게 코드를 공유하면 바로 참여할 수 있어요</p>
+            <button className="cm-code" onClick={copyCode} title="클릭해서 복사">
+              <span className="cm-code-val">{created.code}</span>
+              <span className="cm-code-copy">
+                {copied ? <CheckMarkIcon size={18} /> : <CopyIcon size={18} />}
+              </span>
             </button>
-            <div className="modal-actions">
-              <button className="modal-cancel" onClick={onClose}>
+            <div className="cm-footer">
+              <button className="cm-btn ghost" onClick={onClose}>
                 닫기
               </button>
-              <button
-                className="modal-primary"
-                onClick={() => navigate(`/meeting/${created.code}`)}
-              >
-                지금 입장
+              <button className="cm-btn primary" onClick={() => navigate(`/meeting/${created.code}`)}>
+                지금 입장 →
               </button>
             </div>
-          </>
+          </div>
         ) : (
-          <form onSubmit={submit}>
-            <div className="modal-head">새 회의 만들기</div>
-            <label className="modal-label">
-              회의 이름
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="예: 주간 스프린트 리뷰"
-                autoFocus
-              />
-            </label>
-            <label className="modal-label">
-              어디에서 만들까요
-              <select
-                className="modal-select"
-                value={orgCtx === 'personal' ? 'personal' : String(orgCtx)}
-                onChange={(e) =>
-                  setOrgCtx(e.target.value === 'personal' ? 'personal' : Number(e.target.value))
-                }
-              >
-                <option value="personal">개인 회의</option>
-                {orgs.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="modal-label">
-              시작 (선택)
-              <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
-            </label>
-            <label className="modal-label">
-              종료 (선택)
-              <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
-            </label>
-            <div className="modal-actions">
-              <button type="button" className="modal-cancel" onClick={onClose}>
+          <form className="cm-form" onSubmit={submit}>
+            <div className="cm-header">
+              <div className="cm-header-ic">
+                <CalendarIcon size={22} />
+              </div>
+              <div className="cm-header-text">
+                <h2>새 회의 만들기</h2>
+                <p>팀과 함께할 공간을 만들어요</p>
+              </div>
+              <button type="button" className="cm-x" onClick={onClose}>
+                <CloseIcon size={18} />
+              </button>
+            </div>
+
+            <div className="cm-body">
+              <div className="cm-field">
+                <span className="cm-field-label">회의 이름</span>
+                <input
+                  className="cm-input"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="예: 주간 스프린트 리뷰"
+                  autoFocus
+                />
+              </div>
+
+              <div className="cm-field">
+                <span className="cm-field-label">어디에 만들까요?</span>
+                <div className="cm-orgs">
+                  <button
+                    type="button"
+                    className={`cm-org${orgCtx === 'personal' ? ' on' : ''}`}
+                    onClick={() => setOrgCtx('personal')}
+                  >
+                    <span className="cm-org-ic personal">👤</span>
+                    <span className="cm-org-name">개인 회의</span>
+                  </button>
+                  {orgs.map((o) => (
+                    <button
+                      type="button"
+                      key={o.id}
+                      className={`cm-org${orgCtx === o.id ? ' on' : ''}`}
+                      onClick={() => setOrgCtx(o.id)}
+                    >
+                      <span className="cm-org-ic">
+                        <BuildingIcon size={17} />
+                      </span>
+                      <span className="cm-org-name">{o.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="cm-field">
+                <button
+                  type="button"
+                  className="cm-sched-toggle"
+                  onClick={() => setSchedOn((v) => !v)}
+                >
+                  <span className="cm-sched-label">
+                    <CalendarIcon size={15} /> 일정 잡기
+                    <span className="cm-sched-opt">선택</span>
+                  </span>
+                  <span className={`cm-switch${schedOn ? ' on' : ''}`}>
+                    <i />
+                  </span>
+                </button>
+                {schedOn && (
+                  <div className="cm-sched">
+                    <label className="cm-sched-row">
+                      <span>시작</span>
+                      <input
+                        type="datetime-local"
+                        value={start}
+                        onChange={(e) => setStart(e.target.value)}
+                      />
+                    </label>
+                    <label className="cm-sched-row">
+                      <span>종료</span>
+                      <input
+                        type="datetime-local"
+                        value={end}
+                        onChange={(e) => setEnd(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="cm-footer">
+              <button type="button" className="cm-btn ghost" onClick={onClose}>
                 취소
               </button>
-              <button type="submit" className="modal-primary" disabled={!title.trim()}>
-                만들기
+              <button type="submit" className="cm-btn primary" disabled={!title.trim()}>
+                회의 만들기
               </button>
             </div>
           </form>

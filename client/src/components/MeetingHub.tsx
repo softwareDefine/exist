@@ -627,67 +627,24 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                       </div>
                     </section>
 
-                {/* 5. 할 일 (회의 공유) */}
+                {/* 일정 (메인으로 이동) */}
                 <section className="hub-section">
                   <div className="hub-section-title">
-                    <CheckIcon size={15} /> 할 일
-                    {todos.length > 0 && (
-                      <span className="hub-todo-count">
-                        {todos.filter((t) => t.done).length}/{todos.length}
-                      </span>
-                    )}
+                    <CalendarIcon size={15} /> 일정
                   </div>
-                  {todos.length > 0 &&
-                    (() => {
-                      const done = todos.filter((t) => t.done).length;
-                      const pct = Math.round((done / todos.length) * 100);
-                      return (
-                        <div className="hub-todo-progress">
-                          <div className="hub-todo-bar">
-                            <div className="hub-todo-bar-fill" style={{ width: `${pct}%` }} />
-                          </div>
-                          <span className="hub-todo-pct">{pct}%</span>
-                        </div>
-                      );
-                    })()}
-                  <div className="hub-todos">
-                    {[...todos]
-                      .sort((a, b) => a.done - b.done)
-                      .map((t) => (
-                        <div key={t.id} className={`hub-todo${t.done ? ' done' : ''}`}>
-                          <label className="hub-todo-label">
-                            <input
-                              type="checkbox"
-                              checked={!!t.done}
-                              onChange={() => void toggleTodo(t)}
-                            />
-                            <span className="hub-todo-check" aria-hidden>
-                              <CheckMarkIcon size={16} />
-                            </span>
-                            <span className="hub-todo-text">{t.title}</span>
-                          </label>
-                          {t.author && <span className="hub-todo-author">{t.author}</span>}
-                          <button
-                            className="hub-todo-del"
-                            onClick={() => void deleteTodo(t)}
-                            title="삭제"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    {todos.length === 0 && (
-                      <div className="hub-section-empty">함께 할 일을 추가해보세요</div>
-                    )}
-                  </div>
-                  <form className="hub-todo-add" onSubmit={addTodo}>
-                    <input
-                      value={todoInput}
-                      onChange={(e) => setTodoInput(e.target.value)}
-                      placeholder="할 일 추가"
-                    />
-                    <button type="submit">추가</button>
-                  </form>
+                  {range ? (
+                    <>
+                      <div className="hub-sched-time">{range}</div>
+                      {(() => {
+                        const st = scheduleState(detail.starts_at, detail.ends_at);
+                        return st ? (
+                          <span className={`hub-sched-badge ${st.cls}`}>{st.label}</span>
+                        ) : null;
+                      })()}
+                    </>
+                  ) : (
+                    <div className="hub-section-empty">아직 일정이 정해지지 않았어요</div>
+                  )}
                 </section>
 
                 {/* 6. 최근 채팅 */}
@@ -716,24 +673,67 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                   </div>
 
                   <aside className="hub-dash-side">
-                    {/* 일정 */}
+                    {/* 할 일 (사이드로 이동) */}
                     <section className="hub-section">
                       <div className="hub-section-title">
-                        <CalendarIcon size={15} /> 일정
+                        <CheckIcon size={15} /> 할 일
+                        {todos.length > 0 && (
+                          <span className="hub-todo-count">
+                            {todos.filter((t) => t.done).length}/{todos.length}
+                          </span>
+                        )}
                       </div>
-                      {range ? (
-                        <>
-                          <div className="hub-sched-time">{range}</div>
-                          {(() => {
-                            const st = scheduleState(detail.starts_at, detail.ends_at);
-                            return st ? (
-                              <span className={`hub-sched-badge ${st.cls}`}>{st.label}</span>
-                            ) : null;
-                          })()}
-                        </>
-                      ) : (
-                        <div className="hub-section-empty">아직 일정이 정해지지 않았어요</div>
-                      )}
+                      {todos.length > 0 &&
+                        (() => {
+                          const done = todos.filter((t) => t.done).length;
+                          const pct = Math.round((done / todos.length) * 100);
+                          return (
+                            <div className="hub-todo-progress">
+                              <div className="hub-todo-bar">
+                                <div className="hub-todo-bar-fill" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="hub-todo-pct">{pct}%</span>
+                            </div>
+                          );
+                        })()}
+                      <div className="hub-todos">
+                        {[...todos]
+                          .sort((a, b) => a.done - b.done)
+                          .map((t) => (
+                            <div key={t.id} className={`hub-todo${t.done ? ' done' : ''}`}>
+                              <label className="hub-todo-label">
+                                <input
+                                  type="checkbox"
+                                  checked={!!t.done}
+                                  onChange={() => void toggleTodo(t)}
+                                />
+                                <span className="hub-todo-check" aria-hidden>
+                                  <CheckMarkIcon size={16} />
+                                </span>
+                                <span className="hub-todo-text">{t.title}</span>
+                              </label>
+                              {t.author && <span className="hub-todo-author">{t.author}</span>}
+                              <button
+                                className="hub-todo-del"
+                                onClick={() => void deleteTodo(t)}
+                                title="삭제"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        {todos.length === 0 && (
+                          <div className="hub-section-empty">함께 할 일을 추가해보세요</div>
+                        )}
+                      </div>
+                      <form className="hub-todo-add" onSubmit={addTodo}>
+                        <input
+                          value={todoInput}
+                          onChange={(e) => setTodoInput(e.target.value)}
+                          placeholder="할 일 추가"
+                        />
+                        <button type="submit">추가</button>
+                      </form>
                     </section>
 
                     {/* 참가자 — 조직 회의면 부서별 명함 */}

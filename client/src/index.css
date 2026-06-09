@@ -2620,6 +2620,358 @@ input:focus {
   color: var(--text-sub);
 }
 
+/* ── 새 회의 만들기 모달 (재설계) ── */
+.cm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 20, 25, 0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.cm-modal {
+  width: 100%;
+  max-width: 470px;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  animation: cm-pop 0.18s ease;
+}
+
+@keyframes cm-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+.cm-header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 20px 22px 16px;
+}
+
+.cm-header-ic {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #14a34a, #21c818);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-shadow: 0 4px 12px rgba(33, 200, 24, 0.3);
+}
+
+.cm-header-text {
+  flex: 1;
+}
+
+.cm-header-text h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.cm-header-text p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+.cm-x {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-sub);
+  border-radius: 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.cm-x:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.cm-body {
+  padding: 6px 22px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.cm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cm-field-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cm-input {
+  border: 1.5px solid var(--border);
+  border-radius: 11px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-family: inherit;
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+}
+
+.cm-input:focus {
+  border-color: var(--green) !important;
+  background: var(--surface);
+}
+
+.cm-orgs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cm-org {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1.5px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.cm-org:hover {
+  border-color: var(--green);
+}
+
+.cm-org.on {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.cm-org-ic {
+  display: inline-flex;
+  align-items: center;
+  font-size: 15px;
+}
+
+.cm-sched-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 11px;
+  padding: 11px 14px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.cm-sched-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cm-sched-opt {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-sub);
+  background: var(--surface-3);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+.cm-switch {
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  position: relative;
+  flex: none;
+  transition: background 0.15s;
+}
+
+.cm-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: left 0.15s;
+}
+
+.cm-switch.on {
+  background: var(--green);
+}
+
+.cm-switch.on i {
+  left: 21px;
+}
+
+.cm-sched {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 11px;
+}
+
+.cm-sched-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cm-sched-row span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  width: 36px;
+  flex: none;
+}
+
+.cm-sched-row input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+
+.cm-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 22px 20px;
+}
+
+.cm-btn {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cm-btn.ghost {
+  background: var(--surface-2);
+  color: var(--text-sub);
+  flex: 0 0 auto;
+  padding: 13px 22px;
+}
+
+.cm-btn.ghost:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.cm-btn.primary {
+  background: var(--green);
+  color: #fff;
+}
+
+.cm-btn.primary:hover {
+  background: var(--green-dark);
+}
+
+.cm-btn.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 생성 완료 화면 */
+.cm-done {
+  text-align: center;
+  padding: 32px 26px 24px;
+}
+
+.cm-done-emoji {
+  font-size: 44px;
+  line-height: 1;
+}
+
+.cm-done-title {
+  margin: 14px 0 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.cm-done-sub {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: var(--text-sub);
+}
+
+.cm-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  margin: 22px 0 4px;
+  padding: 16px;
+  border: 2px dashed var(--green);
+  border-radius: 14px;
+  background: var(--green-soft);
+  cursor: pointer;
+}
+
+.cm-code-val {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--green-dark);
+  font-family: 'Inter', monospace;
+}
+
+.cm-code-copy {
+  color: var(--green-dark);
+  display: inline-flex;
+}
+
+.cm-done .cm-footer {
+  padding: 18px 0 0;
+}
+
 /* 커스텀 날짜 선택기 */
 .datepick {
   position: relative;
