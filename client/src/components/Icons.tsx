@@ -376,6 +376,18 @@ export function SunIcon({ size }: IconProps) {
   );
 }
 
+export function SparklesIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M12 3l1.6 4.4c.2.55.45.8 1 1L19 10l-4.4 1.6c-.55.2-.8.45-1 1L12 17l-1.6-4.4c-.2-.55-.45-.8-1-1L5 10l4.4-1.6c.55-.2.8-.45 1-1L12 3z"
+        fill="currentColor"
+      />
+      <path d="M19 14l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7.7-1.9z" fill="currentColor" />
+    </Svg>
+  );
+}
+
 export function MoonIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

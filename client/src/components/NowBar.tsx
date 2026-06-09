@@ -6,7 +6,7 @@ import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
-import { PanelLeftIcon, CheckMarkIcon, SunIcon, MoonIcon } from './Icons';
+import { PanelLeftIcon, CheckMarkIcon, SunIcon, MoonIcon, SparklesIcon } from './Icons';
 
 function ThemeToggle() {
   const [dark, setDark] = useState(() =>
@@ -103,6 +103,51 @@ function currentMeeting(meetings: Meeting[], now: Date): CurrentCtx | null {
     };
   }
   return null;
+}
+
+/** AI 자동 관리 — 지금 상황에 가장 알맞은 카드를 고른다.
+ *  0: 일정  1: 할 일  2: 진행 타임라인 */
+function suggestCard(
+  ctx: CurrentCtx | null,
+  meetings: Meeting[],
+  todos: Todo[],
+  now: Date,
+): { card: number; reason: string } {
+  const t = now.getTime();
+
+  // 1) 회의 진행 중 → 타임라인
+  if (ctx?.ongoing) return { card: 2, reason: '회의가 진행 중이에요' };
+
+  const pending = todos.filter((td) => !td.done);
+  const dueSoon = pending.filter((td) => {
+    if (!td.due_at) return false;
+    const due = new Date(td.due_at).getTime();
+    return due <= t + 24 * 3600_000; // 마감 지났거나 24시간 내
+  });
+
+  // 2) 30분 내 시작하는 회의 → 일정
+  if (ctx && !ctx.ongoing && ctx.meeting.starts_at) {
+    const mins = (new Date(ctx.meeting.starts_at).getTime() - t) / 60_000;
+    if (mins <= 30) return { card: 0, reason: '곧 시작하는 회의가 있어요' };
+  }
+
+  // 3) 임박한 할 일 → 할 일
+  if (dueSoon.length > 0) return { card: 1, reason: '마감이 가까운 할 일이 있어요' };
+
+  // 4) 오늘 남은 예정 회의 → 일정
+  const todayUpcoming = meetings.some(
+    (m) =>
+      m.starts_at &&
+      new Date(m.starts_at).getTime() > t &&
+      new Date(m.starts_at).toDateString() === now.toDateString(),
+  );
+  if (todayUpcoming) return { card: 0, reason: '오늘 예정된 회의가 있어요' };
+
+  // 5) 안 끝낸 할 일 → 할 일
+  if (pending.length > 0) return { card: 1, reason: '할 일이 남아 있어요' };
+
+  // 6) 기본 → 일정
+  return { card: 0, reason: '다가오는 일정을 보여드려요' };
 }
 
 /** 모드 카드 공통 — 왼쪽 현재 회의 블록 */
@@ -268,9 +313,11 @@ export default function NowBar({
   const [now, setNow] = useState(() => new Date());
   const [brief, setBrief] = useState('');
   const [card, setCard] = useState(0);
+  const [auto, setAuto] = useState(true);
   const [avatar, setAvatar] = useState('🐧');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const wheelLock = useRef(0);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 프로필 아바타 로드
   useEffect(() => {
@@ -303,15 +350,40 @@ export default function NowBar({
     };
   }, [todos, meetings]);
 
+  // 사용자가 직접 카드를 넘기면 잠깐 수동 모드 — 30초 쉬면 다시 AI가 맡는다
+  function pauseAuto() {
+    setAuto(false);
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(() => setAuto(true), 30_000);
+  }
+
   function onWheel(e: React.WheelEvent) {
     const nowMs = Date.now();
     if (nowMs - wheelLock.current < 450) return;
     if (Math.abs(e.deltaY) < 8) return;
     wheelLock.current = nowMs;
+    pauseAuto();
     setCard((c) => (c + (e.deltaY > 0 ? 1 : -1) + CARD_COUNT) % CARD_COUNT);
   }
 
+  // AI 자동/수동 토글 버튼
+  function toggleAuto() {
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    setAuto((a) => !a);
+  }
+
   const ctx = currentMeeting(meetings, now);
+  const suggestion = suggestCard(ctx, meetings, todos, now);
+
+  // 자동 모드일 때 — 상황이 바뀌면 AI가 알맞은 카드로 전환
+  useEffect(() => {
+    if (auto && suggestion.card !== card) setCard(suggestion.card);
+  }, [auto, suggestion.card, card]);
+
+  // 정리
+  useEffect(() => () => {
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+  }, []);
 
   // 다음 일정 (현재 컨텍스트 제외, 최대 2개)
   const nexts = meetings
@@ -440,13 +512,26 @@ export default function NowBar({
           )}
         </div>
 
+        {/* AI 자동 관리 토글 */}
+        <button
+          className={`nowbar-auto${auto ? ' on' : ''}`}
+          onClick={toggleAuto}
+          title={auto ? `AI가 관리 중 · ${suggestion.reason}` : 'AI 자동 관리 켜기'}
+        >
+          <SparklesIcon size={12} />
+          {auto ? 'AI' : '수동'}
+        </button>
+
         {/* 카드 위치 점 */}
         <div className="nowbar-dots">
           {Array.from({ length: CARD_COUNT }, (_, i) => (
             <button
               key={i}
               className={`nowbar-dot${i === card ? ' active' : ''}`}
-              onClick={() => setCard(i)}
+              onClick={() => {
+                pauseAuto();
+                setCard(i);
+              }}
               aria-label={`카드 ${i + 1}`}
             />
           ))}

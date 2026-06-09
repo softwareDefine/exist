@@ -210,6 +210,49 @@ input:focus {
   background: var(--green);
 }
 
+/* AI 자동 관리 토글 — pill 우상단 */
+.nowbar-auto {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-sub);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.nowbar-auto:hover {
+  opacity: 1;
+}
+
+.nowbar-auto.on {
+  opacity: 1;
+  border-color: transparent;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+.nowbar-auto.on svg {
+  animation: nb-ai-twinkle 2.2s ease-in-out infinite;
+}
+
+@keyframes nb-ai-twinkle {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
 .nowbar-dot:hover:not(.active) {
   background: #aaa;
 }
