@@ -276,6 +276,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
         occId: `${m.id}@${o.starts_at}`,
         code: m.code,
         title: m.title,
+        meetingTitle: m.title,
         thumbnail: m.thumbnail,
         starts_at: o.starts_at,
         ends_at: o.ends_at,
@@ -316,6 +317,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
       occId: `ev${e.eid}`,
       code: e.code,
       title: e.etitle, // 이벤트 제목 (회의 썸네일로 어느 회의인지 표시)
+      meetingTitle: e.mtitle, // 그룹명(회의 이름) — nowbar 그룹 구성용
       thumbnail: e.thumbnail,
       starts_at: startsAt,
       ends_at: e.end_time ? `${e.date}T${e.end_time}` : null,
@@ -336,7 +338,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
 router.get('/:code', (req: AuthedRequest, res) => {
   const meeting = db
     .prepare(
-      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, m.org_id, m.thumbnail, m.settings,
+      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.recur, m.recur_until, m.host_id, m.org_id, m.thumbnail, m.settings,
               m.period_start, m.period_end, u.username AS host, o.name AS org_name
        FROM meetings m JOIN users u ON u.id = m.host_id
        LEFT JOIN organizations o ON o.id = m.org_id
@@ -349,6 +351,8 @@ router.get('/:code', (req: AuthedRequest, res) => {
         title: string;
         starts_at: string | null;
         ends_at: string | null;
+        recur: string | null;
+        recur_until: string | null;
         host_id: number;
         org_id: number | null;
         thumbnail: string | null;
@@ -394,6 +398,8 @@ router.get('/:code', (req: AuthedRequest, res) => {
     title: meeting.title,
     starts_at: meeting.starts_at,
     ends_at: meeting.ends_at,
+    recur: meeting.recur ?? 'none',
+    recur_until: meeting.recur_until,
     host: meeting.host,
     isHost: meeting.host_id === req.userId,
     orgId: meeting.org_id,

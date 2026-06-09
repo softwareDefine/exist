@@ -19,6 +19,19 @@ interface Props {
   isHost: boolean;
   startsAt: string | null;
   endsAt: string | null;
+  /** 반복 주기 — 'none'|'daily'|'weekly'|'biweekly'|'monthly' */
+  recur?: string;
+  /** 반복 종료일 (YYYY-MM-DD). 없으면 1년까지만 표시 */
+  recurUntil?: string | null;
+}
+
+function stepDate(d: Date, recur: string): Date {
+  const n = new Date(d);
+  if (recur === 'daily') n.setDate(n.getDate() + 1);
+  else if (recur === 'weekly') n.setDate(n.getDate() + 7);
+  else if (recur === 'biweekly') n.setDate(n.getDate() + 14);
+  else if (recur === 'monthly') n.setMonth(n.getMonth() + 1);
+  return n;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -28,7 +41,14 @@ function ymd(d: Date): string {
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 /** 회의 일정 달력 — 이벤트를 날짜에 표시하고 추가·삭제로 관리 */
-export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Props) {
+export default function MeetingSchedule({
+  code,
+  isHost,
+  startsAt,
+  endsAt,
+  recur = 'none',
+  recurUntil = null,
+}: Props) {
   const userId = useAuthStore((s) => s.user?.id);
   const [events, setEvents] = useState<MEvent[]>([]);
   const [offset, setOffset] = useState(0); // 월 이동
@@ -50,8 +70,27 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
     void load();
   }, [load]);
 
-  // 회의 메인 일정 날짜 (특별 표시)
-  const meetingDay = startsAt ? ymd(new Date(startsAt)) : null;
+  // 회의 메인 일정 날짜들 — 반복이면 occurrence 전부 펼쳐 표시 (nowbar와 일치시키기 위함)
+  const meetingDays = useMemo(() => {
+    const set = new Set<string>();
+    if (!startsAt) return set;
+    const first = new Date(startsAt);
+    if (isNaN(first.getTime())) return set;
+    if (recur === 'none') {
+      set.add(ymd(first));
+      return set;
+    }
+    const until = recurUntil ? new Date(recurUntil + 'T23:59:59') : null;
+    // 종료일 없으면 시작 +1년까지만 (무한 루프 방지), 최대 400개
+    const cap = until ?? new Date(first.getFullYear() + 1, first.getMonth(), first.getDate());
+    let cur = first;
+    for (let i = 0; i < 400 && cur.getTime() <= cap.getTime(); i++) {
+      set.add(ymd(cur));
+      cur = stepDate(cur, recur);
+    }
+    return set;
+  }, [startsAt, recur, recurUntil]);
+  const isMeetingDayKey = (key: string) => meetingDays.has(key);
 
   // 날짜별 이벤트 수
   const byDate = useMemo(() => {
@@ -147,7 +186,7 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
           ))}
           {cells.map((c, i) => {
             const evs = byDate.get(c.key) ?? [];
-            const isMeetingDay = c.key === meetingDay;
+            const isMeetingDay = isMeetingDayKey(c.key);
             const chips = evs.slice(0, isMeetingDay ? 1 : 2);
             const overflow = evs.length - chips.length;
             return (
@@ -193,7 +232,7 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
         <div className="msched-day-title">{selectedLabel()}</div>
 
         {/* 회의 본 일정이 이 날이면 표시 */}
-        {selected === meetingDay && (
+        {isMeetingDayKey(selected) && (
           <div className="msched-main-event">
             📌 이 회의 일정
             {startsAt && (

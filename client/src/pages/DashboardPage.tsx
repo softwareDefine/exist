@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
@@ -120,12 +120,32 @@ export default function DashboardPage() {
     void refresh();
   }
 
+  // nowbar 그룹 = 최근 회의 ∪ 일정(occurrence/이벤트)이 있는 회의.
+  // 최근 목록에서 밀려난 회의라도 예정 일정이 있으면 nowbar가 띄울 수 있게 합친다.
+  const nowbarGroups = useMemo(() => {
+    const byId = new Map<number, Meeting>();
+    for (const m of recent) byId.set(m.id, m);
+    for (const s of schedule) {
+      if (byId.has(s.id)) continue;
+      byId.set(s.id, {
+        id: s.id,
+        code: s.code,
+        title: s.meetingTitle ?? s.title,
+        thumbnail: s.thumbnail ?? null,
+        starts_at: s.starts_at,
+        ends_at: s.ends_at,
+        recur: s.recur,
+      });
+    }
+    return [...byId.values()];
+  }, [recent, schedule]);
+
   return (
     <>
       <NowBar
         todos={todos}
         meetings={schedule}
-        groups={recent}
+        groups={nowbarGroups}
         focusedCode={focusedCode}
         onToggleTodo={toggleTodo}
         onAddTodo={addTodo}

@@ -52,6 +52,9 @@ export interface Meeting {
   /** 반복 회의를 펼친 occurrence 고유키 (일정 목록용) */
   occId?: string;
   recur?: string;
+  /** 일정 항목이 속한 회의(그룹) 이름 — nowbar 그룹 구성용 */
+  meetingTitle?: string;
+  kind?: string;
 }
 
 const RECUR_LABEL: Record<string, string> = {

@@ -51,6 +51,8 @@ interface MeetingDetail {
   title: string;
   starts_at: string | null;
   ends_at: string | null;
+  recur?: string | null;
+  recur_until?: string | null;
   host: string;
   isHost: boolean;
   orgId: number | null;
@@ -906,6 +908,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               isHost={detail.isHost}
               startsAt={detail.starts_at}
               endsAt={detail.ends_at}
+              recur={detail.recur ?? 'none'}
+              recurUntil={detail.recur_until ?? null}
             />
           </div>
         )}
