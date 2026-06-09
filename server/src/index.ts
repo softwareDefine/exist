@@ -137,6 +137,7 @@ setInterval(() => {
         notifyUser(userId, {
           from: 'exist AI',
           text: `"${m.title}" 회의가 ${min}분 뒤에 시작돼요`,
+          meetingCode: m.code,
         });
       }
     }

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
-import NotificationToasts from '../components/NotificationToasts';
 import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspacePanel';
 import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, HistoryIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
@@ -108,7 +107,6 @@ export default function DashboardPage() {
         onSchedule={() => openCreate(true)}
         onToggleSidebar={toggleSidebar}
       />
-      <NotificationToasts />
       <main className={`dashboard${sidebarOpen ? '' : ' collapsed'}`}>
         <aside>
           <OrgSwitcher />

@@ -8,6 +8,7 @@ import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import { PanelLeftIcon, CheckMarkIcon, SunIcon, MoonIcon, SparklesIcon, BellIcon } from './Icons';
 import { getSocket } from '../lib/socket';
+import { useOrgStore } from '../orgStore';
 
 function ThemeToggle() {
   const [dark, setDark] = useState(() =>
@@ -381,7 +382,7 @@ export default function NowBar({
       .catch(() => {});
 
     const socket = getSocket();
-    function onNotify(n: NotifItem & { created_at?: string }) {
+    function onNotify(n: NotifItem & { created_at?: string; kind?: string }) {
       if (typeof n.id !== 'number') return;
       const ts =
         typeof n.ts === 'number' ? n.ts : n.created_at ? Date.parse(n.created_at) : Date.now();
@@ -391,6 +392,10 @@ export default function NowBar({
       setNotifFlash(true);
       if (flashTimer.current) clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setNotifFlash(false), NOTIF_FLASH_MS);
+      // 조직 가입/승인 알림이면 조직 목록·대기수 갱신
+      if (n.kind === 'org-approved' || n.kind === 'org-request') {
+        void useOrgStore.getState().load();
+      }
     }
     socket.on('agent:notify', onNotify);
     return () => {
