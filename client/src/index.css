@@ -1551,7 +1551,7 @@ input:focus {
   border-bottom: none;
   border-radius: 10px 10px 0 0;
   /* 비활성 탭: 회색으로 가라앉히기 */
-  background: #eceef0;
+  background: var(--surface-2);
   padding: 9px 16px;
   font-size: 15px;
   font-weight: 700;
@@ -1811,7 +1811,7 @@ input:focus {
 /* ── 협업 공간 앱 런처 ── */
 .hub-apps {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1864,6 +1864,10 @@ input:focus {
 }
 .hub-app-ic.sheet {
   background: linear-gradient(135deg, #18a957, #30a46c);
+}
+
+.hub-app-ic.slide {
+  background: linear-gradient(135deg, #e5484d, #f76808);
 }
 
 /* 대시보드 정보 섹션 카드 */

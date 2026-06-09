@@ -466,6 +466,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                           </span>
                           시트
                         </button>
+                        <button className="hub-app" onClick={() => setSubtab('slide')}>
+                          <span className="hub-app-ic slide">
+                            <SlideIcon size={20} />
+                          </span>
+                          발표
+                        </button>
                       </div>
                     </section>
 
