@@ -182,6 +182,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 회의 일정 이벤트 종료 시간 (통화 시작~종료 블록) — null이면 종료 시간 없음
+try {
+  db.exec(`ALTER TABLE meeting_events ADD COLUMN end_time TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 알림이 어느 회의에서 왔는지 — meeting_code (null이면 회의 무관)
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN meeting_code TEXT`);

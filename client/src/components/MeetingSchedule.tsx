@@ -6,7 +6,8 @@ interface MEvent {
   id: number;
   title: string;
   date: string; // YYYY-MM-DD
-  time: string | null; // HH:MM
+  time: string | null; // HH:MM (시작)
+  end_time: string | null; // HH:MM (종료)
   author: string;
   created_by: number;
 }
@@ -32,6 +33,7 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
   const [selected, setSelected] = useState<string>(() => ymd(new Date()));
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
+  const [endTime, setEndTime] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -86,12 +88,19 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
   async function addEvent(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+    if (time && endTime && endTime <= time) {
+      window.dispatchEvent(
+        new CustomEvent('app:error', { detail: '종료 시간이 시작보다 빨라요' }),
+      );
+      return;
+    }
     await api(`/api/meetings/${code}/events`, {
       method: 'POST',
-      body: { title, date: selected, time: time || null },
+      body: { title, date: selected, time: time || null, end_time: time ? endTime || null : null },
     });
     setTitle('');
     setTime('');
+    setEndTime('');
     void load();
   }
   async function removeEvent(id: number) {
@@ -192,7 +201,12 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
           ) : (
             dayEvents.map((ev) => (
               <div key={ev.id} className="msched-event">
-                {ev.time && <span className="msched-event-time">{ev.time}</span>}
+                {ev.time && (
+                  <span className="msched-event-time">
+                    {ev.time}
+                    {ev.end_time ? `~${ev.end_time}` : ''}
+                  </span>
+                )}
                 <span className="msched-event-title">{ev.title}</span>
                 <span className="msched-event-author">{ev.author}</span>
                 {(ev.created_by === userId || isHost) && (
@@ -206,20 +220,28 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
         </div>
 
         <form className="msched-add" onSubmit={addEvent}>
-          <div className="msched-add-row">
-            <input
-              className="msched-add-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={`${selectedLabel()} 일정 추가`}
-              maxLength={80}
-            />
-            <input
-              className="msched-add-time"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
+          <input
+            className="msched-add-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={`${selectedLabel()} 통화/일정 제목`}
+            maxLength={80}
+          />
+          <div className="msched-add-times">
+            <label>
+              <span>시작</span>
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            </label>
+            <span className="msched-times-sep">~</span>
+            <label>
+              <span>종료</span>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                disabled={!time}
+              />
+            </label>
           </div>
           <button type="submit" className="msched-add-btn" disabled={!title.trim()}>
             일정 추가

@@ -2637,8 +2637,55 @@ input:focus {
   font-size: 13px;
 }
 
+.msched-add-title {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
+/* 통화 시작~종료 시간 */
+.msched-add-times {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.msched-add-times label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+
+.msched-add-times input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.msched-add-times input:disabled {
+  opacity: 0.45;
+}
+
+.msched-times-sep {
+  color: var(--text-sub);
+  font-weight: 700;
+}
+
 .msched-add-title:focus,
-.msched-add-time:focus {
+.msched-add-time:focus,
+.msched-add-times input:focus {
   border-color: var(--green);
   outline: none;
 }
