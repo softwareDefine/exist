@@ -1,0 +1,34 @@
+# Portainer Git 스택용 — repo에서 빌드 후 배포 (push → webhook 재배포)
+# Portainer Stack > Repository: compose path = deploy/compose.prod.yml
+# 환경변수(OPENAI_API_KEY, ANNOUNCED_IP)는 Portainer 스택 env로 주입
+services:
+  exist-app:
+    build:
+      context: .. # repo 루트(Dockerfile 위치)
+      dockerfile: Dockerfile
+    image: exist-app:latest
+    container_name: exist-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATA_DIR: /data
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ANNOUNCED_IP: ${ANNOUNCED_IP}
+      RTC_MIN_PORT: "40000"
+      RTC_MAX_PORT: "40100"
+    ports:
+      - "40000-40100:40000-40100/udp"
+    volumes:
+      - exist-data:/data
+    networks:
+      - sofie-portfolio_default
+
+volumes:
+  exist-data:
+    name: exist-data # 고정 이름 — 수동/Portainer 배포 간 데이터 유지
+
+networks:
+  sofie-portfolio_default:
+    external: true
