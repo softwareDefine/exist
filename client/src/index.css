@@ -735,6 +735,37 @@ input:focus {
   margin-left: 4px;
 }
 
+/* 통화 알림 "지금 들어가기" */
+.nb-notif-join,
+.notif-join {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  border-radius: 8px;
+  background: var(--green);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 6px 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nb-notif-join {
+  flex: none;
+  margin-left: 4px;
+}
+
+.nb-notif-join:hover,
+.notif-join:hover {
+  background: var(--green-dark);
+}
+
+.notif-join {
+  margin-top: 7px;
+}
+
 .nb-notif-dot {
   width: 6px;
   height: 6px;

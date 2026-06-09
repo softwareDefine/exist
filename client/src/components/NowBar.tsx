@@ -6,7 +6,15 @@ import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
-import { PanelLeftIcon, CheckMarkIcon, SunIcon, MoonIcon, SparklesIcon, BellIcon } from './Icons';
+import {
+  PanelLeftIcon,
+  CheckMarkIcon,
+  SunIcon,
+  MoonIcon,
+  SparklesIcon,
+  BellIcon,
+  PhoneIcon,
+} from './Icons';
 import { getSocket } from '../lib/socket';
 import { useOrgStore } from '../orgStore';
 
@@ -60,8 +68,42 @@ interface NotifItem {
   from: string;
   text: string;
   ts: number;
-  /** 이 알림이 발생한 회의 — 있으면 종 대신 회의 썸네일 표시 */
-  meeting?: { id: number; title: string; thumbnail: string | null };
+  kind?: string | null;
+  /** 이 알림이 발생한 회의 — 있으면 종 대신 회의 썸네일 표시 + 클릭해 열기 */
+  meeting?: { id: number; code?: string | null; title: string; thumbnail: string | null };
+}
+
+/** 알림 도착 시 짧은 알림음 (Web Audio, 에셋 없이) */
+let nbAudioCtx: AudioContext | null = null;
+function playNotifSound() {
+  try {
+    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    nbAudioCtx = nbAudioCtx || new AC();
+    const ctx = nbAudioCtx;
+    if (ctx.state === 'suspended') void ctx.resume();
+    const t0 = ctx.currentTime;
+    [880, 1175].forEach((freq, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      o.connect(g);
+      g.connect(ctx.destination);
+      const t = t0 + i * 0.11;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.14, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      o.start(t);
+      o.stop(t + 0.18);
+    });
+  } catch {
+    /* 무시 */
+  }
+}
+
+/** 통화 알림 → 그 회의 통화 탭 열기 */
+function openMeetingCall(code: string) {
+  window.dispatchEvent(new CustomEvent('exist:open-meeting', { detail: { code, tab: 'call' } }));
 }
 
 function relTime(ts: number): string {
@@ -344,6 +386,7 @@ export default function NowBar({
       setNotifs((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [{ ...n, ts }, ...prev].slice(0, 10),
       );
+      playNotifSound(); // 알림음
       setNotifFlash(true);
       if (flashTimer.current) clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setNotifFlash(false), NOTIF_FLASH_MS);
@@ -678,8 +721,15 @@ export default function NowBar({
                 </>
               )}
             </div>
-            {notifs.length > 0 && (
-              <span className="nb-notif-time">{relTime(notifs[0].ts)}</span>
+            {notifs[0]?.kind === 'call' && notifs[0]?.meeting?.code ? (
+              <button
+                className="nb-notif-join"
+                onClick={() => openMeetingCall(notifs[0].meeting!.code!)}
+              >
+                <PhoneIcon size={14} /> 지금 들어가기
+              </button>
+            ) : (
+              notifs.length > 0 && <span className="nb-notif-time">{relTime(notifs[0].ts)}</span>
             )}
           </div>
           <div className="nowbar-divider" />

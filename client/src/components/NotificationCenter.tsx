@@ -12,7 +12,7 @@ interface Notification {
   read: boolean;
   cleared?: boolean;
   ts: number;
-  meeting?: { id: number; title: string; thumbnail: string | null };
+  meeting?: { id: number; code?: string | null; title: string; thumbnail: string | null };
 }
 
 function relTime(ts: number): string {
@@ -163,6 +163,21 @@ export default function NotificationCenter() {
                       <span className="notif-time">{relTime(n.ts)}</span>
                     </div>
                     <div className="notif-text">{n.text}</div>
+                    {n.kind === 'call' && n.meeting?.code && (
+                      <button
+                        className="notif-join"
+                        onClick={() => {
+                          window.dispatchEvent(
+                            new CustomEvent('exist:open-meeting', {
+                              detail: { code: n.meeting!.code, title: n.meeting!.title, tab: 'call' },
+                            }),
+                          );
+                          setOpen(false);
+                        }}
+                      >
+                        📞 지금 들어가기
+                      </button>
+                    )}
                   </div>
                 </div>
               ))

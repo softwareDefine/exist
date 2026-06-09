@@ -14,6 +14,7 @@ interface Row {
   cleared: number;
   created_at: string;
   m_id: number | null;
+  m_code: string | null;
   m_title: string | null;
   m_thumb: string | null;
 }
@@ -25,7 +26,7 @@ router.get('/', (req: AuthedRequest, res) => {
   const items = db
     .prepare(
       `SELECT n.id, n.from_name AS "from", n.text, n.kind, n.read, n.cleared, n.created_at,
-              m.id AS m_id, m.title AS m_title, m.thumbnail AS m_thumb
+              m.id AS m_id, m.code AS m_code, m.title AS m_title, m.thumbnail AS m_thumb
        FROM notifications n
        LEFT JOIN meetings m ON m.code = n.meeting_code
        WHERE n.user_id = ?${all ? '' : ' AND n.cleared = 0'}
@@ -50,7 +51,10 @@ router.get('/', (req: AuthedRequest, res) => {
       read: !!n.read,
       cleared: !!n.cleared,
       ts: new Date(n.created_at + 'Z').getTime(),
-      meeting: n.m_id != null ? { id: n.m_id, title: n.m_title, thumbnail: n.m_thumb } : undefined,
+      meeting:
+        n.m_id != null
+          ? { id: n.m_id, code: n.m_code, title: n.m_title, thumbnail: n.m_thumb }
+          : undefined,
     })),
   });
 });

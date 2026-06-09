@@ -14,9 +14,9 @@ export function initNotifier(server: Server) {
 export interface NotifyPayload {
   from: string;
   text: string;
-  /** 클라가 받아 후처리(예: 조직 목록 새로고침)하도록 하는 신호 */
-  kind?: 'org-approved' | 'org-request';
-  /** 이 알림이 발생한 회의 코드 — 있으면 알림에 회의 썸네일 표시 */
+  /** 클라가 받아 후처리(조직 목록 새로고침) / 'call'이면 "지금 들어가기" 버튼 */
+  kind?: 'org-approved' | 'org-request' | 'call';
+  /** 이 알림이 발생한 회의 코드 — 있으면 알림에 회의 썸네일 표시 + 클릭 시 열기 */
   meetingCode?: string;
 }
 
@@ -38,11 +38,11 @@ export function notifyUser(userId: number, payload: NotifyPayload) {
 
   if (!io) return;
   // 회의 알림이면 썸네일 표시용 회의 정보를 함께 실어 보낸다
-  let meeting: { id: number; title: string; thumbnail: string | null } | null = null;
+  let meeting: { id: number; code: string; title: string; thumbnail: string | null } | null = null;
   if (payload.meetingCode) {
     meeting =
       (db
-        .prepare('SELECT id, title, thumbnail FROM meetings WHERE code = ?')
+        .prepare('SELECT id, code, title, thumbnail FROM meetings WHERE code = ?')
         .get(payload.meetingCode) as typeof meeting) ?? null;
   }
   const full = {

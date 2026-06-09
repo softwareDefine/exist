@@ -86,6 +86,17 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 알림의 "지금 들어가기" 등 → 회의(통화) 탭 열기
+  useEffect(() => {
+    function onOpen(e: Event) {
+      const d = (e as CustomEvent<{ code: string; title?: string; tab?: string }>).detail;
+      if (d?.code) openMeetingTab(d.code, d.title ?? d.code, d.tab);
+    }
+    window.addEventListener('exist:open-meeting', onOpen);
+    return () => window.removeEventListener('exist:open-meeting', onOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function joinMeeting(e: React.FormEvent) {
     e.preventDefault();
     if (!code.trim()) return;
