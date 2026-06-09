@@ -141,6 +141,39 @@ setInterval(() => {
         });
       }
     }
+
+    // 회의 일정 이벤트(통화 등, 시간 있는 것)도 30/10분 전 리마인더
+    const events = db
+      .prepare(
+        `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, m.code, m.title AS mtitle
+         FROM meeting_events e
+         JOIN meetings m ON m.id = e.meeting_id
+         JOIN meeting_participants mp ON mp.meeting_id = m.id
+         WHERE mp.user_id = ? AND e.time IS NOT NULL`,
+      )
+      .all(userId) as {
+      eid: number;
+      etitle: string;
+      date: string;
+      time: string;
+      code: string;
+      mtitle: string;
+    }[];
+    for (const ev of events) {
+      const start = new Date(`${ev.date}T${ev.time}`);
+      const min = Math.round((start.getTime() - now.getTime()) / 60_000);
+      const due = [30, 10].filter(
+        (t) => min <= t && min > 0 && !notified.has(`${userId}:ev${ev.eid}:${t}`),
+      );
+      if (due.length > 0) {
+        due.forEach((t) => notified.add(`${userId}:ev${ev.eid}:${t}`));
+        notifyUser(userId, {
+          from: 'exist AI',
+          text: `'${ev.etitle}' ${min}분 뒤 시작 — ${ev.mtitle}`,
+          meetingCode: ev.code,
+        });
+      }
+    }
   }
 }, 60_000);
 
