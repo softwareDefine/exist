@@ -24,11 +24,17 @@ interface ProducerInfo {
   source?: string;
 }
 
+export interface ChatFile {
+  name: string;
+  url: string;
+  size: number;
+}
 export interface ChatMessage {
   code?: string;
   from: string;
   avatar?: string | null;
   text: string;
+  file?: ChatFile;
   ts: number;
 }
 

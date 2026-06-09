@@ -4602,6 +4602,97 @@ input:focus {
   padding: 0 22px;
 }
 
+.hub-chat-input button.hub-chat-attach {
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0 14px;
+  font-size: 18px;
+  flex: none;
+}
+
+.hub-chat-input button.hub-chat-attach:hover {
+  background: var(--surface-3);
+}
+
+/* 채팅 파일 첨부 */
+.chat-bubble.has-file {
+  padding: 5px;
+  background: transparent !important;
+}
+
+.chat-file {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  text-decoration: none;
+  max-width: 260px;
+}
+
+.chat-file-img {
+  max-width: 260px;
+  max-height: 220px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.chat-file-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 10px 12px;
+  min-width: 200px;
+}
+
+.chat-row.mine .chat-file-card {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.chat-file-ic {
+  font-size: 22px;
+  flex: none;
+}
+
+.chat-file-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-file-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-file-size {
+  font-size: 11.5px;
+  color: var(--text-sub);
+}
+
+.chat-file-dl {
+  font-size: 16px;
+  color: var(--text-sub);
+  flex: none;
+}
+
+.chat-file-text {
+  font-size: 14px;
+  color: var(--text);
+  padding: 0 2px;
+}
+
+.chat-row.mine .chat-file-text {
+  color: #fff;
+}
+
 .hub-chat .chat-empty {
   display: flex;
   flex-direction: column;

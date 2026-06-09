@@ -311,30 +311,53 @@ export function attachSfu(io: Server) {
     });
 
     /** 회의 채팅 — DB 저장 + 채팅 룸 브로드캐스트 (허브/통화 공용) */
-    socket.on('chat:send', ({ code, text }: { code: string; text: string }) => {
-      if (!code || !text?.trim()) return;
-      const upper = code.toUpperCase();
-      const meeting = db.prepare('SELECT id FROM meetings WHERE code = ?').get(upper) as
-        | { id: number }
-        | undefined;
-      if (!meeting) return;
-      const trimmed = text.slice(0, 2000);
-      db.prepare('INSERT INTO messages (meeting_id, user_id, text) VALUES (?, ?, ?)').run(
-        meeting.id,
-        socket.data.userId,
-        trimmed,
-      );
-      const u = db.prepare('SELECT avatar FROM users WHERE id = ?').get(socket.data.userId) as
-        | { avatar: string | null }
-        | undefined;
-      io.to(`chat:${upper}`).emit('chat:message', {
-        code: upper,
-        from: socket.data.username,
-        avatar: u?.avatar ?? null,
-        text: trimmed,
-        ts: Date.now(),
-      });
-    });
+    socket.on(
+      'chat:send',
+      ({
+        code,
+        text,
+        file,
+      }: {
+        code: string;
+        text: string;
+        file?: { name: string; url: string; size: number };
+      }) => {
+        if (!code) return;
+        if (!text?.trim() && !file) return;
+        const upper = code.toUpperCase();
+        const meeting = db.prepare('SELECT id FROM meetings WHERE code = ?').get(upper) as
+          | { id: number }
+          | undefined;
+        if (!meeting) return;
+        const trimmed = (text ?? '').slice(0, 2000);
+        // 파일 정보 정제 (서버 업로드 URL만 허용)
+        let fileJson: string | null = null;
+        if (file && typeof file.url === 'string' && file.url.startsWith('/')) {
+          fileJson = JSON.stringify({
+            name: String(file.name ?? '파일').slice(0, 200),
+            url: file.url,
+            size: Number(file.size) || 0,
+          });
+        }
+        db.prepare('INSERT INTO messages (meeting_id, user_id, text, file) VALUES (?, ?, ?, ?)').run(
+          meeting.id,
+          socket.data.userId,
+          trimmed,
+          fileJson,
+        );
+        const u = db.prepare('SELECT avatar FROM users WHERE id = ?').get(socket.data.userId) as
+          | { avatar: string | null }
+          | undefined;
+        io.to(`chat:${upper}`).emit('chat:message', {
+          code: upper,
+          from: socket.data.username,
+          avatar: u?.avatar ?? null,
+          text: trimmed,
+          file: fileJson ? JSON.parse(fileJson) : undefined,
+          ts: Date.now(),
+        });
+      },
+    );
 
     socket.on(
       'consume',

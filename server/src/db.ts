@@ -139,6 +139,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 채팅 첨부 파일 (JSON: {name,url,size}) — 없으면 추가
+try {
+  db.exec(`ALTER TABLE messages ADD COLUMN file TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 알림 "치우기"(보관) — 지워도 지난 알림에서 볼 수 있게 soft delete
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN cleared INTEGER NOT NULL DEFAULT 0`);

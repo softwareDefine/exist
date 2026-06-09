@@ -107,6 +107,12 @@ interface MeetingTodo {
   author?: string;
 }
 
+function formatBytes(n: number): string {
+  if (!n) return '';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 function sameDay(a: number, b: number): boolean {
   return new Date(a).toDateString() === new Date(b).toDateString();
 }
@@ -146,6 +152,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
   const [copied, setCopied] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const chatFileRef = useRef<HTMLInputElement>(null);
   const [canvasMounted, setCanvasMounted] = useState(false); // 한 번 열면 유지 (재연결·카메라 초기화 방지)
   const [codeMounted, setCodeMounted] = useState(false); // 코드 편집기도 한 번 열면 유지
   const [docMounted, setDocMounted] = useState(false); // 문서 편집기도 한 번 열면 유지
@@ -304,6 +312,29 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     if (!chatInput.trim()) return;
     getSocket().emit('chat:send', { code, text: chatInput });
     setChatInput('');
+  }
+
+  async function sendChatFile(file: File) {
+    if (!file || uploadingFile) return;
+    setUploadingFile(true);
+    try {
+      const token = useAuthStore.getState().token;
+      const res = await fetch(`/api/workspaces/uploads?name=${encodeURIComponent(file.name)}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: file,
+      });
+      const { url } = (await res.json()) as { url: string };
+      getSocket().emit('chat:send', {
+        code,
+        text: '',
+        file: { name: file.name, url, size: file.size },
+      });
+    } catch {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: '파일 업로드 실패' }));
+    } finally {
+      setUploadingFile(false);
+    }
   }
 
   async function copyCode() {
@@ -795,7 +826,33 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
                         {!mine && !grouped && <span className="chat-name">{m.from}</span>}
                         <div className="chat-line">
                           {mine && <span className="chat-time">{chatTime(m.ts)}</span>}
-                          <div className="chat-bubble">{m.text}</div>
+                          <div className={`chat-bubble${m.file ? ' has-file' : ''}`}>
+                            {m.file ? (
+                              <a
+                                className="chat-file"
+                                href={m.file.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                download={m.file.name}
+                              >
+                                {/\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(m.file.name) ? (
+                                  <img className="chat-file-img" src={m.file.url} alt={m.file.name} />
+                                ) : (
+                                  <span className="chat-file-card">
+                                    <span className="chat-file-ic">📎</span>
+                                    <span className="chat-file-meta">
+                                      <span className="chat-file-name">{m.file.name}</span>
+                                      <span className="chat-file-size">{formatBytes(m.file.size)}</span>
+                                    </span>
+                                    <span className="chat-file-dl">⬇</span>
+                                  </span>
+                                )}
+                                {m.text && <span className="chat-file-text">{m.text}</span>}
+                              </a>
+                            ) : (
+                              m.text
+                            )}
+                          </div>
                           {!mine && <span className="chat-time">{chatTime(m.ts)}</span>}
                         </div>
                       </div>
@@ -806,6 +863,25 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
               <div ref={chatEndRef} />
             </div>
             <form className="hub-chat-input" onSubmit={sendChat}>
+              <input
+                ref={chatFileRef}
+                type="file"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void sendChatFile(f);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                className="hub-chat-attach"
+                title="파일 첨부"
+                disabled={uploadingFile}
+                onClick={() => chatFileRef.current?.click()}
+              >
+                {uploadingFile ? '…' : '📎'}
+              </button>
               <input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
