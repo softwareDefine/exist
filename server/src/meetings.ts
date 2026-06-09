@@ -109,7 +109,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
   const meeting = db
     .prepare(
       `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.host_id, m.org_id, m.thumbnail, m.settings,
-              u.username AS host, o.name AS org_name
+              m.period_start, m.period_end, u.username AS host, o.name AS org_name
        FROM meetings m JOIN users u ON u.id = m.host_id
        LEFT JOIN organizations o ON o.id = m.org_id
        WHERE m.code = ?`,
@@ -125,6 +125,8 @@ router.get('/:code', (req: AuthedRequest, res) => {
         org_id: number | null;
         thumbnail: string | null;
         settings: string | null;
+        period_start: string | null;
+        period_end: string | null;
         host: string;
         org_name: string | null;
       }
@@ -170,6 +172,10 @@ router.get('/:code', (req: AuthedRequest, res) => {
     orgName: meeting.org_name,
     thumbnail: meeting.thumbnail,
     settings: meeting.settings ? JSON.parse(meeting.settings) : { locked: false, guestEdit: true, muteOnJoin: false },
+    period:
+      meeting.period_start || meeting.period_end
+        ? { start: meeting.period_start, end: meeting.period_end }
+        : null,
     online: getRoomSize(meeting.code),
     participants: participants.map((p) => ({
       username: p.username,
@@ -195,6 +201,27 @@ router.patch('/:code/settings', (req: AuthedRequest, res) => {
   const settings = { locked: !!locked, guestEdit: guestEdit !== false, muteOnJoin: !!muteOnJoin };
   db.prepare('UPDATE meetings SET settings = ? WHERE id = ?').run(JSON.stringify(settings), meeting.id);
   res.json({ settings });
+});
+
+/** 프로젝트 기간 설정 (호스트만) — start/end는 'YYYY-MM-DD' 또는 null(없음) */
+router.patch('/:code/period', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '회의를 찾을 수 없어요' });
+  if (meeting.host_id !== req.userId) return res.status(403).json({ error: '호스트만 변경할 수 있어요' });
+  const clean = (v: unknown) =>
+    typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+  const start = clean(req.body?.start);
+  const end = clean(req.body?.end);
+  db.prepare('UPDATE meetings SET period_start = ?, period_end = ? WHERE id = ?').run(
+    start,
+    end,
+    meeting.id,
+  );
+  res.json({ period: start || end ? { start, end } : null });
 });
 
 /** 참가자 강퇴 (호스트만) */

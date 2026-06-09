@@ -24,6 +24,7 @@ import {
   SlideIcon,
   UsersIcon,
   GearIcon,
+  CopyIcon,
   CheckIcon,
   CheckMarkIcon,
 } from './Icons';
@@ -56,6 +57,7 @@ interface MeetingDetail {
   thumbnail: string | null;
   online: number;
   settings?: MeetingSettings;
+  period?: { start: string | null; end: string | null } | null;
   participants: Participant[];
 }
 
@@ -116,6 +118,13 @@ interface MeetingTodo {
   author?: string;
 }
 
+function dday(endDate: string): number | null {
+  const end = new Date(endDate + 'T00:00:00');
+  if (isNaN(end.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((end.getTime() - today.getTime()) / 86400000);
+}
 function formatBytes(n: number): string {
   if (!n) return '';
   if (n < 1024) return `${n} B`;
@@ -394,6 +403,14 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       /* 전역 토스트 */
     }
   }
+  async function updatePeriod(start: string | null, end: string | null) {
+    try {
+      await api(`/api/meetings/${code}/period`, { method: 'PATCH', body: { start, end } });
+      void reloadDetail();
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
 
   async function sendChatFile(file: File) {
     if (!file || uploadingFile) return;
@@ -528,11 +545,27 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                     </div>
                     <div className="hub-hero-chips">
                       <button className="hub-hero-code" onClick={copyCode} title="클릭해서 복사">
-                        {detail.code} {copied ? '✓' : '⧉'}
+                        {detail.code}{' '}
+                        {copied ? <CheckMarkIcon size={13} /> : <CopyIcon size={13} />}
                       </button>
                       {range && (
                         <span className="hub-hero-when">
                           <CalendarIcon size={13} /> {range}
+                        </span>
+                      )}
+                      {detail.period && (
+                        <span className="hub-hero-when">
+                          <CalendarIcon size={13} /> 기간 {detail.period.start ?? '?'} ~{' '}
+                          {detail.period.end ?? '?'}
+                          {detail.period.end &&
+                            (() => {
+                              const d = dday(detail.period.end);
+                              return d != null ? (
+                                <b className="hub-hero-dday">
+                                  {d > 0 ? `D-${d}` : d === 0 ? 'D-DAY' : `D+${-d}`}
+                                </b>
+                              ) : null;
+                            })()}
                         </span>
                       )}
                     </div>
@@ -806,6 +839,51 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                   </div>
                 ))}
               </div>
+            </section>
+
+            <section className="hub-set-card">
+              <div className="hub-section-title">
+                <CalendarIcon size={15} /> 프로젝트 기간
+                <span className="hub-set-hostonly">선택 사항</span>
+              </div>
+              {detail.isHost ? (
+                <div className="hub-period-edit">
+                  <input
+                    type="date"
+                    value={detail.period?.start ?? ''}
+                    onChange={(e) => void updatePeriod(e.target.value || null, detail.period?.end ?? null)}
+                  />
+                  <span className="hub-period-tilde">~</span>
+                  <input
+                    type="date"
+                    value={detail.period?.end ?? ''}
+                    onChange={(e) => void updatePeriod(detail.period?.start ?? null, e.target.value || null)}
+                  />
+                  {detail.period && (
+                    <button className="hub-set-btn" onClick={() => void updatePeriod(null, null)}>
+                      기간 지우기
+                    </button>
+                  )}
+                  {detail.period?.end && (() => {
+                    const d = dday(detail.period.end);
+                    return d != null ? (
+                      <span className={`hub-dday${d < 0 ? ' over' : ''}`}>
+                        {d > 0 ? `D-${d}` : d === 0 ? 'D-DAY' : `D+${-d}`}
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
+              ) : detail.period ? (
+                <div className="hub-period-view">
+                  {detail.period.start ?? '?'} ~ {detail.period.end ?? '?'}
+                  {detail.period.end && (() => {
+                    const d = dday(detail.period.end);
+                    return d != null ? <span className={`hub-dday${d < 0 ? ' over' : ''}`}>{d > 0 ? `D-${d}` : d === 0 ? 'D-DAY' : `D+${-d}`}</span> : null;
+                  })()}
+                </div>
+              ) : (
+                <div className="hub-section-empty">설정된 기간이 없어요</div>
+              )}
             </section>
 
             <section className="hub-set-card">

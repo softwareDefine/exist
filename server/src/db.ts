@@ -153,6 +153,14 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 프로젝트 기간(선택) — 시작일/종료일 (날짜만, null이면 기간 없음)
+try {
+  db.exec(`ALTER TABLE meetings ADD COLUMN period_start TEXT`);
+  db.exec(`ALTER TABLE meetings ADD COLUMN period_end TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 알림 "치우기"(보관) — 지워도 지난 알림에서 볼 수 있게 soft delete
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN cleared INTEGER NOT NULL DEFAULT 0`);

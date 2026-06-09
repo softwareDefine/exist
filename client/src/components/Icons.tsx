@@ -341,6 +341,15 @@ export function SlideIcon({ size }: IconProps) {
   );
 }
 
+export function CopyIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="8" y="8" width="11" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4H7A3 3 0 0 0 4 7v6.5A2.5 2.5 0 0 0 6.5 16H8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function PlayIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
