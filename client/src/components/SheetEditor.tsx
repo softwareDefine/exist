@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { useAuthStore } from '../store';
@@ -117,6 +118,89 @@ interface MergeRange {
 
 const FILL_COLORS = ['', '#fff3bf', '#ffd8a8', '#ffc9c9', '#d3f9d8', '#a5d8ff', '#d0bfff', '#e9ecef'];
 const TEXT_COLORS = ['#1c2024', '#e03131', '#1971c2', '#2f9e44', '#f08c00', '#9c36b5', '#ffffff'];
+
+const EMPTY_STYLE: CellStyle = {}; // 빈 셀 공용 ref (memo 안정화)
+
+interface SheetCellProps {
+  r: number;
+  c: number;
+  value: string;
+  style: CellStyle;
+  colSpan?: number;
+  rowSpan?: number;
+  active: boolean;
+  inRange: boolean;
+  isFormula: boolean;
+  editing: boolean;
+  editValue: string;
+  editRef: React.RefObject<HTMLInputElement | null>;
+  onDown: (r: number, c: number, shift: boolean) => void;
+  onEnter: (r: number, c: number) => void;
+  onDbl: (r: number, c: number) => void;
+  onEditChange: (r: number, c: number, v: string) => void;
+  onEditKey: (r: number, c: number, e: React.KeyboardEvent) => void;
+  onEditBlur: () => void;
+}
+
+/** 메모이즈된 셀 — 자기 props가 바뀔 때만 리렌더 (드래그 시 1560칸 전체 리렌더 방지) */
+const SheetCell = memo(function SheetCell({
+  r,
+  c,
+  value,
+  style: sty,
+  colSpan,
+  rowSpan,
+  active,
+  inRange,
+  isFormula,
+  editing,
+  editValue,
+  editRef,
+  onDown,
+  onEnter,
+  onDbl,
+  onEditChange,
+  onEditKey,
+  onEditBlur,
+}: SheetCellProps) {
+  const cellStyle: React.CSSProperties = {
+    fontWeight: sty.b ? 700 : undefined,
+    fontStyle: sty.i ? 'italic' : undefined,
+    color: sty.color || undefined,
+    background: sty.bg || undefined,
+    textAlign: sty.align,
+    borderTop: sty.bt ? '2px solid var(--text)' : undefined,
+    borderRight: sty.br ? '2px solid var(--text)' : undefined,
+    borderBottom: sty.bb ? '2px solid var(--text)' : undefined,
+    borderLeft: sty.bl ? '2px solid var(--text)' : undefined,
+  };
+  return (
+    <td
+      colSpan={colSpan}
+      rowSpan={rowSpan}
+      style={cellStyle}
+      className={`${active ? 'sel' : ''}${inRange ? ' inrange' : ''}${isFormula ? ' formula' : ''}`}
+      onMouseDown={(e) => {
+        if (!editing) onDown(r, c, e.shiftKey);
+      }}
+      onMouseEnter={() => onEnter(r, c)}
+      onDoubleClick={() => onDbl(r, c)}
+    >
+      {editing ? (
+        <input
+          ref={editRef}
+          className="sheet-cell-input"
+          value={editValue}
+          onChange={(e) => onEditChange(r, c, e.target.value)}
+          onBlur={onEditBlur}
+          onKeyDown={(e) => onEditKey(r, c, e)}
+        />
+      ) : (
+        <span className="sheet-cell-val">{value}</span>
+      )}
+    </td>
+  );
+});
 
 /** Yjs 기반 협업 스프레드시트 — 여러 시트(하단 탭), roomId 단위 공유 */
 export default function SheetEditor({ roomId }: { roomId: string }) {
@@ -257,7 +341,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
 
   // ── 스타일 / 병합 ──
   function styleOf(r: number, c: number): CellStyle {
-    return stylesRef.current?.get(cellKey(r, c)) ?? {};
+    return stylesRef.current?.get(cellKey(r, c)) ?? EMPTY_STYLE;
   }
   function curRange(): MergeRange {
     return {
@@ -454,6 +538,49 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     URL.revokeObjectURL(url);
   }
 
+  // 메모이즈 셀에 넘길 안정적 콜백 (ref로 최신 상태 참조 → 매 렌더 동일 함수 ref)
+  const cellApiRef = useRef<{
+    down: (r: number, c: number, shift: boolean) => void;
+    enter: (r: number, c: number) => void;
+    dbl: (r: number, c: number) => void;
+    editChange: (r: number, c: number, v: string) => void;
+    editKey: (r: number, c: number, e: React.KeyboardEvent) => void;
+    editBlur: () => void;
+  }>(null!);
+  cellApiRef.current = {
+    down: (r, c, shift) => {
+      if (editing) commitEdit(null);
+      if (shift) setSel({ r, c });
+      else selectCell(r, c);
+      draggingRef.current = true;
+    },
+    enter: (r, c) => {
+      if (!draggingRef.current || editing) return;
+      pendingSelRef.current = { r, c };
+      if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = 0;
+          const p = pendingSelRef.current;
+          if (p) setSel(p);
+        });
+      }
+    },
+    dbl: (r, c) => startEdit(r, c),
+    editChange: (r, c, v) => setEditing({ r, c, value: v }),
+    editKey: (_r, _c, e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commitEdit('down'); }
+      else if (e.key === 'Tab') { e.preventDefault(); commitEdit('right'); }
+      else if (e.key === 'Escape') { e.preventDefault(); setEditing(null); }
+    },
+    editBlur: () => commitEdit(null),
+  };
+  const cbDown = useCallback((r: number, c: number, s: boolean) => cellApiRef.current.down(r, c, s), []);
+  const cbEnter = useCallback((r: number, c: number) => cellApiRef.current.enter(r, c), []);
+  const cbDbl = useCallback((r: number, c: number) => cellApiRef.current.dbl(r, c), []);
+  const cbEditChange = useCallback((r: number, c: number, v: string) => cellApiRef.current.editChange(r, c, v), []);
+  const cbEditKey = useCallback((r: number, c: number, e: React.KeyboardEvent) => cellApiRef.current.editKey(r, c, e), []);
+  const cbEditBlur = useCallback(() => cellApiRef.current.editBlur(), []);
+
   // 표시값 메모이즈 — 셀 값이 바뀔 때만 재계산(드래그 선택 중엔 재사용)
   const valueGrid = useMemo(() => {
     const g: string[][] = [];
@@ -624,69 +751,29 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
                   const cov = mergeCovering(r, c);
                   // 병합 영역의 좌상단이 아니면 렌더 안 함
                   if (cov && !(cov.r1 === r && cov.c1 === c)) return null;
-                  const isActive = sel.r === r && sel.c === c;
-                  const isRange = multi && r >= r1 && r <= r2 && c >= c1 && c <= c2;
-                  const isEditing = editing && editing.r === r && editing.c === c;
-                  const sty = styleOf(r, c);
-                  const cellStyle: React.CSSProperties = {
-                    fontWeight: sty.b ? 700 : undefined,
-                    fontStyle: sty.i ? 'italic' : undefined,
-                    color: sty.color || undefined,
-                    background: sty.bg || undefined,
-                    textAlign: sty.align,
-                    borderTop: sty.bt ? '2px solid var(--text)' : undefined,
-                    borderRight: sty.br ? '2px solid var(--text)' : undefined,
-                    borderBottom: sty.bb ? '2px solid var(--text)' : undefined,
-                    borderLeft: sty.bl ? '2px solid var(--text)' : undefined,
-                  };
+                  const isEditing = !!editing && editing.r === r && editing.c === c;
                   return (
-                    <td
+                    <SheetCell
                       key={c}
+                      r={r}
+                      c={c}
+                      value={valueGrid[r]?.[c] ?? ''}
+                      style={styleOf(r, c)}
                       colSpan={cov ? cov.c2 - cov.c1 + 1 : undefined}
                       rowSpan={cov ? cov.r2 - cov.r1 + 1 : undefined}
-                      style={cellStyle}
-                      className={`${isActive ? 'sel' : ''}${isRange ? ' inrange' : ''}${raw(r, c)[0] === '=' ? ' formula' : ''}`}
-                      onMouseDown={(e) => {
-                        if (!isEditing) {
-                          if (editing) commitEdit(null);
-                          if (e.shiftKey) setSel({ r, c });
-                          else selectCell(r, c);
-                          draggingRef.current = true;
-                        }
-                      }}
-                      onMouseEnter={() => {
-                        if (!draggingRef.current || editing) return;
-                        // rAF 스로틀: 프레임당 1회만 setSel → 드래그 렉 방지
-                        pendingSelRef.current = { r, c };
-                        if (!rafRef.current) {
-                          rafRef.current = requestAnimationFrame(() => {
-                            rafRef.current = 0;
-                            const p = pendingSelRef.current;
-                            if (p) setSel(p);
-                          });
-                        }
-                      }}
-                      onDoubleClick={() => startEdit(r, c)}
-                    >
-                      {isEditing ? (
-                        <input
-                          ref={editRef}
-                          className="sheet-cell-input"
-                          value={editing!.value}
-                          onChange={(e) =>
-                            setEditing({ r, c, value: e.target.value })
-                          }
-                          onBlur={() => commitEdit(null)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') { e.preventDefault(); commitEdit('down'); }
-                            else if (e.key === 'Tab') { e.preventDefault(); commitEdit('right'); }
-                            else if (e.key === 'Escape') { e.preventDefault(); setEditing(null); }
-                          }}
-                        />
-                      ) : (
-                        <span className="sheet-cell-val">{valueGrid[r]?.[c] ?? ''}</span>
-                      )}
-                    </td>
+                      active={sel.r === r && sel.c === c}
+                      inRange={multi && r >= r1 && r <= r2 && c >= c1 && c <= c2}
+                      isFormula={raw(r, c)[0] === '='}
+                      editing={isEditing}
+                      editValue={isEditing ? editing!.value : ''}
+                      editRef={editRef}
+                      onDown={cbDown}
+                      onEnter={cbEnter}
+                      onDbl={cbDbl}
+                      onEditChange={cbEditChange}
+                      onEditKey={cbEditKey}
+                      onEditBlur={cbEditBlur}
+                    />
                   );
                 })}
               </tr>
