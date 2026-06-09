@@ -96,6 +96,28 @@ interface SheetMeta {
   cellsKey: string;
 }
 
+interface CellStyle {
+  b?: boolean; // 굵게
+  i?: boolean; // 기울임
+  color?: string; // 글자색
+  bg?: string; // 채우기
+  align?: 'left' | 'center' | 'right';
+  bt?: boolean; // 테두리 상/우/하/좌
+  br?: boolean;
+  bb?: boolean;
+  bl?: boolean;
+}
+
+interface MergeRange {
+  r1: number;
+  c1: number;
+  r2: number;
+  c2: number;
+}
+
+const FILL_COLORS = ['', '#fff3bf', '#ffd8a8', '#ffc9c9', '#d3f9d8', '#a5d8ff', '#d0bfff', '#e9ecef'];
+const TEXT_COLORS = ['#1c2024', '#e03131', '#1971c2', '#2f9e44', '#f08c00', '#9c36b5', '#ffffff'];
+
 /** Yjs 기반 협업 스프레드시트 — 여러 시트(하단 탭), roomId 단위 공유 */
 export default function SheetEditor({ roomId }: { roomId: string }) {
   const token = useAuthStore((s) => s.token);
@@ -103,6 +125,10 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   const ydocRef = useRef<Y.Doc | null>(null);
   const sheetsMapRef = useRef<Y.Map<{ name: string; ord: number; cellsKey: string }> | null>(null);
   const cellsRef = useRef<Y.Map<unknown> | null>(null);
+  const stylesRef = useRef<Y.Map<CellStyle> | null>(null);
+  const mergesRef = useRef<Y.Array<MergeRange> | null>(null);
+  const [merges, setMerges] = useState<MergeRange[]>([]);
+  const [menu, setMenu] = useState<'fill' | 'text' | 'border' | null>(null);
   const [, bump] = useState(0);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [peers, setPeers] = useState(1);
@@ -189,11 +215,24 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     const ydoc = ydocRef.current;
     if (!ydoc || !activeSheet) return;
     const cells = ydoc.getMap(activeSheet.cellsKey);
+    const styles = ydoc.getMap<CellStyle>(`${activeSheet.cellsKey}:style`);
+    const mergeArr = ydoc.getArray<MergeRange>(`${activeSheet.cellsKey}:merge`);
     cellsRef.current = cells;
+    stylesRef.current = styles;
+    mergesRef.current = mergeArr;
+    setMerges(mergeArr.toArray());
     bump((n) => n + 1);
     const onCells = () => bump((n) => n + 1);
+    const onStyles = () => bump((n) => n + 1);
+    const onMerges = () => setMerges(mergeArr.toArray());
     cells.observe(onCells);
-    return () => cells.unobserve(onCells);
+    styles.observe(onStyles);
+    mergeArr.observe(onMerges);
+    return () => {
+      cells.unobserve(onCells);
+      styles.unobserve(onStyles);
+      mergeArr.unobserve(onMerges);
+    };
   }, [activeSheet?.cellsKey]);
 
   function raw(r: number, c: number): string {
@@ -211,6 +250,108 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     const k = cellKey(r, c);
     if (value === '') cells.delete(k);
     else cells.set(k, value);
+  }
+
+  // ── 스타일 / 병합 ──
+  function styleOf(r: number, c: number): CellStyle {
+    return stylesRef.current?.get(cellKey(r, c)) ?? {};
+  }
+  function curRange(): MergeRange {
+    return {
+      r1: Math.min(anchor.r, sel.r),
+      c1: Math.min(anchor.c, sel.c),
+      r2: Math.max(anchor.r, sel.r),
+      c2: Math.max(anchor.c, sel.c),
+    };
+  }
+  function patchStyleRange(fn: (cur: CellStyle) => CellStyle) {
+    const st = stylesRef.current;
+    if (!st) return;
+    const { r1, c1, r2, c2 } = curRange();
+    for (let r = r1; r <= r2; r++)
+      for (let c = c1; c <= c2; c++) {
+        const k = cellKey(r, c);
+        const next = fn(st.get(k) ?? {});
+        const cleaned = Object.fromEntries(Object.entries(next).filter(([, v]) => v !== undefined && v !== false && v !== ''));
+        if (Object.keys(cleaned).length === 0) st.delete(k);
+        else st.set(k, cleaned as CellStyle);
+      }
+  }
+  function toggleBI(key: 'b' | 'i') {
+    const { r1, c1 } = curRange();
+    const on = !styleOf(r1, c1)[key];
+    patchStyleRange((cur) => ({ ...cur, [key]: on || undefined }));
+  }
+  function setAlign(align: 'left' | 'center' | 'right') {
+    patchStyleRange((cur) => ({ ...cur, align }));
+  }
+  function setFill(bg: string) {
+    patchStyleRange((cur) => ({ ...cur, bg: bg || undefined }));
+    setMenu(null);
+  }
+  function setTextColor(color: string) {
+    patchStyleRange((cur) => ({ ...cur, color }));
+    setMenu(null);
+  }
+  function applyBorder(mode: 'all' | 'outer' | 'none') {
+    const st = stylesRef.current;
+    if (!st) return;
+    const { r1, c1, r2, c2 } = curRange();
+    for (let r = r1; r <= r2; r++)
+      for (let c = c1; c <= c2; c++) {
+        const k = cellKey(r, c);
+        const cur = { ...(st.get(k) ?? {}) };
+        if (mode === 'none') {
+          delete cur.bt;
+          delete cur.br;
+          delete cur.bb;
+          delete cur.bl;
+        } else if (mode === 'all') {
+          cur.bt = cur.br = cur.bb = cur.bl = true;
+        } else {
+          // outer: 가장자리만
+          if (r === r1) cur.bt = true;
+          if (r === r2) cur.bb = true;
+          if (c === c1) cur.bl = true;
+          if (c === c2) cur.br = true;
+        }
+        const cleaned = Object.fromEntries(Object.entries(cur).filter(([, v]) => v !== undefined && v !== false && v !== ''));
+        if (Object.keys(cleaned).length === 0) st.delete(k);
+        else st.set(k, cleaned as CellStyle);
+      }
+  }
+  function mergeSel() {
+    const arr = mergesRef.current;
+    if (!arr) return;
+    const range = curRange();
+    if (range.r1 === range.r2 && range.c1 === range.c2) return; // 단일 셀
+    // 겹치는 기존 병합 제거
+    unmergeSel();
+    // 좌상단 외 값 비우기
+    for (let r = range.r1; r <= range.r2; r++)
+      for (let c = range.c1; c <= range.c2; c++) {
+        if (r === range.r1 && c === range.c1) continue;
+        setCell(r, c, '');
+      }
+    mergesRef.current?.push([range]);
+  }
+  function unmergeSel() {
+    const arr = mergesRef.current;
+    if (!arr) return;
+    const { r1, c1, r2, c2 } = curRange();
+    const all = arr.toArray();
+    for (let i = all.length - 1; i >= 0; i--) {
+      const m = all[i];
+      const overlap = !(m.c2 < c1 || m.c1 > c2 || m.r2 < r1 || m.r1 > r2);
+      if (overlap) arr.delete(i, 1);
+    }
+  }
+  // (r,c)를 덮는 병합 반환
+  function mergeCovering(r: number, c: number): MergeRange | null {
+    for (const m of merges) {
+      if (r >= m.r1 && r <= m.r2 && c >= m.c1 && c <= m.c2) return m;
+    }
+    return null;
   }
 
   function startEdit(r: number, c: number, initial?: string) {
@@ -348,6 +489,106 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
           </span>
         </div>
       </div>
+
+      {/* 서식 툴바 (엑셀형) */}
+      <div className="sheet-toolbar">
+        <button
+          className={`sht-btn${styleOf(sel.r, sel.c).b ? ' on' : ''}`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => toggleBI('b')}
+          title="굵게"
+        >
+          <b>B</b>
+        </button>
+        <button
+          className={`sht-btn${styleOf(sel.r, sel.c).i ? ' on' : ''}`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => toggleBI('i')}
+          title="기울임"
+        >
+          <i>I</i>
+        </button>
+        <span className="sht-sep" />
+        {(['left', 'center', 'right'] as const).map((a) => (
+          <button
+            key={a}
+            className={`sht-btn${styleOf(sel.r, sel.c).align === a ? ' on' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setAlign(a)}
+            title={`정렬 ${a}`}
+          >
+            {a === 'left' ? '⬅' : a === 'center' ? '↔' : '➡'}
+          </button>
+        ))}
+        <span className="sht-sep" />
+        <div className="sht-pop-wrap">
+          <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setMenu(menu === 'fill' ? null : 'fill')} title="채우기 색">
+            🎨
+          </button>
+          {menu === 'fill' && (
+            <>
+              <div className="sht-back" onClick={() => setMenu(null)} />
+              <div className="sht-pop">
+                {FILL_COLORS.map((col) => (
+                  <button
+                    key={col || 'none'}
+                    className="sht-swatch"
+                    style={{ background: col || '#fff' }}
+                    onClick={() => setFill(col)}
+                    title={col || '없음'}
+                  >
+                    {col ? '' : '✕'}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="sht-pop-wrap">
+          <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setMenu(menu === 'text' ? null : 'text')} title="글자 색">
+            <span style={{ color: '#e03131', fontWeight: 800 }}>A</span>
+          </button>
+          {menu === 'text' && (
+            <>
+              <div className="sht-back" onClick={() => setMenu(null)} />
+              <div className="sht-pop">
+                {TEXT_COLORS.map((col) => (
+                  <button
+                    key={col}
+                    className="sht-swatch"
+                    style={{ background: col }}
+                    onClick={() => setTextColor(col)}
+                    title={col}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="sht-pop-wrap">
+          <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setMenu(menu === 'border' ? null : 'border')} title="테두리">
+            ▦
+          </button>
+          {menu === 'border' && (
+            <>
+              <div className="sht-back" onClick={() => setMenu(null)} />
+              <div className="sht-pop sht-pop-border">
+                <button onClick={() => { applyBorder('all'); setMenu(null); }}>모든 테두리</button>
+                <button onClick={() => { applyBorder('outer'); setMenu(null); }}>바깥 테두리</button>
+                <button onClick={() => { applyBorder('none'); setMenu(null); }}>테두리 없음</button>
+              </div>
+            </>
+          )}
+        </div>
+        <span className="sht-sep" />
+        <button className="sht-btn wide" onMouseDown={(e) => e.preventDefault()} onClick={mergeSel} title="선택 영역 병합">
+          병합
+        </button>
+        <button className="sht-btn wide" onMouseDown={(e) => e.preventDefault()} onClick={unmergeSel} title="병합 해제">
+          병합 해제
+        </button>
+      </div>
+
       <div className="sheet-scroll" tabIndex={0} onKeyDown={onGridKey}>
         <table className="sheet-grid">
           <thead>
@@ -365,12 +606,30 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
               <tr key={r}>
                 <th className={`sheet-rownum${r >= r1 && r <= r2 ? ' sel' : ''}`}>{r + 1}</th>
                 {Array.from({ length: COLS }, (_, c) => {
+                  const cov = mergeCovering(r, c);
+                  // 병합 영역의 좌상단이 아니면 렌더 안 함
+                  if (cov && !(cov.r1 === r && cov.c1 === c)) return null;
                   const isActive = sel.r === r && sel.c === c;
                   const isRange = multi && r >= r1 && r <= r2 && c >= c1 && c <= c2;
                   const isEditing = editing && editing.r === r && editing.c === c;
+                  const sty = styleOf(r, c);
+                  const cellStyle: React.CSSProperties = {
+                    fontWeight: sty.b ? 700 : undefined,
+                    fontStyle: sty.i ? 'italic' : undefined,
+                    color: sty.color || undefined,
+                    background: sty.bg || undefined,
+                    textAlign: sty.align,
+                    borderTop: sty.bt ? '2px solid var(--text)' : undefined,
+                    borderRight: sty.br ? '2px solid var(--text)' : undefined,
+                    borderBottom: sty.bb ? '2px solid var(--text)' : undefined,
+                    borderLeft: sty.bl ? '2px solid var(--text)' : undefined,
+                  };
                   return (
                     <td
                       key={c}
+                      colSpan={cov ? cov.c2 - cov.c1 + 1 : undefined}
+                      rowSpan={cov ? cov.r2 - cov.r1 + 1 : undefined}
+                      style={cellStyle}
                       className={`${isActive ? 'sel' : ''}${isRange ? ' inrange' : ''}${raw(r, c)[0] === '=' ? ' formula' : ''}`}
                       onMouseDown={(e) => {
                         if (!isEditing) {

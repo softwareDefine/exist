@@ -2981,6 +2981,120 @@ input:focus {
   color: var(--green);
 }
 
+/* 시트 서식 툴바 */
+.sheet-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.sht-btn {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sht-btn.wide {
+  font-size: 12.5px;
+}
+
+.sht-btn:hover {
+  background: var(--surface-3);
+}
+
+.sht-btn.on {
+  background: rgba(33, 200, 24, 0.14);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.sht-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.sht-pop-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.sht-back {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.sht-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 41;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: var(--shadow-md);
+  padding: 7px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+}
+
+.sht-pop-border {
+  display: flex;
+  flex-direction: column;
+  min-width: 130px;
+  gap: 1px;
+}
+
+.sht-pop-border button {
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sht-pop-border button:hover {
+  background: var(--surface-2);
+}
+
+.sht-swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  color: #888;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sht-swatch:hover {
+  outline: 2px solid var(--green);
+}
+
 .sheet-scroll {
   flex: 1;
   min-height: 0;
