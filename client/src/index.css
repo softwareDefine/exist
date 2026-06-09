@@ -7579,15 +7579,40 @@ input:focus {
 }
 
 .error-toast {
-  background: #2b2b2b;
-  color: #fff;
-  border-left: 4px solid #d33;
-  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
   box-shadow: var(--shadow-md);
-  padding: 12px 16px;
+  padding: 12px 15px;
   font-size: 14px;
-  max-width: 340px;
+  font-weight: 500;
+  max-width: 360px;
   animation: toast-in 0.25s ease-out;
+}
+
+.error-toast-ic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 7px;
+  background: #fdecec;
+  color: #e5484d;
+}
+
+.dark .error-toast-ic {
+  background: rgba(229, 72, 77, 0.16);
+}
+
+.error-toast-text {
+  line-height: 1.4;
+  word-break: keep-all;
 }
 
 /* ───── 로그인 ───── */
