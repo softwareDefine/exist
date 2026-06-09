@@ -7087,9 +7087,15 @@ input:focus {
   cursor: move;
 }
 
+/* 영상은 자기 비율을 유지하며 타일 안에 맞게(contain) — PiP 모양이 바뀌어도 안 잘림 */
 .hub-call.mini .video-tile video,
 .hub-call.mini .video-grid video {
-  object-fit: cover;
+  object-fit: contain;
+}
+
+/* 레터박스 여백은 타일 배경(어두움)으로 깔끔하게 */
+.hub-call.mini .video-tile {
+  background: #15171c;
 }
 
 /* PiP 크기 조절 핸들 — 좌상단 모서리 (우하단 고정, 16:9 유지) */

@@ -193,14 +193,18 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null); // 무빙 통화창 위치
   const [pipW, setPipW] = useState<number>(() => {
     const s = Number(localStorage.getItem('exist:pipW'));
-    return s >= 200 && s <= 720 ? s : 320; // 기본 320×180
+    return s >= 180 && s <= 960 ? s : 320; // 기본 320×180
+  });
+  const [pipH, setPipH] = useState<number>(() => {
+    const s = Number(localStorage.getItem('exist:pipH'));
+    return s >= 110 && s <= 640 ? s : 180;
   });
   const pipDragRef = useRef<{ dx: number; dy: number } | null>(null);
   const pipResizeRef = useRef<{ right: number; bottom: number } | null>(null); // 리사이즈 앵커(우하단 고정)
   const pipElRef = useRef<HTMLElement | null>(null); // 드래그/리사이즈 중 직접 조작할 PiP 엘리먼트
   const pipRafRef = useRef<number | null>(null);
   const pipLatest = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const pipWLatest = useRef<number>(320);
+  const pipSizeLatest = useRef<{ w: number; h: number }>({ w: 320, h: 180 });
   const [todos, setTodos] = useState<MeetingTodo[]>([]);
   const [todoInput, setTodoInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -277,15 +281,14 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       const el = pipElRef.current;
       if (!el) return;
 
-      // 리사이즈 (우하단 앵커 고정, 16:9 유지)
+      // 리사이즈 (우하단 앵커 고정, 가로·세로 자유 — 비율 고정 없음)
       const a = pipResizeRef.current;
       if (a) {
-        const maxW = Math.min(720, a.right - 6, ((a.bottom - 6) * 16) / 9);
-        const w = Math.max(200, Math.min(maxW, a.right - e.clientX));
-        const h = Math.round((w * 9) / 16);
+        const w = Math.round(Math.max(180, Math.min(960, a.right - 6, a.right - e.clientX)));
+        const h = Math.round(Math.max(110, Math.min(640, a.bottom - 6, a.bottom - e.clientY)));
         const left = a.right - w;
         const top = a.bottom - h;
-        pipWLatest.current = w;
+        pipSizeLatest.current = { w, h };
         pipLatest.current = { x: left, y: top };
         if (pipRafRef.current == null) {
           pipRafRef.current = requestAnimationFrame(() => {
@@ -326,9 +329,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       if (pipResizeRef.current) {
         pipResizeRef.current = null;
         document.body.style.userSelect = '';
-        setPipW(pipWLatest.current);
+        const { w, h } = pipSizeLatest.current;
+        setPipW(w);
+        setPipH(h);
         setPipPos({ ...pipLatest.current });
-        localStorage.setItem('exist:pipW', String(pipWLatest.current));
+        localStorage.setItem('exist:pipW', String(w));
+        localStorage.setItem('exist:pipH', String(h));
         return;
       }
       if (pipDragRef.current) {
@@ -373,7 +379,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     const rect = el.getBoundingClientRect();
     pipElRef.current = el;
     pipResizeRef.current = { right: rect.right, bottom: rect.bottom }; // 우하단 고정점
-    pipWLatest.current = rect.width;
+    pipSizeLatest.current = { w: rect.width, h: rect.height };
     pipLatest.current = { x: rect.left, y: rect.top };
     document.body.style.userSelect = 'none';
   }
@@ -1035,7 +1041,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               subtab !== 'call'
                 ? {
                     width: pipW,
-                    height: Math.round((pipW * 9) / 16),
+                    height: pipH,
                     ...(pipPos ? { left: pipPos.x, top: pipPos.y, right: 'auto', bottom: 'auto' } : {}),
                   }
                 : undefined
