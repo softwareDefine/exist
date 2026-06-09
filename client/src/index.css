@@ -3687,6 +3687,18 @@ input:focus {
   min-height: 1.2em;
 }
 
+.slide-el.bare {
+  padding: 0;
+}
+
+.slide-el-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+}
+
 .slide-el-del {
   position: absolute;
   top: -10px;
@@ -3701,6 +3713,86 @@ input:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  z-index: 2;
+}
+
+.slide-el-resize {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: var(--green);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  z-index: 2;
+}
+
+/* 도형 드롭다운 */
+.slide-shape-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.slide-shape-back {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.slide-shape-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 31;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: var(--shadow-md);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+}
+
+.slide-shape-menu button {
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.slide-shape-menu button:hover {
+  background: var(--surface-2);
+}
+
+/* 선택 요소 속성 */
+.slide-props {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+
+.slide-prop-label {
+  font-size: 11.5px;
+  color: var(--text-sub);
+  margin: 0 2px 0 4px;
+}
+
+.slide-prop-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
 }
 
 /* 발표 모드 */
