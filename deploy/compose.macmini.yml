@@ -22,7 +22,10 @@ services:
       - sofie-portfolio_default
 
 volumes:
+  # 외부 볼륨(접두사 없는 exist-data)에 실데이터가 있음. external 미지정 시
+  # compose가 exist_exist-data를 새로 만들어 빈 DB로 떠버리므로 반드시 external.
   exist-data:
+    external: true
 
 networks:
   sofie-portfolio_default:
