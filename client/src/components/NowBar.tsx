@@ -312,6 +312,9 @@ export default function NowBar({
   const [newTodo, setNewTodo] = useState('');
   const [now, setNow] = useState(() => new Date());
   const [brief, setBrief] = useState('');
+  const [aiCard, setAiCard] = useState<number | null>(null);
+  const [aiReason, setAiReason] = useState('');
+  const [aiSource, setAiSource] = useState<'ai' | 'rule' | null>(null);
   const [card, setCard] = useState(0);
   const [auto, setAuto] = useState(true);
   const [avatar, setAvatar] = useState('🐧');
@@ -336,8 +339,14 @@ export default function NowBar({
     let alive = true;
     async function load() {
       try {
-        const b = await api<{ text: string }>('/api/agent/brief');
-        if (alive) setBrief(b.text);
+        const b = await api<{ text: string; card?: number; reason?: string; source?: 'ai' | 'rule' }>(
+          '/api/agent/brief',
+        );
+        if (!alive) return;
+        setBrief(b.text);
+        if (typeof b.card === 'number') setAiCard(b.card);
+        if (b.reason) setAiReason(b.reason);
+        setAiSource(b.source ?? null);
       } catch {
         /* 무시 */
       }
@@ -373,12 +382,16 @@ export default function NowBar({
   }
 
   const ctx = currentMeeting(meetings, now);
-  const suggestion = suggestCard(ctx, meetings, todos, now);
+  // 로컬 즉시 판단(폴백) — AI 응답 도착 전이나 오프라인에서 사용
+  const localSug = suggestCard(ctx, meetings, todos, now);
+  // 진행 중 회의는 즉시성을 위해 로컬이 우선, 그 외엔 서버 AI 결정을 따른다
+  const targetCard = ctx?.ongoing ? 2 : aiCard ?? localSug.card;
+  const reasonText = aiSource === 'ai' && aiReason ? aiReason : localSug.reason;
 
-  // 자동 모드일 때 — 상황이 바뀌면 AI가 알맞은 카드로 전환
+  // 자동 모드일 때 — 상황이 바뀌면 AI 판단대로 카드 전환
   useEffect(() => {
-    if (auto && suggestion.card !== card) setCard(suggestion.card);
-  }, [auto, suggestion.card, card]);
+    if (auto && targetCard !== card) setCard(targetCard);
+  }, [auto, targetCard, card]);
 
   // 정리
   useEffect(() => () => {
@@ -516,7 +529,11 @@ export default function NowBar({
         <button
           className={`nowbar-auto${auto ? ' on' : ''}`}
           onClick={toggleAuto}
-          title={auto ? `AI가 관리 중 · ${suggestion.reason}` : 'AI 자동 관리 켜기'}
+          title={
+            auto
+              ? `${aiSource === 'ai' ? 'exist AI' : 'AI'}가 관리 중 · ${reasonText}`
+              : 'AI 자동 관리 켜기'
+          }
         >
           <SparklesIcon size={12} />
           {auto ? 'AI' : '수동'}
