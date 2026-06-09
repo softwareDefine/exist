@@ -191,10 +191,16 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [sheetMounted, setSheetMounted] = useState(false); // 시트 편집기도 한 번 열면 유지
   const [slideMounted, setSlideMounted] = useState(false); // 슬라이드도 한 번 열면 유지
   const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null); // 무빙 통화창 위치
+  const [pipW, setPipW] = useState<number>(() => {
+    const s = Number(localStorage.getItem('exist:pipW'));
+    return s >= 200 && s <= 720 ? s : 320; // 기본 320×180
+  });
   const pipDragRef = useRef<{ dx: number; dy: number } | null>(null);
-  const pipElRef = useRef<HTMLElement | null>(null); // 드래그 중 직접 조작할 PiP 엘리먼트
+  const pipResizeRef = useRef<{ right: number; bottom: number } | null>(null); // 리사이즈 앵커(우하단 고정)
+  const pipElRef = useRef<HTMLElement | null>(null); // 드래그/리사이즈 중 직접 조작할 PiP 엘리먼트
   const pipRafRef = useRef<number | null>(null);
   const pipLatest = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const pipWLatest = useRef<number>(320);
   const [todos, setTodos] = useState<MeetingTodo[]>([]);
   const [todoInput, setTodoInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -265,12 +271,39 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     };
   }, [code]);
 
-  // 무빙 통화창 드래그 — 리렌더 없이 DOM 직접 조작(+rAF), 상태는 놓을 때 1회만 커밋
+  // 무빙 통화창 드래그·리사이즈 — 리렌더 없이 DOM 직접 조작(+rAF), 상태는 놓을 때 1회만 커밋
   useEffect(() => {
     function onMove(e: MouseEvent) {
-      const d = pipDragRef.current;
       const el = pipElRef.current;
-      if (!d || !el) return;
+      if (!el) return;
+
+      // 리사이즈 (우하단 앵커 고정, 16:9 유지)
+      const a = pipResizeRef.current;
+      if (a) {
+        const maxW = Math.min(720, a.right - 6, ((a.bottom - 6) * 16) / 9);
+        const w = Math.max(200, Math.min(maxW, a.right - e.clientX));
+        const h = Math.round((w * 9) / 16);
+        const left = a.right - w;
+        const top = a.bottom - h;
+        pipWLatest.current = w;
+        pipLatest.current = { x: left, y: top };
+        if (pipRafRef.current == null) {
+          pipRafRef.current = requestAnimationFrame(() => {
+            pipRafRef.current = null;
+            el.style.width = `${w}px`;
+            el.style.height = `${h}px`;
+            el.style.left = `${left}px`;
+            el.style.top = `${top}px`;
+            el.style.right = 'auto';
+            el.style.bottom = 'auto';
+          });
+        }
+        return;
+      }
+
+      // 위치 이동
+      const d = pipDragRef.current;
+      if (!d) return;
       const w = el.offsetWidth || 90;
       const h = el.offsetHeight || 60;
       const x = Math.max(6, Math.min(window.innerWidth - w - 6, e.clientX - d.dx));
@@ -286,14 +319,23 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       }
     }
     function onUp() {
-      if (!pipDragRef.current) return;
-      pipDragRef.current = null;
-      document.body.style.userSelect = '';
       if (pipRafRef.current != null) {
         cancelAnimationFrame(pipRafRef.current);
         pipRafRef.current = null;
       }
-      setPipPos({ ...pipLatest.current }); // 최종 위치만 상태로 커밋
+      if (pipResizeRef.current) {
+        pipResizeRef.current = null;
+        document.body.style.userSelect = '';
+        setPipW(pipWLatest.current);
+        setPipPos({ ...pipLatest.current });
+        localStorage.setItem('exist:pipW', String(pipWLatest.current));
+        return;
+      }
+      if (pipDragRef.current) {
+        pipDragRef.current = null;
+        document.body.style.userSelect = '';
+        setPipPos({ ...pipLatest.current }); // 최종 위치만 상태로 커밋
+      }
     }
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -306,8 +348,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
 
   function startPipDrag(e: React.MouseEvent) {
     const t = e.target as HTMLElement;
-    // 컨트롤(마이크/카메라/나가기 등)·버튼 위에선 드래그 시작 안 함
-    if (t.closest('button') || t.closest('.meeting-controls')) return;
+    // 컨트롤·버튼·리사이즈 핸들 위에선 이동 드래그 시작 안 함
+    if (t.closest('button') || t.closest('.meeting-controls') || t.closest('.hub-pip-resize')) return;
     const el = (e.currentTarget as HTMLElement).closest('.hub-call') as HTMLElement | null;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -321,6 +363,19 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     el.style.bottom = 'auto';
     document.body.style.userSelect = 'none';
     e.preventDefault();
+  }
+
+  function startPipResize(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = (e.currentTarget as HTMLElement).closest('.hub-call') as HTMLElement | null;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    pipElRef.current = el;
+    pipResizeRef.current = { right: rect.right, bottom: rect.bottom }; // 우하단 고정점
+    pipWLatest.current = rect.width;
+    pipLatest.current = { x: rect.left, y: rect.top };
+    document.body.style.userSelect = 'none';
   }
 
   useEffect(() => {
@@ -977,12 +1032,23 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
           <div
             className={`hub-call${subtab === 'call' ? '' : ' mini'}`}
             style={
-              subtab !== 'call' && pipPos
-                ? { left: pipPos.x, top: pipPos.y, right: 'auto', bottom: 'auto' }
+              subtab !== 'call'
+                ? {
+                    width: pipW,
+                    height: Math.round((pipW * 9) / 16),
+                    ...(pipPos ? { left: pipPos.x, top: pipPos.y, right: 'auto', bottom: 'auto' } : {}),
+                  }
                 : undefined
             }
             onMouseDown={subtab !== 'call' ? startPipDrag : undefined}
           >
+            {subtab !== 'call' && (
+              <div
+                className="hub-pip-resize"
+                onMouseDown={startPipResize}
+                title="모서리를 끌어 크기 조절"
+              />
+            )}
             {subtab !== 'call' && (
               <div className="hub-pip-bar">
                 <span className="hub-pip-grip" title="드래그해서 옮기기">

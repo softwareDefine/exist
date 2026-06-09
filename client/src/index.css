@@ -7092,6 +7092,35 @@ input:focus {
   object-fit: cover;
 }
 
+/* PiP 크기 조절 핸들 — 좌상단 모서리 (우하단 고정, 16:9 유지) */
+.hub-pip-resize {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  z-index: 6;
+  cursor: nwse-resize;
+}
+
+.hub-pip-resize::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 7px;
+  height: 7px;
+  border-top: 2px solid rgba(255, 255, 255, 0.85);
+  border-left: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.hub-call.mini:hover .hub-pip-resize::after {
+  opacity: 1;
+}
+
 /* 무빙 통화창 드래그 바 */
 .hub-pip-bar {
   position: absolute;
