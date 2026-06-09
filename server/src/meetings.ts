@@ -233,28 +233,28 @@ router.get('/recent', (req: AuthedRequest, res) => {
  *  ?org=<id>|personal 로 필터 (recent와 동일 규칙) */
 router.get('/schedule', (req: AuthedRequest, res) => {
   const orgParam = req.query.org;
-  let where = 'mp.user_id = ? AND m.starts_at IS NOT NULL';
-  const params: (number | string)[] = [req.userId!];
-
+  // 조직 필터 (회의/이벤트 공용)
+  let orgFilter = '';
+  const orgArgs: number[] = [];
   if (orgParam === 'personal') {
-    where += ' AND m.org_id IS NULL';
+    orgFilter = ' AND m.org_id IS NULL';
   } else if (orgParam != null && orgParam !== '') {
     const orgId = Number(orgParam);
     if (!Number.isInteger(orgId)) return res.status(400).json({ error: '잘못된 조직입니다' });
     if (!isMember(orgId, req.userId!)) {
       return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
     }
-    where += ' AND m.org_id = ?';
-    params.push(orgId);
+    orgFilter = ' AND m.org_id = ?';
+    orgArgs.push(orgId);
   }
 
   const rows = db
     .prepare(
       `SELECT m.id, m.code, m.title, m.org_id, m.thumbnail, m.starts_at, m.ends_at, m.recur, m.recur_until
        FROM meetings m JOIN meeting_participants mp ON mp.meeting_id = m.id
-       WHERE ${where}`,
+       WHERE mp.user_id = ? AND m.starts_at IS NOT NULL${orgFilter}`,
     )
-    .all(...params) as {
+    .all(req.userId!, ...orgArgs) as {
     id: number;
     code: string;
     title: string;
@@ -283,6 +283,47 @@ router.get('/schedule', (req: AuthedRequest, res) => {
       });
     }
   }
+
+  // 회의 안에서 추가한 일정 이벤트(통화 등, 시간 있는 것)도 일정에 포함
+  const events = db
+    .prepare(
+      `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.end_time,
+              m.id AS mid, m.code, m.title AS mtitle, m.thumbnail
+       FROM meeting_events e
+       JOIN meetings m ON m.id = e.meeting_id
+       JOIN meeting_participants mp ON mp.meeting_id = m.id
+       WHERE mp.user_id = ? AND e.time IS NOT NULL${orgFilter}`,
+    )
+    .all(req.userId!, ...orgArgs) as {
+    eid: number;
+    etitle: string;
+    date: string;
+    time: string;
+    end_time: string | null;
+    mid: number;
+    code: string;
+    mtitle: string;
+    thumbnail: string | null;
+  }[];
+  const lower = now.getTime() - 31 * 24 * 3600_000;
+  const upper = now.getTime() + 90 * 24 * 3600_000;
+  for (const e of events) {
+    const startsAt = `${e.date}T${e.time}`;
+    const ts = new Date(startsAt).getTime();
+    if (isNaN(ts) || ts < lower || ts > upper) continue;
+    out.push({
+      id: e.mid,
+      occId: `ev${e.eid}`,
+      code: e.code,
+      title: e.etitle, // 이벤트 제목 (회의 썸네일로 어느 회의인지 표시)
+      thumbnail: e.thumbnail,
+      starts_at: startsAt,
+      ends_at: e.end_time ? `${e.date}T${e.end_time}` : null,
+      recur: 'none',
+      kind: 'event',
+    });
+  }
+
   out.sort(
     (a, b) =>
       new Date((a as { starts_at: string }).starts_at).getTime() -
