@@ -1,0 +1,29 @@
+# 맥미니 배포용 — sofie-nginx와 같은 망(sofie-portfolio_default)에 붙어서
+# nginx가 http://exist-app:4000 으로 프록시. OPENAI_API_KEY·ANNOUNCED_IP는 .env로.
+services:
+  exist-app:
+    image: exist-app:latest
+    container_name: exist-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATA_DIR: /data
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ANNOUNCED_IP: ${ANNOUNCED_IP}
+      RTC_MIN_PORT: "40000"
+      RTC_MAX_PORT: "40100"
+    ports:
+      - "40000-40100:40000-40100/udp" # mediasoup 미디어 (4000은 nginx가 망 안에서 접근하므로 미공개)
+    volumes:
+      - exist-data:/data
+    networks:
+      - sofie-portfolio_default
+
+volumes:
+  exist-data:
+
+networks:
+  sofie-portfolio_default:
+    external: true
