@@ -304,6 +304,11 @@ input:focus {
   pointer-events: none;
 }
 
+/* 알림 오버레이 — front일 때 다른 카드 위로 확실히 */
+.nowbar-card-notif.front {
+  z-index: 5;
+}
+
 /* 빈 상태 온보딩 카드 */
 .nb-onboard {
   justify-content: center;

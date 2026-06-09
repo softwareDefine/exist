@@ -303,7 +303,8 @@ function SidebarToggle({ onToggle }: { onToggle?: () => void }) {
   );
 }
 
-const CARD_COUNT = 4; // 0 일정 · 1 할 일 · 2 진행 타임라인 · 3 알림
+const CARD_COUNT = 3; // 점·휠 대상: 0 일정 · 1 할 일 · 2 진행 타임라인
+const NOTIF_CARD = 3; // 알림은 AI가 잠깐 띄우는 오버레이 (점 없음)
 
 function ProfileMenu({
   avatar,
@@ -421,9 +422,16 @@ export default function NowBar({
     };
   }, [todos, meetings]);
 
+  // 알림 플래시 즉시 해제 (사용자가 직접 조작하면)
+  function dismissFlash() {
+    if (flashTimer.current) clearTimeout(flashTimer.current);
+    setNotifFlash(false);
+  }
+
   // 사용자가 직접 카드를 넘기면 잠깐 수동 모드 — 30초 쉬면 다시 AI가 맡는다
   function pauseAuto() {
     setAuto(false);
+    dismissFlash();
     if (idleTimer.current) clearTimeout(idleTimer.current);
     idleTimer.current = setTimeout(() => setAuto(true), 30_000);
   }
@@ -446,16 +454,18 @@ export default function NowBar({
   const ctx = currentMeeting(meetings, now);
   // 로컬 즉시 판단(폴백) — AI 응답 도착 전이나 오프라인에서 사용
   const localSug = suggestCard(ctx, meetings, todos, now);
-  // 우선순위: 새 알림 플래시 > 진행 중 회의 > 서버 AI 결정 > 로컬 폴백
+  // 점/휠 대상 카드(0~2) — 진행 중 회의 > 서버 AI 결정 > 로컬 폴백
+  const targetCard = ctx?.ongoing ? 2 : aiCard ?? localSug.card;
+  // 새 알림이 오면 그 위에 알림 카드를 잠깐 오버레이 (점 없이)
   const notifFresh = notifFlash && notifs.length > 0;
-  const targetCard = notifFresh ? 3 : ctx?.ongoing ? 2 : aiCard ?? localSug.card;
+  const viewCard = notifFresh ? NOTIF_CARD : card;
   const reasonText = notifFresh
     ? '새 알림이 왔어요'
     : aiSource === 'ai' && aiReason
       ? aiReason
       : localSug.reason;
 
-  // 자동 모드일 때 — 상황이 바뀌면 AI 판단대로 카드 전환
+  // 자동 모드일 때 — 상황이 바뀌면 AI 판단대로 카드 전환 (알림 오버레이와 독립)
   useEffect(() => {
     if (auto && targetCard !== card) setCard(targetCard);
   }, [auto, targetCard, card]);
@@ -596,8 +606,8 @@ export default function NowBar({
           )}
         </div>
 
-        {/* 카드 4 — 알림 모드 */}
-        <div className={`nowbar-card${stackCls(3)}`}>
+        {/* 알림 오버레이 — 새 알림 올 때만 front (점·휠 대상 아님) */}
+        <div className={`nowbar-card nowbar-card-notif${viewCard === NOTIF_CARD ? ' front' : ' hidden'}`}>
           <div className={`nb-notif-lead${notifFresh ? ' fresh' : ''}`}>
             <span className="nb-notif-bell">
               <BellIcon size={20} />
@@ -668,9 +678,9 @@ export default function NowBar({
         {/* hover 확장 패널 — 현재 카드 모드의 상세 */}
         <div className="nowbar-expand">
           <div className="nowbar-expand-box">
-            {/* key=card → 카드 전환 시 내용도 끌려나오는 애니메이션 재생 */}
-            <div className="nb-expand-content" key={card}>
-            {card === 0 && (
+            {/* key=viewCard → 카드 전환 시 내용도 끌려나오는 애니메이션 재생 */}
+            <div className="nb-expand-content" key={viewCard}>
+            {viewCard === 0 && (
               <div className="nb-expand-schedule">
                 <MonthCalendar meetings={meetings} now={now} />
                 <div className="nb-upcoming">
@@ -712,7 +722,7 @@ export default function NowBar({
               </div>
             )}
 
-            {card === 1 && (
+            {viewCard === 1 && (
               <div className="nb-expand-todos">
                 <div className="nb-expand-title">할 일</div>
                 {[...todos].sort((a, b) => a.done - b.done).map((todo) => (
@@ -750,7 +760,7 @@ export default function NowBar({
               </div>
             )}
 
-            {card === 2 && (
+            {viewCard === 2 && (
               <div className="nb-expand-time">
                 <div className="nb-expand-title">진행 상황</div>
                 {ctx?.ongoing && ctx.meeting.starts_at && ctx.meeting.ends_at ? (
@@ -779,7 +789,7 @@ export default function NowBar({
               </div>
             )}
 
-            {card === 3 && (
+            {viewCard === NOTIF_CARD && (
               <div className="nb-expand-notifs">
                 <div className="nb-expand-title">알림</div>
                 {notifs.length === 0 ? (
