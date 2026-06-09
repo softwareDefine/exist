@@ -387,6 +387,36 @@ input:focus {
   font-weight: 800;
   color: var(--green);
   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nb-sched-add {
+  border: 1px solid var(--green);
+  border-radius: 7px;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green-dark);
+  background: var(--green-soft);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.nb-sched-add:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+.nb-recur-tag {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--green-dark);
+  background: var(--green-soft);
 }
 
 .nb-expand-schedule {
@@ -3023,7 +3053,7 @@ input:focus {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-sub);
-  width: 36px;
+  width: 54px;
   flex: none;
 }
 
@@ -3037,6 +3067,54 @@ input:focus {
   background: var(--surface);
   color: var(--text);
   outline: none;
+}
+
+.cm-sched-row .datepick {
+  flex: 1;
+}
+
+/* 반복 선택 */
+.cm-recur {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cm-recur-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  width: 54px;
+  flex: none;
+}
+
+.cm-recur-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cm-recur-chip {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.cm-recur-chip:hover {
+  border-color: var(--green);
+}
+
+.cm-recur-chip.on {
+  border-color: transparent;
+  background: var(--green);
+  color: #fff;
 }
 
 .cm-footer {

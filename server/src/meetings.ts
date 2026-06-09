@@ -33,9 +33,68 @@ function generateCode(): string {
   return code;
 }
 
+type Recur = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+const RECURS: Recur[] = ['none', 'daily', 'weekly', 'biweekly', 'monthly'];
+function cleanRecur(v: unknown): Recur {
+  return RECURS.includes(v as Recur) ? (v as Recur) : 'none';
+}
+function cleanDate(v: unknown): string | null {
+  return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+function toLocalISO(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function stepDate(d: Date, recur: Recur): Date {
+  const n = new Date(d);
+  if (recur === 'daily') n.setDate(n.getDate() + 1);
+  else if (recur === 'weekly') n.setDate(n.getDate() + 7);
+  else if (recur === 'biweekly') n.setDate(n.getDate() + 14);
+  else if (recur === 'monthly') n.setMonth(n.getMonth() + 1);
+  return n;
+}
+
+/** 반복 회의를 달력에 표시할 개별 occurrence(시작/종료)들로 펼친다.
+ *  창: [now-31일, min(recur_until, now+90일)], 최대 120개 */
+function expandOccurrences(
+  startsAt: string | null,
+  endsAt: string | null,
+  recur: Recur,
+  recurUntil: string | null,
+  now: Date,
+): { starts_at: string; ends_at: string | null }[] {
+  if (!startsAt) return [];
+  const base = new Date(startsAt);
+  if (isNaN(base.getTime())) return [];
+  if (recur === 'none') return [{ starts_at: startsAt, ends_at: endsAt }];
+
+  const dur = endsAt ? new Date(endsAt).getTime() - base.getTime() : 0;
+  const horizon = new Date(now.getTime() + 90 * 24 * 3600_000);
+  const until = recurUntil ? new Date(recurUntil + 'T23:59:59') : null;
+  const end = until && until < horizon ? until : horizon;
+  const lower = new Date(now.getTime() - 31 * 24 * 3600_000);
+
+  const out: { starts_at: string; ends_at: string | null }[] = [];
+  let cur = new Date(base);
+  for (let guard = 0; guard < 500 && cur <= end; guard++) {
+    if (cur >= lower) {
+      out.push({
+        starts_at: toLocalISO(cur),
+        ends_at: dur ? toLocalISO(new Date(cur.getTime() + dur)) : null,
+      });
+      if (out.length >= 120) break;
+    }
+    cur = stepDate(cur, recur);
+  }
+  return out;
+}
+
 router.post('/', (req: AuthedRequest, res) => {
   const { title, starts_at, ends_at } = req.body ?? {};
   if (!title) return res.status(400).json({ error: '회의 이름을 입력하세요' });
+  const recur = cleanRecur(req.body?.recur);
+  const recurUntil = recur === 'none' ? null : cleanDate(req.body?.recur_until);
 
   // org_id가 주어지면 해당 조직의 active 멤버만 회의를 만들 수 있다 (null = 개인 회의)
   const orgId = req.body?.org_id != null ? Number(req.body.org_id) : null;
@@ -51,9 +110,9 @@ router.post('/', (req: AuthedRequest, res) => {
 
   const info = db
     .prepare(
-      'INSERT INTO meetings (code, title, host_id, org_id, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO meetings (code, title, host_id, org_id, starts_at, ends_at, recur, recur_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(code, title, req.userId, orgId, starts_at ?? null, ends_at ?? null);
+    .run(code, title, req.userId, orgId, starts_at ?? null, ends_at ?? null, recur, recurUntil);
   const meetingId = info.lastInsertRowid as number;
   db.prepare('INSERT INTO meeting_participants (meeting_id, user_id) VALUES (?, ?)').run(
     meetingId,
@@ -167,6 +226,68 @@ router.get('/recent', (req: AuthedRequest, res) => {
     )
     .all(...params);
   res.json(rows);
+});
+
+/** 일정용 — 예정/반복 회의를 occurrence 단위로 펼쳐 반환 (달력·nowbar용)
+ *  ?org=<id>|personal 로 필터 (recent와 동일 규칙) */
+router.get('/schedule', (req: AuthedRequest, res) => {
+  const orgParam = req.query.org;
+  let where = 'mp.user_id = ? AND m.starts_at IS NOT NULL';
+  const params: (number | string)[] = [req.userId!];
+
+  if (orgParam === 'personal') {
+    where += ' AND m.org_id IS NULL';
+  } else if (orgParam != null && orgParam !== '') {
+    const orgId = Number(orgParam);
+    if (!Number.isInteger(orgId)) return res.status(400).json({ error: '잘못된 조직입니다' });
+    if (!isMember(orgId, req.userId!)) {
+      return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
+    }
+    where += ' AND m.org_id = ?';
+    params.push(orgId);
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT m.id, m.code, m.title, m.org_id, m.thumbnail, m.starts_at, m.ends_at, m.recur, m.recur_until
+       FROM meetings m JOIN meeting_participants mp ON mp.meeting_id = m.id
+       WHERE ${where}`,
+    )
+    .all(...params) as {
+    id: number;
+    code: string;
+    title: string;
+    org_id: number | null;
+    thumbnail: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    recur: Recur;
+    recur_until: string | null;
+  }[];
+
+  const now = new Date();
+  const out: unknown[] = [];
+  for (const m of rows) {
+    const occ = expandOccurrences(m.starts_at, m.ends_at, cleanRecur(m.recur), m.recur_until, now);
+    for (const o of occ) {
+      out.push({
+        id: m.id,
+        occId: `${m.id}@${o.starts_at}`,
+        code: m.code,
+        title: m.title,
+        thumbnail: m.thumbnail,
+        starts_at: o.starts_at,
+        ends_at: o.ends_at,
+        recur: m.recur,
+      });
+    }
+  }
+  out.sort(
+    (a, b) =>
+      new Date((a as { starts_at: string }).starts_at).getTime() -
+      new Date((b as { starts_at: string }).starts_at).getTime(),
+  );
+  res.json(out);
 });
 
 /** 회의 상세 (허브 탭용) — 제목/일정/호스트/현재 통화 인원 */
@@ -346,13 +467,22 @@ router.patch('/:code', (req: AuthedRequest, res) => {
   if (title !== undefined && !String(title).trim()) {
     return res.status(400).json({ error: '회의 이름을 입력하세요' });
   }
-  db.prepare(
-    `UPDATE meetings SET
-       title = COALESCE(?, title),
-       starts_at = ?,
-       ends_at = ?
-     WHERE id = ?`,
-  ).run(title ?? null, starts_at ?? null, ends_at ?? null, meeting.id);
+  if (req.body?.recur !== undefined) {
+    // 반복 정보까지 함께 갱신 (일정 잡기/수정)
+    const recur = cleanRecur(req.body.recur);
+    const recurUntil = recur === 'none' ? null : cleanDate(req.body.recur_until);
+    db.prepare(
+      `UPDATE meetings SET
+         title = COALESCE(?, title), starts_at = ?, ends_at = ?, recur = ?, recur_until = ?
+       WHERE id = ?`,
+    ).run(title ?? null, starts_at ?? null, ends_at ?? null, recur, recurUntil, meeting.id);
+  } else {
+    db.prepare(
+      `UPDATE meetings SET
+         title = COALESCE(?, title), starts_at = ?, ends_at = ?
+       WHERE id = ?`,
+    ).run(title ?? null, starts_at ?? null, ends_at ?? null, meeting.id);
+  }
   res.json({ ok: true });
 });
 

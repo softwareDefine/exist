@@ -4,19 +4,31 @@ import { api } from '../api';
 import { useOrgStore, type OrgContext } from '../orgStore';
 import { CloseIcon, CalendarIcon, CopyIcon, CheckMarkIcon, BuildingIcon } from './Icons';
 import Avatar from './Avatar';
+import DatePicker from './DatePicker';
 
 interface Person {
   username: string;
   avatar: string | null;
 }
 
+type Recur = 'none' | 'daily' | 'weekly' | 'biweekly' | 'monthly';
+const RECUR_OPTS: { id: Recur; label: string }[] = [
+  { id: 'none', label: '안 함' },
+  { id: 'daily', label: '매일' },
+  { id: 'weekly', label: '매주' },
+  { id: 'biweekly', label: '격주' },
+  { id: 'monthly', label: '매월' },
+];
+
 interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /** 일정 잡기 진입 — 열릴 때 일정 토글을 미리 켠다 */
+  defaultSchedule?: boolean;
 }
 
-export default function CreateMeetingModal({ open, onClose, onCreated }: Props) {
+export default function CreateMeetingModal({ open, onClose, onCreated, defaultSchedule }: Props) {
   const navigate = useNavigate();
   const orgs = useOrgStore((s) => s.orgs);
   const current = useOrgStore((s) => s.current);
@@ -25,6 +37,8 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
   const [schedOn, setSchedOn] = useState(false);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [recur, setRecur] = useState<Recur>('none');
+  const [recurUntil, setRecurUntil] = useState<string | null>(null);
   const [invite, setInvite] = useState<Person[]>([]);
   const [pq, setPq] = useState('');
   const [results, setResults] = useState<Person[]>([]);
@@ -36,15 +50,17 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
     if (!open) return;
     setTitle('');
     setOrgCtx(current);
-    setSchedOn(false);
+    setSchedOn(!!defaultSchedule);
     setStart('');
     setEnd('');
+    setRecur('none');
+    setRecurUntil(null);
     setInvite([]);
     setPq('');
     setResults([]);
     setCreated(null);
     setCopied(false);
-  }, [open, current]);
+  }, [open, current, defaultSchedule]);
 
   // 초대할 사람 검색 (디바운스)
   useEffect(() => {
@@ -107,6 +123,8 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
           org_id: orgCtx === 'personal' ? null : orgCtx,
           starts_at: schedOn ? start || null : null,
           ends_at: schedOn ? end || null : null,
+          recur: schedOn ? recur : 'none',
+          recur_until: schedOn && recur !== 'none' ? recurUntil : null,
           invite: invite.map((p) => p.username),
         },
       });
@@ -299,6 +317,32 @@ export default function CreateMeetingModal({ open, onClose, onCreated }: Props) 
                         onChange={(e) => setEnd(e.target.value)}
                       />
                     </label>
+
+                    <div className="cm-recur">
+                      <span className="cm-recur-label">반복</span>
+                      <div className="cm-recur-opts">
+                        {RECUR_OPTS.map((o) => (
+                          <button
+                            type="button"
+                            key={o.id}
+                            className={`cm-recur-chip${recur === o.id ? ' on' : ''}`}
+                            onClick={() => setRecur(o.id)}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {recur !== 'none' && (
+                      <label className="cm-sched-row">
+                        <span>반복 종료</span>
+                        <DatePicker
+                          value={recurUntil}
+                          onChange={setRecurUntil}
+                          placeholder="언제까지 (선택)"
+                        />
+                      </label>
+                    )}
                   </div>
                 )}
               </div>

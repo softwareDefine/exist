@@ -19,12 +19,19 @@ export default function DashboardPage() {
   );
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
+  const [schedule, setSchedule] = useState<Meeting[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   // 강퇴 등 라우팅으로 전달된 안내 메시지
   const message = (location.state as { message?: string } | null)?.message ?? '';
 
-  // 회의 생성 모달
+  // 회의 생성 모달 (schedMode = 일정 잡기로 진입)
   const [showCreate, setShowCreate] = useState(false);
+  const [createSchedMode, setCreateSchedMode] = useState(false);
+
+  function openCreate(schedMode = false) {
+    setCreateSchedMode(schedMode);
+    setShowCreate(true);
+  }
 
   // 회의 탭 열기 요청 (우측 패널로 전달)
   const [meetingRequest, setMeetingRequest] = useState<MeetingTabRequest | null>(null);
@@ -48,11 +55,13 @@ export default function DashboardPage() {
   async function refresh() {
     try {
       const param = useOrgStore.getState().contextParam();
-      const [meetings, todoList] = await Promise.all([
+      const [meetings, sched, todoList] = await Promise.all([
         api<Meeting[]>(`/api/meetings/recent?org=${param}`),
+        api<Meeting[]>(`/api/meetings/schedule?org=${param}`),
         api<Todo[]>('/api/todos'),
       ]);
       setRecent(meetings);
+      setSchedule(sched);
       setTodos(todoList);
     } catch {
       /* 로그아웃 등으로 실패 시 무시 — 라우터 가드가 처리 */
@@ -92,10 +101,11 @@ export default function DashboardPage() {
     <>
       <NowBar
         todos={todos}
-        meetings={recent}
+        meetings={schedule}
         onToggleTodo={toggleTodo}
         onAddTodo={addTodo}
         onOpenMeeting={(m) => openMeetingTab(m.code, m.title)}
+        onSchedule={() => openCreate(true)}
         onToggleSidebar={toggleSidebar}
       />
       <NotificationToasts />
@@ -106,7 +116,7 @@ export default function DashboardPage() {
           <div className="join-card">
             <div className="head">
               <h2>회의 입장</h2>
-              <button className="new-btn" onClick={() => setShowCreate(true)} title="새 회의 만들기">
+              <button className="new-btn" onClick={() => openCreate(false)} title="새 회의 만들기">
                 +
               </button>
             </div>
@@ -170,6 +180,7 @@ export default function DashboardPage() {
 
       <CreateMeetingModal
         open={showCreate}
+        defaultSchedule={createSchedMode}
         onClose={() => setShowCreate(false)}
         onCreated={() => void refresh()}
       />

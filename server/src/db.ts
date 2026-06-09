@@ -182,4 +182,16 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 반복 회의 — recur(none|daily|weekly|biweekly|monthly), recur_until(날짜, null=무한/없음)
+try {
+  db.exec(`ALTER TABLE meetings ADD COLUMN recur TEXT NOT NULL DEFAULT 'none'`);
+} catch {
+  /* 이미 존재 */
+}
+try {
+  db.exec(`ALTER TABLE meetings ADD COLUMN recur_until TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 export default db;

@@ -39,7 +39,19 @@ export interface Meeting {
   starts_at: string | null;
   ends_at: string | null;
   thumbnail?: string | null;
+  /** 반복 회의를 펼친 occurrence 고유키 (일정 목록용) */
+  occId?: string;
+  recur?: string;
 }
+
+const RECUR_LABEL: Record<string, string> = {
+  daily: '매일',
+  weekly: '매주',
+  biweekly: '격주',
+  monthly: '매월',
+};
+
+const mkey = (m: Meeting) => m.occId ?? String(m.id);
 
 /** "7월 8일 (오후) 4시 40분" 형식 */
 function formatNow(d: Date): string {
@@ -257,6 +269,8 @@ interface Props {
   onAddTodo?: (title: string) => void;
   /** 일정 클릭 → 회의 탭 열기 */
   onOpenMeeting?: (m: Meeting) => void;
+  /** "+ 일정 추가" → 회의 일정 잡기 모달 */
+  onSchedule?: () => void;
   /** 사이드바 열고 닫기 */
   onToggleSidebar?: () => void;
 }
@@ -307,6 +321,7 @@ export default function NowBar({
   onToggleTodo,
   onAddTodo,
   onOpenMeeting,
+  onSchedule,
   onToggleSidebar,
 }: Props) {
   const [newTodo, setNewTodo] = useState('');
@@ -404,7 +419,7 @@ export default function NowBar({
       (m) =>
         m.starts_at &&
         new Date(m.starts_at).getTime() > now.getTime() &&
-        m.id !== ctx?.meeting.id,
+        mkey(m) !== (ctx ? mkey(ctx.meeting) : ''),
     )
     .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())
     .slice(0, 2);
@@ -474,13 +489,16 @@ export default function NowBar({
           <div className="nb-next-list">
             {nexts.map((m) => (
               <div
-                key={m.id}
+                key={mkey(m)}
                 className={`nb-next-row${onOpenMeeting ? ' clickable' : ''}`}
                 onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
                 title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
               >
                 <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
                 <span className="nb-next-title">{m.title}</span>
+                {m.recur && m.recur !== 'none' && (
+                  <span className="nb-recur-tag">{RECUR_LABEL[m.recur] ?? '반복'}</span>
+                )}
                 <span className="nb-next-start">
                   <b>시작</b> {formatStart(new Date(m.starts_at!), now)}
                 </span>
@@ -563,7 +581,14 @@ export default function NowBar({
               <div className="nb-expand-schedule">
                 <MonthCalendar meetings={meetings} now={now} />
                 <div className="nb-upcoming">
-                  <div className="nb-expand-title">다가오는 일정</div>
+                  <div className="nb-expand-title">
+                    다가오는 일정
+                    {onSchedule && (
+                      <button type="button" className="nb-sched-add" onClick={onSchedule}>
+                        + 일정 추가
+                      </button>
+                    )}
+                  </div>
                   {meetings
                     .filter((m) => m.starts_at && new Date(m.starts_at) > now)
                     .sort(
@@ -573,13 +598,16 @@ export default function NowBar({
                     .slice(0, 5)
                     .map((m) => (
                       <div
-                        key={m.id}
+                        key={mkey(m)}
                         className={`nb-next-row${onOpenMeeting ? ' clickable' : ''}`}
                         onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
                         title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
                       >
                         <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
                         <span className="nb-next-title">{m.title}</span>
+                        {m.recur && m.recur !== 'none' && (
+                          <span className="nb-recur-tag">{RECUR_LABEL[m.recur] ?? '반복'}</span>
+                        )}
                         <span className="nb-next-start">
                           <b>시작</b> {formatStart(new Date(m.starts_at!), now)}
                         </span>
