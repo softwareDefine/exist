@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Tldraw, type TLAssetStore } from 'tldraw';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Tldraw, type TLAssetStore, type Editor } from 'tldraw';
 import { useSync } from '@tldraw/sync';
 import 'tldraw/tldraw.css';
 import { useAuthStore } from '../store';
@@ -7,6 +7,22 @@ import { useAuthStore } from '../store';
 /** tldraw 동시편집 캔버스 — roomId 단위 공유 (워크스페이스/회의 공용) */
 export default function CanvasBoard({ roomId }: { roomId: string }) {
   const token = useAuthStore((s) => s.token);
+  const editorRef = useRef<Editor | null>(null);
+
+  // 앱 다크모드(html.dark) 추종
+  const [dark, setDark] = useState(
+    () => typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
+  );
+  useEffect(() => {
+    const obs = new MutationObserver(() =>
+      setDark(document.documentElement.classList.contains('dark')),
+    );
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
+  useEffect(() => {
+    editorRef.current?.user.updateUserPreferences({ colorScheme: dark ? 'dark' : 'light' });
+  }, [dark]);
 
   const assets = useMemo<TLAssetStore>(
     () => ({
@@ -35,5 +51,13 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
     assets,
   });
 
-  return <Tldraw store={store} />;
+  return (
+    <Tldraw
+      store={store}
+      onMount={(editor) => {
+        editorRef.current = editor;
+        editor.user.updateUserPreferences({ colorScheme: dark ? 'dark' : 'light' });
+      }}
+    />
+  );
 }

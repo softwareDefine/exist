@@ -185,7 +185,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const [peers, setPeers] = useState(1);
   const [cursor, setCursor] = useState({ line: 1, col: 1 });
-  const [creating, setCreating] = useState<{ dir: string; kind: 'file' | 'folder' } | null>(null);
+  const [creating, setCreating] = useState<{ dir: string } | null>(null);
   const [draftName, setDraftName] = useState('');
   const creatingRef = useRef(false); // Enter/blur 중복 생성 방지
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -485,12 +485,14 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
     setDraftName('');
     if (!map || !raw || !c || !creatingRef.current) return;
     creatingRef.current = false; // 두 번째 호출(blur) 무시
+    // 확장자(.xxx)가 있으면 파일, 없으면 폴더
+    const isFile = /\.[^./\\]+$/.test(raw);
     const fullName = c.dir ? `${c.dir}/${raw}` : raw;
     if (files.some((f) => f.name === fullName)) return; // 중복 방지
     const ord = files.reduce((m, f) => Math.max(m, f.ord), 0) + 1;
     const id = crypto.randomUUID();
-    map.set(id, { name: fullName, ord, dir: c.kind === 'folder' });
-    if (c.kind === 'folder') {
+    map.set(id, { name: fullName, ord, dir: !isFile });
+    if (!isFile) {
       setCollapsed((s) => {
         const n = new Set(s);
         n.delete(fullName);
@@ -501,9 +503,9 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
       openFile(id);
     }
   }
-  function startCreating(dir: string, kind: 'file' | 'folder') {
+  function startCreating(dir: string) {
     creatingRef.current = true;
-    setCreating({ dir, kind });
+    setCreating({ dir });
     setDraftName('');
     setCollapsed((s) => {
       const n = new Set(s);
@@ -590,13 +592,14 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
     }
   });
 
+  const draftIsFile = /\.[^./\\]+$/.test(draftName.trim());
   const createInput = (dir: string, depth: number) => (
     <div key={`new:${dir}`} className="vsc-file creating" style={{ paddingLeft: 10 + depth * 14 }}>
-      <span className="vsc-file-ic">{creating?.kind === 'folder' ? '📁' : '📄'}</span>
+      <span className="vsc-file-ic">{draftName.trim() && !draftIsFile ? '📁' : '📄'}</span>
       <input
         className="vsc-file-input"
         autoFocus
-        placeholder={creating?.kind === 'folder' ? '폴더명' : '파일명.js'}
+        placeholder="이름.js = 파일 / 이름 = 폴더"
         value={draftName}
         onChange={(e) => setDraftName(e.target.value)}
         onBlur={createEntry}
@@ -668,11 +671,12 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
         <div className="vsc-sidebar-head">
           <span>탐색기{currentDir && <span className="vsc-curdir"> · {basename(currentDir)}/</span>}</span>
           <span className="vsc-head-btns">
-            <button className="vsc-newfile" title="새 파일" onClick={() => startCreating(currentDir, 'file')}>
+            <button
+              className="vsc-newfile"
+              title="새로 만들기 (확장자 있으면 파일, 없으면 폴더)"
+              onClick={() => startCreating(currentDir)}
+            >
               <PlusIcon size={15} />
-            </button>
-            <button className="vsc-newfile" title="새 폴더" onClick={() => startCreating(currentDir, 'folder')}>
-              📁
             </button>
             {currentDir && (
               <button className="vsc-newfile" title="최상위로" onClick={() => setCurrentDir('')}>
