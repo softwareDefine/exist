@@ -536,6 +536,17 @@ export default function NowBar({
       /* 무시 */
     }
   }
+
+  // 회의 안에서 할 일이 바뀌면(그 회의가 지금 nowbar에 떠 있으면) 같이 갱신
+  useEffect(() => {
+    function onTodos(e: Event) {
+      const c = (e as CustomEvent<{ code?: string }>).detail?.code;
+      if (fg?.code && (!c || c === fg.code)) void refetchGroupTodos();
+    }
+    window.addEventListener('exist:todos-changed', onTodos);
+    return () => window.removeEventListener('exist:todos-changed', onTodos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fg?.code]);
   async function toggleGroupTodo(td: Todo) {
     await api(`/api/todos/${td.id}`, { method: 'PATCH', body: { done: !td.done } }).catch(() => {});
     void refetchGroupTodos();

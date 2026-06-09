@@ -233,6 +233,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     } catch {
       /* 무시 */
     }
+    // nowbar가 이 회의 할 일을 띄우고 있으면 같이 갱신
+    window.dispatchEvent(new CustomEvent('exist:todos-changed', { detail: { code } }));
   }
   async function addTodo(e: React.FormEvent) {
     e.preventDefault();
