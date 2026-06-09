@@ -7218,7 +7218,13 @@ input:focus {
   white-space: nowrap;
 }
 
-/* mini PiP — 인원수에 맞춰 타일이 박스를 꽉 채움 (16:9 강제 해제, cover 크롭) */
+/* mini PiP — 박스를 컨테이너로 삼아, 크기에 따라 보이는 인원을 늘린다 */
+.hub-call.mini {
+  container-type: inline-size;
+  container-name: pip;
+}
+
+/* 타일이 박스를 꽉 채움 (16:9 강제 해제, cover 크롭) */
 .hub-call.mini .video-area {
   gap: 0;
 }
@@ -7233,8 +7239,29 @@ input:focus {
 }
 
 .hub-call.mini .video-grid:not(.count-1) {
-  grid-template-columns: 1fr 1fr; /* 2명+: 2열 그리드 */
+  grid-template-columns: 1fr 1fr; /* 2명+: 기본 2열 */
   grid-auto-rows: 1fr;
+}
+
+/* 작을 때(좁음): 최대 2명만 — 로컬 + 첫 피어, 나머지 숨김 */
+@container pip (max-width: 439px) {
+  .hub-call.mini .video-grid > .peer-cell:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+/* 중간: 최대 4명(2×2) */
+@container pip (min-width: 440px) and (max-width: 639px) {
+  .hub-call.mini .video-grid > .peer-cell:nth-child(n + 5) {
+    display: none;
+  }
+}
+
+/* 큼: 3열로 전원 표시 */
+@container pip (min-width: 640px) {
+  .hub-call.mini .video-grid:not(.count-1) {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .hub-call.mini .video-grid .video-tile {
