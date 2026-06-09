@@ -227,10 +227,127 @@ interface MergeRange {
   c2: number;
 }
 
+interface CFRule {
+  r1: number;
+  c1: number;
+  r2: number;
+  c2: number;
+  op: '>' | '<' | '=' | 'contains';
+  value: string;
+  color: string;
+}
+
 const FILL_COLORS = ['', '#fff3bf', '#ffd8a8', '#ffc9c9', '#d3f9d8', '#a5d8ff', '#d0bfff', '#e9ecef'];
 const TEXT_COLORS = ['#1c2024', '#e03131', '#1971c2', '#2f9e44', '#f08c00', '#9c36b5', '#ffffff'];
 
 const EMPTY_STYLE: CellStyle = {}; // 빈 셀 공용 ref (memo 안정화)
+
+const CHART_COLORS = ['#21c818', '#4f7cff', '#f76808', '#e5484d', '#8e4ec6', '#0091ff', '#f5a524'];
+
+/** 선택 범위로 SVG 차트 그리기 (막대/선/원) */
+function renderChart(
+  type: 'bar' | 'line' | 'pie',
+  labels: string[],
+  series: { name: string; data: number[] }[],
+): React.ReactNode {
+  const W = 600;
+  const H = 340;
+  const pad = { l: 46, r: 16, t: 16, b: 50 };
+  const iw = W - pad.l - pad.r;
+  const ih = H - pad.t - pad.b;
+
+  if (type === 'pie') {
+    const data = series[0]?.data ?? [];
+    const total = data.reduce((s, n) => s + Math.max(0, n), 0) || 1;
+    let ang = -Math.PI / 2;
+    const cx = W / 2;
+    const cy = pad.t + ih / 2;
+    const rad = Math.min(iw, ih) / 2 - 4;
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
+        {data.map((v, i) => {
+          const frac = Math.max(0, v) / total;
+          const a2 = ang + frac * 2 * Math.PI;
+          const x1 = cx + rad * Math.cos(ang);
+          const y1 = cy + rad * Math.sin(ang);
+          const x2 = cx + rad * Math.cos(a2);
+          const y2 = cy + rad * Math.sin(a2);
+          const large = frac > 0.5 ? 1 : 0;
+          const d = `M${cx},${cy} L${x1},${y1} A${rad},${rad} 0 ${large} 1 ${x2},${y2} Z`;
+          ang = a2;
+          return <path key={i} d={d} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="var(--surface)" strokeWidth="1.5" />;
+        })}
+        {labels.map((l, i) => (
+          <g key={i} transform={`translate(${16}, ${24 + i * 18})`}>
+            <rect width="11" height="11" rx="2" fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            <text x="16" y="10" fontSize="12" fill="var(--text)">{l} ({data[i] ?? 0})</text>
+          </g>
+        ))}
+      </svg>
+    );
+  }
+
+  const allVals = series.flatMap((s) => s.data);
+  const maxV = Math.max(1, ...allVals);
+  const minV = Math.min(0, ...allVals);
+  const range = maxV - minV || 1;
+  const yOf = (v: number) => pad.t + ih - ((v - minV) / range) * ih;
+  const n = labels.length;
+  const groupW = iw / Math.max(1, n);
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
+      {/* 축 */}
+      <line x1={pad.l} y1={pad.t} x2={pad.l} y2={pad.t + ih} stroke="var(--border)" />
+      <line x1={pad.l} y1={pad.t + ih} x2={pad.l + iw} y2={pad.t + ih} stroke="var(--border)" />
+      {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
+        const v = minV + range * f;
+        const y = yOf(v);
+        return (
+          <g key={i}>
+            <line x1={pad.l} y1={y} x2={pad.l + iw} y2={y} stroke="var(--border)" strokeDasharray="2 3" opacity="0.5" />
+            <text x={pad.l - 6} y={y + 4} fontSize="10" textAnchor="end" fill="var(--text-sub)">
+              {Math.round(v * 100) / 100}
+            </text>
+          </g>
+        );
+      })}
+      {/* 데이터 */}
+      {type === 'bar'
+        ? series.map((s, si) =>
+            s.data.map((v, i) => {
+              const bw = (groupW * 0.7) / series.length;
+              const x = pad.l + i * groupW + groupW * 0.15 + si * bw;
+              const y = yOf(v);
+              const y0 = yOf(0);
+              return (
+                <rect key={`${si}-${i}`} x={x} y={Math.min(y, y0)} width={bw} height={Math.abs(y0 - y)} fill={CHART_COLORS[si % CHART_COLORS.length]} rx="1.5" />
+              );
+            }),
+          )
+        : series.map((s, si) => {
+            const pts = s.data
+              .map((v, i) => `${pad.l + i * groupW + groupW / 2},${yOf(v)}`)
+              .join(' ');
+            return <polyline key={si} points={pts} fill="none" stroke={CHART_COLORS[si % CHART_COLORS.length]} strokeWidth="2.5" strokeLinejoin="round" />;
+          })}
+      {/* x 라벨 */}
+      {labels.map((l, i) => (
+        <text key={i} x={pad.l + i * groupW + groupW / 2} y={pad.t + ih + 16} fontSize="11" textAnchor="middle" fill="var(--text-sub)">
+          {l.length > 8 ? l.slice(0, 7) + '…' : l}
+        </text>
+      ))}
+      {/* 범례 */}
+      {series.length > 1 &&
+        series.map((s, i) => (
+          <g key={i} transform={`translate(${pad.l + i * 90}, ${H - 8})`}>
+            <rect width="10" height="10" rx="2" fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            <text x="14" y="9" fontSize="11" fill="var(--text)">{s.name}</text>
+          </g>
+        ))}
+    </svg>
+  );
+}
 
 interface SheetCellProps {
   r: number;
@@ -242,6 +359,7 @@ interface SheetCellProps {
   active: boolean;
   inRange: boolean;
   isFormula: boolean;
+  cfBg?: string;
   editing: boolean;
   editValue: string;
   editRef: React.RefObject<HTMLInputElement | null>;
@@ -264,6 +382,7 @@ const SheetCell = memo(function SheetCell({
   active,
   inRange,
   isFormula,
+  cfBg,
   editing,
   editValue,
   editRef,
@@ -278,7 +397,7 @@ const SheetCell = memo(function SheetCell({
     fontWeight: sty.b ? 700 : undefined,
     fontStyle: sty.i ? 'italic' : undefined,
     color: sty.color || undefined,
-    background: sty.bg || undefined,
+    background: cfBg || sty.bg || undefined,
     textAlign: sty.align,
     borderTop: sty.bt ? '2px solid var(--text)' : undefined,
     borderRight: sty.br ? '2px solid var(--text)' : undefined,
@@ -327,6 +446,12 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   const [findOpen, setFindOpen] = useState(false);
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
+  const cfRef = useRef<Y.Array<CFRule> | null>(null);
+  const [cfRules, setCfRules] = useState<CFRule[]>([]);
+  const [filter, setFilter] = useState<{ col: number; text: string } | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [cfForm, setCfForm] = useState<{ op: CFRule['op']; value: string; color: string } | null>(null);
+  const [chart, setChart] = useState<{ type: 'bar' | 'line' | 'pie' } | null>(null);
   const [merges, setMerges] = useState<MergeRange[]>([]);
   const [menu, setMenu] = useState<'fill' | 'text' | 'border' | null>(null);
   const [, bump] = useState(0);
@@ -420,23 +545,29 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     const cells = ydoc.getMap(activeSheet.cellsKey);
     const styles = ydoc.getMap<CellStyle>(`${activeSheet.cellsKey}:style`);
     const mergeArr = ydoc.getArray<MergeRange>(`${activeSheet.cellsKey}:merge`);
+    const cfArr = ydoc.getArray<CFRule>(`${activeSheet.cellsKey}:cf`);
     cellsRef.current = cells;
     stylesRef.current = styles;
     mergesRef.current = mergeArr;
+    cfRef.current = cfArr;
     const um = new Y.UndoManager([cells, styles, mergeArr], { captureTimeout: 350 });
     undoRef.current = um;
     setMerges(mergeArr.toArray());
+    setCfRules(cfArr.toArray());
     setContentVer((n) => n + 1);
     const onCells = () => setContentVer((n) => n + 1);
     const onStyles = () => bump((n) => n + 1);
     const onMerges = () => setMerges(mergeArr.toArray());
+    const onCf = () => setCfRules(cfArr.toArray());
     cells.observe(onCells);
     styles.observe(onStyles);
     mergeArr.observe(onMerges);
+    cfArr.observe(onCf);
     return () => {
       cells.unobserve(onCells);
       styles.unobserve(onStyles);
       mergeArr.unobserve(onMerges);
+      cfArr.unobserve(onCf);
       um.destroy();
     };
   }, [activeSheet?.cellsKey]);
@@ -709,6 +840,113 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
         }
       });
     });
+  }
+
+  function usedBounds() {
+    let maxR = 0;
+    let maxC = 0;
+    cellsRef.current?.forEach((_v, k) => {
+      const ref = parseRef(k);
+      if (ref) {
+        maxR = Math.max(maxR, ref.r);
+        maxC = Math.max(maxC, ref.c);
+      }
+    });
+    return { maxR, maxC };
+  }
+
+  // ── 정렬 ──
+  function sortRange(desc: boolean) {
+    const cells = cellsRef.current;
+    const styles = stylesRef.current;
+    const ydoc = ydocRef.current;
+    if (!cells || !styles || !ydoc) return;
+    const rg = curRange();
+    const { maxR, maxC } = usedBounds();
+    const multi = rg.r1 !== rg.r2 || rg.c1 !== rg.c2;
+    const R1 = multi ? rg.r1 : 0;
+    const R2 = multi ? rg.r2 : maxR;
+    const C1 = multi ? rg.c1 : 0;
+    const C2 = multi ? rg.c2 : maxC;
+    const keyCol = Math.min(Math.max(sel.c, C1), C2);
+    const rowsArr: { key: string; cells: { v: string; s: CellStyle }[] }[] = [];
+    for (let r = R1; r <= R2; r++) {
+      const cellsRow: { v: string; s: CellStyle }[] = [];
+      for (let c = C1; c <= C2; c++) cellsRow.push({ v: raw(r, c), s: { ...styleOf(r, c) } });
+      rowsArr.push({ key: display(r, keyCol), cells: cellsRow });
+    }
+    rowsArr.sort((a, b) => {
+      const an = parseFloat(a.key);
+      const bn = parseFloat(b.key);
+      const cmp = !isNaN(an) && !isNaN(bn) ? an - bn : a.key.localeCompare(b.key);
+      return desc ? -cmp : cmp;
+    });
+    undoRef.current?.stopCapturing();
+    ydoc.transact(() => {
+      for (let i = 0; i < rowsArr.length; i++) {
+        const r = R1 + i;
+        for (let j = 0; j < rowsArr[i].cells.length; j++) {
+          const c = C1 + j;
+          const src = rowsArr[i].cells[j];
+          setCell(r, c, src.v);
+          const k = cellKey(r, c);
+          if (Object.keys(src.s).length) styles.set(k, src.s);
+          else styles.delete(k);
+        }
+      }
+    });
+  }
+
+  // ── 조건부 서식 ──
+  function addCfRule(op: CFRule['op'], value: string, color: string) {
+    const arr = cfRef.current;
+    if (!arr) return;
+    const { r1, c1, r2, c2 } = curRange();
+    arr.push([{ r1, c1, r2, c2, op, value, color }]);
+    setCfForm(null);
+  }
+  function clearCf() {
+    cfRef.current?.delete(0, cfRef.current.length);
+  }
+  function cfBgFor(r: number, c: number, value: string): string | undefined {
+    for (const rule of cfRules) {
+      if (r < rule.r1 || r > rule.r2 || c < rule.c1 || c > rule.c2) continue;
+      const vn = parseFloat(value);
+      const tn = parseFloat(rule.value);
+      let ok = false;
+      if (rule.op === 'contains') ok = value.includes(rule.value);
+      else if (rule.op === '=') ok = !isNaN(vn) && !isNaN(tn) ? vn === tn : value === rule.value;
+      else if (!isNaN(vn) && !isNaN(tn)) ok = rule.op === '>' ? vn > tn : vn < tn;
+      if (ok) return rule.color;
+    }
+    return undefined;
+  }
+
+  // ── 필터 ──
+  function rowHidden(r: number, valueGrid: string[][]): boolean {
+    if (!filter || !filter.text || r === 0) return false;
+    const v = (valueGrid[r]?.[filter.col] ?? '').toLowerCase();
+    return !v.includes(filter.text.toLowerCase());
+  }
+
+  // ── 차트 데이터 (선택 범위) ──
+  function chartData(): { labels: string[]; series: { name: string; data: number[] }[] } {
+    const rg = curRange();
+    const labels: string[] = [];
+    const series: { name: string; data: number[] }[] = [];
+    const hasLabelCol = rg.c2 > rg.c1;
+    const labelCol = rg.c1;
+    const dataC1 = hasLabelCol ? rg.c1 + 1 : rg.c1;
+    for (let r = rg.r1; r <= rg.r2; r++) labels.push(hasLabelCol ? display(r, labelCol) || `${r + 1}` : `${r + 1}`);
+    for (let c = dataC1; c <= rg.c2; c++) {
+      const data: number[] = [];
+      for (let r = rg.r1; r <= rg.r2; r++) {
+        const n = parseFloat(display(r, c));
+        data.push(isNaN(n) ? 0 : n);
+      }
+      series.push({ name: colLetter(c), data });
+    }
+    return { labels, series };
   }
 
   function startEdit(r: number, c: number, initial?: string) {
@@ -1033,7 +1271,75 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
         <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setFindOpen((v) => !v)} title="찾기·바꾸기 (Ctrl+F)">
           🔍
         </button>
+        <span className="sht-sep" />
+        <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => sortRange(false)} title="오름차순 정렬">
+          ↑정렬
+        </button>
+        <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => sortRange(true)} title="내림차순 정렬">
+          ↓정렬
+        </button>
+        <button className={`sht-btn${filter ? ' on' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => { setFilterOpen((v) => !v); if (!filterOpen) setFilter({ col: sel.c, text: '' }); }} title="필터">
+          ⛃ 필터
+        </button>
+        <button className={`sht-btn${cfRules.length ? ' on' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => setCfForm(cfForm ? null : { op: '>', value: '', color: '#ffc9c9' })} title="조건부 서식">
+          🎯 조건부
+        </button>
+        <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setChart({ type: 'bar' })} title="차트 만들기">
+          📊 차트
+        </button>
       </div>
+
+      {filterOpen && (
+        <div className="sheet-find">
+          <span className="sheet-find-label">필터 열</span>
+          <select
+            value={filter?.col ?? sel.c}
+            onChange={(e) => setFilter({ col: +e.target.value, text: filter?.text ?? '' })}
+          >
+            {Array.from({ length: COLS }, (_, c) => (
+              <option key={c} value={c}>{colLetter(c)}</option>
+            ))}
+          </select>
+          <input
+            placeholder="포함할 값 (비우면 전체)"
+            value={filter?.text ?? ''}
+            onChange={(e) => setFilter({ col: filter?.col ?? sel.c, text: e.target.value })}
+            autoFocus
+          />
+          <button className="sheet-find-close" onClick={() => { setFilter(null); setFilterOpen(false); }}>
+            해제 ✕
+          </button>
+        </div>
+      )}
+
+      {cfForm && (
+        <div className="sheet-find">
+          <span className="sheet-find-label">선택 영역이</span>
+          <select value={cfForm.op} onChange={(e) => setCfForm({ ...cfForm, op: e.target.value as CFRule['op'] })}>
+            <option value=">">보다 큼 &gt;</option>
+            <option value="<">보다 작음 &lt;</option>
+            <option value="=">같음 =</option>
+            <option value="contains">포함</option>
+          </select>
+          <input
+            placeholder="값"
+            value={cfForm.value}
+            onChange={(e) => setCfForm({ ...cfForm, value: e.target.value })}
+          />
+          {['#ffc9c9', '#d3f9d8', '#fff3bf', '#a5d8ff', '#d0bfff'].map((col) => (
+            <button
+              key={col}
+              className="sht-swatch"
+              style={{ background: col, outline: cfForm.color === col ? '2px solid var(--green)' : undefined }}
+              onClick={() => setCfForm({ ...cfForm, color: col })}
+            />
+          ))}
+          <button onClick={() => addCfRule(cfForm.op, cfForm.value, cfForm.color)}>규칙 추가</button>
+          {cfRules.length > 0 && (
+            <button className="sheet-find-close" onClick={clearCf}>전체 해제 ({cfRules.length})</button>
+          )}
+        </div>
+      )}
 
       {findOpen && (
         <div className="sheet-find">
@@ -1069,7 +1375,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
           </thead>
           <tbody>
             {Array.from({ length: ROWS }, (_, r) => (
-              <tr key={r}>
+              <tr key={r} style={rowHidden(r, valueGrid) ? { display: 'none' } : undefined}>
                 <th className={`sheet-rownum${r >= r1 && r <= r2 ? ' sel' : ''}`}>{r + 1}</th>
                 {Array.from({ length: COLS }, (_, c) => {
                   const cov = mergeCovering(r, c);
@@ -1081,6 +1387,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
                       key={c}
                       r={r}
                       c={c}
+                      cfBg={cfRules.length ? cfBgFor(r, c, valueGrid[r]?.[c] ?? '') : undefined}
                       value={valueGrid[r]?.[c] ?? ''}
                       style={styleOf(r, c)}
                       colSpan={cov ? cov.c2 - cov.c1 + 1 : undefined}
@@ -1146,6 +1453,42 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
           +
         </button>
       </div>
+
+      {chart && (() => {
+        const { labels, series } = chartData();
+        const empty = series.length === 0 || series.every((s) => s.data.every((v) => v === 0));
+        return (
+          <div className="sheet-chart-overlay" onClick={() => setChart(null)}>
+            <div className="sheet-chart" onClick={(e) => e.stopPropagation()}>
+              <div className="sheet-chart-head">
+                <div className="sheet-chart-types">
+                  {(['bar', 'line', 'pie'] as const).map((t) => (
+                    <button
+                      key={t}
+                      className={chart.type === t ? 'on' : ''}
+                      onClick={() => setChart({ type: t })}
+                    >
+                      {t === 'bar' ? '막대' : t === 'line' ? '선' : '원'}
+                    </button>
+                  ))}
+                </div>
+                <span className="sheet-chart-range">
+                  {cellKey(Math.min(anchor.r, sel.r), Math.min(anchor.c, sel.c))}:
+                  {cellKey(Math.max(anchor.r, sel.r), Math.max(anchor.c, sel.c))}
+                </span>
+                <button className="sheet-chart-close" onClick={() => setChart(null)}>✕</button>
+              </div>
+              <div className="sheet-chart-body">
+                {empty ? (
+                  <div className="sheet-chart-empty">숫자가 있는 범위를 선택한 뒤 차트를 열어보세요</div>
+                ) : (
+                  renderChart(chart.type, labels, series)
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
