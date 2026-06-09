@@ -112,76 +112,26 @@ interface CurrentCtx {
   label: string; // "종료 3시간 30분 뒤" / "시작 5분 뒤"
 }
 
-/** 현재 컨텍스트 회의: 진행 중 > 가장 가까운 예정 */
-function currentMeeting(meetings: Meeting[], now: Date): CurrentCtx | null {
-  const t = now.getTime();
-  const timed = meetings.filter((m) => m.starts_at);
-  const ongoing = timed.find(
-    (m) => new Date(m.starts_at!) <= now && m.ends_at && now < new Date(m.ends_at),
-  );
-  if (ongoing) {
-    return {
-      meeting: ongoing,
-      ongoing: true,
-      label: formatDiff(new Date(ongoing.ends_at!).getTime() - t),
-    };
-  }
-  const upcoming = timed
-    .filter((m) => new Date(m.starts_at!).getTime() > t)
-    .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())[0];
-  if (upcoming) {
-    return {
-      meeting: upcoming,
-      ongoing: false,
-      label: formatStart(new Date(upcoming.starts_at!), now),
-    };
-  }
-  return null;
-}
-
-/** AI 자동 관리 — 지금 상황에 가장 알맞은 카드를 고른다.
- *  0: 일정  1: 할 일  2: 진행 타임라인 */
+/** 선택된 회의 그룹 기준으로 보여줄 카드 추천. 0: 일정  1: 할 일  2: 진행 타임라인 */
 function suggestCard(
   ctx: CurrentCtx | null,
-  meetings: Meeting[],
-  todos: Todo[],
+  groupTodos: Todo[],
   now: Date,
+  nextStartMs: number,
 ): { card: number; reason: string } {
   const t = now.getTime();
 
-  // 1) 회의 진행 중 → 타임라인
   if (ctx?.ongoing) return { card: 2, reason: '회의가 진행 중이에요' };
 
-  const pending = todos.filter((td) => !td.done);
-  const dueSoon = pending.filter((td) => {
-    if (!td.due_at) return false;
-    const due = new Date(td.due_at).getTime();
-    return due <= t + 24 * 3600_000; // 마감 지났거나 24시간 내
-  });
-
-  // 2) 30분 내 시작하는 회의 → 일정
-  if (ctx && !ctx.ongoing && ctx.meeting.starts_at) {
-    const mins = (new Date(ctx.meeting.starts_at).getTime() - t) / 60_000;
-    if (mins <= 30) return { card: 0, reason: '곧 시작하는 회의가 있어요' };
+  // 30분 내 시작하는 일정 → 일정
+  if (nextStartMs !== Infinity && (nextStartMs - t) / 60_000 <= 30) {
+    return { card: 0, reason: '곧 시작하는 일정이 있어요' };
   }
 
-  // 3) 임박한 할 일 → 할 일
-  if (dueSoon.length > 0) return { card: 1, reason: '마감이 가까운 할 일이 있어요' };
-
-  // 4) 오늘 남은 예정 회의 → 일정
-  const todayUpcoming = meetings.some(
-    (m) =>
-      m.starts_at &&
-      new Date(m.starts_at).getTime() > t &&
-      new Date(m.starts_at).toDateString() === now.toDateString(),
-  );
-  if (todayUpcoming) return { card: 0, reason: '오늘 예정된 회의가 있어요' };
-
-  // 5) 안 끝낸 할 일 → 할 일
+  const pending = groupTodos.filter((td) => !td.done);
+  if (nextStartMs !== Infinity) return { card: 0, reason: '다가오는 일정이 있어요' };
   if (pending.length > 0) return { card: 1, reason: '할 일이 남아 있어요' };
-
-  // 6) 기본 → 일정
-  return { card: 0, reason: '다가오는 일정을 보여드려요' };
+  return { card: 0, reason: '이 회의의 일정' };
 }
 
 /** 모드 카드 공통 — 왼쪽 현재 회의 블록 */
@@ -287,6 +237,8 @@ function MonthCalendar({ meetings, now }: { meetings: Meeting[]; now: Date }) {
 interface Props {
   todos?: Todo[];
   meetings?: Meeting[];
+  /** 회의 그룹들(최근 회의) — 왼쪽에 하나를 띄우고 오른쪽은 그 그룹의 일정/할일/진행도 */
+  groups?: Meeting[];
   onToggleTodo?: (todo: Todo) => void;
   onAddTodo?: (title: string) => void;
   /** 일정 클릭 → 회의 탭 열기 */
@@ -339,15 +291,14 @@ function ProfileMenu({
 }
 
 export default function NowBar({
-  todos = [],
   meetings = [],
-  onToggleTodo,
-  onAddTodo,
+  groups = [],
   onOpenMeeting,
   onSchedule,
   onToggleSidebar,
 }: Props) {
   const [newTodo, setNewTodo] = useState('');
+  const [groupTodos, setGroupTodos] = useState<Todo[]>([]);
   const [now, setNow] = useState(() => new Date());
   const [brief, setBrief] = useState('');
   const [aiCard, setAiCard] = useState<number | null>(null);
@@ -427,7 +378,7 @@ export default function NowBar({
       alive = false;
       clearInterval(t);
     };
-  }, [todos, meetings]);
+  }, [meetings, groups]);
 
   // 알림 플래시 즉시 해제 (사용자가 직접 조작하면)
   function dismissFlash() {
@@ -458,12 +409,80 @@ export default function NowBar({
     setAuto((a) => !a);
   }
 
-  const ctx = currentMeeting(meetings, now);
-  // 로컬 즉시 판단(폴백) — AI 응답 도착 전이나 오프라인에서 사용
-  const localSug = suggestCard(ctx, meetings, todos, now);
-  // 점/휠 대상 카드(0~2) — 진행 중 회의 > 서버 AI 결정 > 로컬 폴백
+  // ── 왼쪽: 가장 관련있는 회의 그룹 1개 / 오른쪽(스크롤): 그 그룹의 일정·할일·진행도 ──
+  const ranked = groups.map((g) => {
+    const evs = meetings.filter((m) => m.id === g.id && m.starts_at);
+    const ongoing = evs.find(
+      (m) => m.ends_at && new Date(m.starts_at!) <= now && now < new Date(m.ends_at),
+    );
+    const future = evs
+      .filter((m) => new Date(m.starts_at!).getTime() > now.getTime())
+      .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime());
+    return {
+      g,
+      ongoing,
+      future,
+      nextT: future[0] ? new Date(future[0].starts_at!).getTime() : Infinity,
+    };
+  });
+  const best =
+    ranked.find((r) => r.ongoing) ||
+    [...ranked].sort((a, b) => a.nextT - b.nextT).find((r) => r.future.length > 0) ||
+    ranked[0] ||
+    null;
+  const fg = best?.g ?? null;
+
+  // 선택 그룹을 occurrence 컨텍스트로 (왼쪽 블록은 그룹 자체를 표시)
+  const ctx: CurrentCtx | null = fg
+    ? {
+        meeting: fg,
+        ongoing: !!best!.ongoing,
+        label: best!.ongoing
+          ? formatDiff(new Date(best!.ongoing.ends_at!).getTime() - now.getTime())
+          : best!.future[0]
+            ? formatStart(new Date(best!.future[0].starts_at!), now)
+            : '예정된 일정 없음',
+      }
+    : null;
+
+  // 선택 그룹의 공유 할 일 로드
+  useEffect(() => {
+    const code = fg?.code;
+    if (!code) {
+      setGroupTodos([]);
+      return;
+    }
+    let alive = true;
+    void api<Todo[]>(`/api/todos?meeting=${code}`)
+      .then((t) => {
+        if (alive) setGroupTodos(t);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [fg?.code]);
+
+  async function refetchGroupTodos() {
+    if (!fg?.code) return;
+    try {
+      setGroupTodos(await api<Todo[]>(`/api/todos?meeting=${fg.code}`));
+    } catch {
+      /* 무시 */
+    }
+  }
+  async function toggleGroupTodo(td: Todo) {
+    await api(`/api/todos/${td.id}`, { method: 'PATCH', body: { done: !td.done } }).catch(() => {});
+    void refetchGroupTodos();
+  }
+  async function addGroupTodo(title: string) {
+    if (!fg?.code || !title.trim()) return;
+    await api('/api/todos', { method: 'POST', body: { title, meeting: fg.code } }).catch(() => {});
+    void refetchGroupTodos();
+  }
+
+  const localSug = suggestCard(ctx, groupTodos, now, best?.nextT ?? Infinity);
   const targetCard = ctx?.ongoing ? 2 : aiCard ?? localSug.card;
-  // 새 알림이 오면 그 위에 알림 카드를 잠깐 오버레이 (점 없이)
   const notifFresh = notifFlash && notifs.length > 0;
   const viewCard = notifFresh ? NOTIF_CARD : card;
   const reasonText = notifFresh
@@ -472,37 +491,30 @@ export default function NowBar({
       ? aiReason
       : localSug.reason;
 
-  // 자동 모드일 때 — 상황이 바뀌면 AI 판단대로 카드 전환 (알림 오버레이와 독립)
   useEffect(() => {
     if (auto && targetCard !== card) setCard(targetCard);
   }, [auto, targetCard, card]);
 
-  // 정리
-  useEffect(() => () => {
-    if (idleTimer.current) clearTimeout(idleTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (idleTimer.current) clearTimeout(idleTimer.current);
+    },
+    [],
+  );
 
-  // 다음 일정 (현재 컨텍스트 제외, 최대 2개)
-  const nexts = meetings
-    .filter(
-      (m) =>
-        m.starts_at &&
-        new Date(m.starts_at).getTime() > now.getTime() &&
-        mkey(m) !== (ctx ? mkey(ctx.meeting) : ''),
-    )
-    .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())
-    .slice(0, 2);
+  // 선택 그룹의 다가오는 일정 (최대 4개 = 2×2)
+  const nexts = best?.future.slice(0, 4) ?? [];
+  const shownTodos = [...groupTodos].sort((a, b) => a.done - b.done).slice(0, 2);
 
-  const shownTodos = [...todos].sort((a, b) => a.done - b.done).slice(0, 2);
-
-  // 시간 모드 — 진행 중 회의 타임라인
+  // 진행도 — 선택 그룹의 진행 중 회의 타임라인
   let timeline: { pct: number; ticks: { pct: number; label: string }[] } | null = null;
-  if (ctx?.ongoing && ctx.meeting.starts_at && ctx.meeting.ends_at) {
-    const s = new Date(ctx.meeting.starts_at).getTime();
-    const e = new Date(ctx.meeting.ends_at).getTime();
+  const og = best?.ongoing;
+  if (og && og.starts_at && og.ends_at) {
+    const s = new Date(og.starts_at).getTime();
+    const e = new Date(og.ends_at).getTime();
     const pct = Math.min(100, Math.max(0, ((now.getTime() - s) / (e - s)) * 100));
     const ticks: { pct: number; label: string }[] = [];
-    const first = new Date(ctx.meeting.starts_at);
+    const first = new Date(og.starts_at);
     first.setMinutes(0, 0, 0);
     first.setHours(first.getHours() + 1);
     for (let t = first.getTime(); t < e; t += 3600_000) {
@@ -519,8 +531,7 @@ export default function NowBar({
   };
 
   // 아무 데이터도 없으면 온보딩 카드만
-  const isEmpty =
-    meetings.filter((m) => m.starts_at).length === 0 && todos.length === 0 && notifs.length === 0;
+  const isEmpty = groups.length === 0 && notifs.length === 0;
 
   if (isEmpty) {
     return (
@@ -552,11 +563,11 @@ export default function NowBar({
       <SidebarToggle onToggle={onToggleSidebar} />
 
       <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">
-        {/* 카드 1 — 다음/이전 일정 모드 */}
+        {/* 카드 1 — 다음/이전 일정 모드 (최대 2×2) */}
         <div className={`nowbar-card${stackCls(0)}`}>
           <CurrentBlock ctx={ctx} onOpen={onOpenMeeting} />
           <div className="nowbar-divider" />
-          <div className="nb-next-list">
+          <div className="nb-next-list nb-next-grid">
             {nexts.map((m) => (
               <div
                 key={mkey(m)}
@@ -591,7 +602,9 @@ export default function NowBar({
                 <span className="nowbar-todo-text">{todo.title}</span>
               </div>
             ))}
-            {todos.length === 0 && <div className="nowbar-todo">투두를 추가해보세요</div>}
+            {groupTodos.length === 0 && (
+              <div className="nowbar-todo">이 회의 할 일이 없어요</div>
+            )}
           </div>
         </div>
 
@@ -709,55 +722,52 @@ export default function NowBar({
             <div className="nb-expand-content" key={viewCard}>
             {viewCard === 0 && (
               <div className="nb-expand-schedule">
-                <MonthCalendar meetings={meetings} now={now} />
+                <MonthCalendar
+                  meetings={fg ? meetings.filter((m) => m.id === fg.id) : []}
+                  now={now}
+                />
                 <div className="nb-upcoming">
                   <div className="nb-expand-title">
-                    다가오는 일정
+                    {fg ? `${fg.title} · 다가오는 일정` : '다가오는 일정'}
                     {onSchedule && (
                       <button type="button" className="nb-sched-add" onClick={onSchedule}>
                         + 일정 추가
                       </button>
                     )}
                   </div>
-                  {meetings
-                    .filter((m) => m.starts_at && new Date(m.starts_at) > now)
-                    .sort(
-                      (a, b) =>
-                        new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime(),
-                    )
-                    .slice(0, 5)
-                    .map((m) => (
-                      <div
-                        key={mkey(m)}
-                        className={`nb-next-row${onOpenMeeting ? ' clickable' : ''}`}
-                        onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
-                        title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
-                      >
-                        <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
-                        <span className="nb-next-title">{m.title}</span>
-                        {m.recur && m.recur !== 'none' && (
-                          <span className="nb-recur-tag">{RECUR_LABEL[m.recur] ?? '반복'}</span>
-                        )}
-                        <span className="nb-next-start">
-                          <b>시작</b> {formatStart(new Date(m.starts_at!), now)}
-                        </span>
-                      </div>
-                    ))}
-                  {meetings.filter((m) => m.starts_at && new Date(m.starts_at) > now).length ===
-                    0 && <div className="nb-next-empty">예정된 일정이 없어요</div>}
+                  {nexts.map((m) => (
+                    <div
+                      key={mkey(m)}
+                      className={`nb-next-row${onOpenMeeting ? ' clickable' : ''}`}
+                      onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
+                      title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
+                    >
+                      <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
+                      <span className="nb-next-title">{m.title}</span>
+                      {m.recur && m.recur !== 'none' && (
+                        <span className="nb-recur-tag">{RECUR_LABEL[m.recur] ?? '반복'}</span>
+                      )}
+                      <span className="nb-next-start">
+                        <b>시작</b> {formatStart(new Date(m.starts_at!), now)}
+                      </span>
+                    </div>
+                  ))}
+                  {nexts.length === 0 && (
+                    <div className="nb-next-empty">예정된 일정이 없어요</div>
+                  )}
                 </div>
               </div>
             )}
 
             {viewCard === 1 && (
               <div className="nb-expand-todos">
-                <div className="nb-expand-title">할 일</div>
-                {[...todos].sort((a, b) => a.done - b.done).map((todo) => (
+                <div className="nb-expand-title">{fg ? `${fg.title} · 할 일` : '할 일'}</div>
+                {[...groupTodos].sort((a, b) => a.done - b.done).map((todo) => (
                   <label key={todo.id} className={`nowbar-todo${todo.done ? ' done' : ''}`}>
                     <input
                       type="checkbox"
                       checked={!!todo.done}
-                      onChange={() => onToggleTodo?.(todo)}
+                      onChange={() => void toggleGroupTodo(todo)}
                     />
                     <span className="nowbar-todo-check" aria-hidden>
                       <CheckMarkIcon size={14} />
@@ -765,14 +775,14 @@ export default function NowBar({
                     <span className="nowbar-todo-text">{todo.title}</span>
                   </label>
                 ))}
-                {todos.length === 0 && <div className="nb-next-empty">할 일이 없어요</div>}
-                {onAddTodo && (
+                {groupTodos.length === 0 && <div className="nb-next-empty">이 회의 할 일이 없어요</div>}
+                {fg && (
                   <form
                     className="nb-todo-add"
                     onSubmit={(e) => {
                       e.preventDefault();
                       if (!newTodo.trim()) return;
-                      onAddTodo(newTodo);
+                      void addGroupTodo(newTodo);
                       setNewTodo('');
                     }}
                   >
@@ -790,11 +800,11 @@ export default function NowBar({
             {viewCard === 2 && (
               <div className="nb-expand-time">
                 <div className="nb-expand-title">진행 상황</div>
-                {ctx?.ongoing && ctx.meeting.starts_at && ctx.meeting.ends_at ? (
+                {og && og.starts_at && og.ends_at ? (
                   <>
                     <div className="nb-time-range">
-                      <span>{formatNow(new Date(ctx.meeting.starts_at))} 시작</span>
-                      <span>{formatNow(new Date(ctx.meeting.ends_at))} 종료</span>
+                      <span>{formatNow(new Date(og.starts_at))} 시작</span>
+                      <span>{formatNow(new Date(og.ends_at))} 종료</span>
                     </div>
                     {timeline && (
                       <div className="nb-timeline big">

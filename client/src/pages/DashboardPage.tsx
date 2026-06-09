@@ -111,6 +111,7 @@ export default function DashboardPage() {
       <NowBar
         todos={todos}
         meetings={schedule}
+        groups={recent}
         onToggleTodo={toggleTodo}
         onAddTodo={addTodo}
         onOpenMeeting={(m) => openMeetingTab(m.code, m.title)}
