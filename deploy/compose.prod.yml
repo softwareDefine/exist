@@ -20,8 +20,11 @@ services:
       LOCAL_IP: ${LOCAL_IP:-192.168.0.82}
       RTC_MIN_PORT: "40000"
       RTC_MAX_PORT: "40100"
+      # Colima는 UDP 포트포워딩을 못 함(lima는 TCP만). 미디어를 TCP로 우선 연결.
+      MEDIA_PREFER_TCP: "1"
     ports:
       - "40000-40100:40000-40100/udp"
+      - "40000-40100:40000-40100/tcp"
     volumes:
       - exist-data:/data
     networks:

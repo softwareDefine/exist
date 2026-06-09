@@ -132,12 +132,18 @@ function buildListenInfos(): TransportListenInfo[] {
   return infos;
 }
 
+// Colima/Docker처럼 UDP 포워딩이 막힌 환경에선 TCP 우선(MEDIA_PREFER_TCP=1).
+// UDP 후보는 그대로 두되 ICE 우선순위만 TCP로 → 빠르게 TCP로 붙는다.
+const PREFER_TCP =
+  process.env.MEDIA_PREFER_TCP === '1' || process.env.MEDIA_PREFER_TCP === 'true';
+
 async function createWebRtcTransport(router: Router): Promise<WebRtcTransport> {
   return router.createWebRtcTransport({
     listenInfos: buildListenInfos(),
     enableUdp: true,
     enableTcp: true,
-    preferUdp: true,
+    preferUdp: !PREFER_TCP,
+    preferTcp: PREFER_TCP,
     initialAvailableOutgoingBitrate: 1_000_000,
   });
 }
