@@ -192,6 +192,9 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [slideMounted, setSlideMounted] = useState(false); // 슬라이드도 한 번 열면 유지
   const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null); // 무빙 통화창 위치
   const pipDragRef = useRef<{ dx: number; dy: number } | null>(null);
+  const pipElRef = useRef<HTMLElement | null>(null); // 드래그 중 직접 조작할 PiP 엘리먼트
+  const pipRafRef = useRef<number | null>(null);
+  const pipLatest = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [todos, setTodos] = useState<MeetingTodo[]>([]);
   const [todoInput, setTodoInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -262,26 +265,42 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     };
   }, [code]);
 
-  // 무빙 통화창 드래그
+  // 무빙 통화창 드래그 — 리렌더 없이 DOM 직접 조작(+rAF), 상태는 놓을 때 1회만 커밋
   useEffect(() => {
     function onMove(e: MouseEvent) {
       const d = pipDragRef.current;
-      if (!d) return;
-      const x = Math.max(6, Math.min(window.innerWidth - 90, e.clientX - d.dx));
-      const y = Math.max(6, Math.min(window.innerHeight - 60, e.clientY - d.dy));
-      setPipPos({ x, y });
+      const el = pipElRef.current;
+      if (!d || !el) return;
+      const w = el.offsetWidth || 90;
+      const h = el.offsetHeight || 60;
+      const x = Math.max(6, Math.min(window.innerWidth - w - 6, e.clientX - d.dx));
+      const y = Math.max(6, Math.min(window.innerHeight - h - 6, e.clientY - d.dy));
+      pipLatest.current = { x, y };
+      if (pipRafRef.current == null) {
+        pipRafRef.current = requestAnimationFrame(() => {
+          pipRafRef.current = null;
+          const p = pipLatest.current;
+          el.style.left = `${p.x}px`;
+          el.style.top = `${p.y}px`;
+        });
+      }
     }
     function onUp() {
-      if (pipDragRef.current) {
-        pipDragRef.current = null;
-        document.body.style.userSelect = '';
+      if (!pipDragRef.current) return;
+      pipDragRef.current = null;
+      document.body.style.userSelect = '';
+      if (pipRafRef.current != null) {
+        cancelAnimationFrame(pipRafRef.current);
+        pipRafRef.current = null;
       }
+      setPipPos({ ...pipLatest.current }); // 최종 위치만 상태로 커밋
     }
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      if (pipRafRef.current != null) cancelAnimationFrame(pipRafRef.current);
     };
   }, []);
 
@@ -292,8 +311,14 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     const el = (e.currentTarget as HTMLElement).closest('.hub-call') as HTMLElement | null;
     if (!el) return;
     const rect = el.getBoundingClientRect();
+    pipElRef.current = el;
     pipDragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
-    if (!pipPos) setPipPos({ x: rect.left, y: rect.top });
+    pipLatest.current = { x: rect.left, y: rect.top };
+    // 좌표 기준으로 즉시 고정 (right/bottom 해제) — 이후 이동은 직접 조작
+    el.style.left = `${rect.left}px`;
+    el.style.top = `${rect.top}px`;
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
     document.body.style.userSelect = 'none';
     e.preventDefault();
   }
