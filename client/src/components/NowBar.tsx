@@ -309,6 +309,7 @@ export default function NowBar({
   const [aiSource, setAiSource] = useState<'ai' | 'rule' | null>(null);
   const [card, setCard] = useState(0);
   const [auto, setAuto] = useState(true);
+  const [rotateIdx, setRotateIdx] = useState(0); // AI 모드에서 회의 그룹 번갈아 띄우기
   const [avatar, setAvatar] = useState('🐧');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [notifs, setNotifs] = useState<NotifItem[]>([]);
@@ -428,12 +429,18 @@ export default function NowBar({
       nextT: future[0] ? new Date(future[0].starts_at!).getTime() : Infinity,
     };
   });
-  const best =
-    (focusedCode ? ranked.find((r) => r.g.code === focusedCode) : null) ||
-    ranked.find((r) => r.ongoing) ||
-    [...ranked].sort((a, b) => a.nextT - b.nextT).find((r) => r.future.length > 0) ||
-    ranked[0] ||
-    null;
+  // 새 알림이 오면 그 위에 알림 카드를 잠깐 오버레이 (점 없이)
+  const notifFresh = notifFlash && notifs.length > 0;
+  // 수동: 내가 클릭한 회의(focusedCode) / AI: 상황(진행 중·새 알림)·시간에 따라 번갈아
+  const ongoingGroup = ranked.find((r) => r.ongoing);
+  const notifMid = notifFresh ? notifs[0]?.meeting?.id : undefined;
+  const notifGroup = notifMid != null ? ranked.find((r) => r.g.id === notifMid) : null;
+  const autoCands = ranked.filter((r) => r.ongoing || r.future.length > 0);
+  const rotating = autoCands.length ? autoCands[rotateIdx % autoCands.length] : null;
+
+  const best = auto
+    ? ongoingGroup || notifGroup || rotating || ranked[0] || null
+    : (focusedCode ? ranked.find((r) => r.g.code === focusedCode) : null) || ranked[0] || null;
   const fg = best?.g ?? null;
 
   // 선택 그룹을 occurrence 컨텍스트로 (왼쪽 블록은 그룹 자체를 표시)
@@ -487,7 +494,6 @@ export default function NowBar({
 
   const localSug = suggestCard(ctx, groupTodos, now, best?.nextT ?? Infinity);
   const targetCard = ctx?.ongoing ? 2 : aiCard ?? localSug.card;
-  const notifFresh = notifFlash && notifs.length > 0;
   const viewCard = notifFresh ? NOTIF_CARD : card;
   const reasonText = notifFresh
     ? '새 알림이 왔어요'
@@ -505,6 +511,18 @@ export default function NowBar({
     },
     [],
   );
+
+  // AI 모드: 회의 그룹을 주기적으로 번갈아 (진행 중·새 알림이 있으면 그게 우선)
+  useEffect(() => {
+    if (!auto) return;
+    const t = setInterval(() => setRotateIdx((i) => i + 1), 13_000);
+    return () => clearInterval(t);
+  }, [auto]);
+
+  // 사이드바에서 회의를 직접 고르면 수동 모드로 전환 (그 회의를 따라감)
+  useEffect(() => {
+    if (focusedCode) setAuto(false);
+  }, [focusedCode]);
 
   // 선택 그룹의 다가오는 일정 (최대 4개 = 2×2)
   const nexts = best?.future.slice(0, 4) ?? [];
