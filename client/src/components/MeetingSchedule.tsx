@@ -23,6 +23,10 @@ interface Props {
   recur?: string;
   /** 반복 종료일 (YYYY-MM-DD). 없으면 1년까지만 표시 */
   recurUntil?: string | null;
+  /** 삭제된 특정 회차 날짜들 (YYYY-MM-DD) */
+  recurExcept?: string[];
+  /** 회차 삭제/복원 후 부모가 detail 다시 불러오게 */
+  onOccurrenceChanged?: () => void;
 }
 
 function stepDate(d: Date, recur: string): Date {
@@ -48,6 +52,8 @@ export default function MeetingSchedule({
   endsAt,
   recur = 'none',
   recurUntil = null,
+  recurExcept = [],
+  onOccurrenceChanged,
 }: Props) {
   const userId = useAuthStore((s) => s.user?.id);
   const [events, setEvents] = useState<MEvent[]>([]);
@@ -91,7 +97,9 @@ export default function MeetingSchedule({
     }
     return set;
   }, [startsAt, recur, recurUntil]);
-  const isMeetingDayKey = (key: string) => meetingDays.has(key);
+  // 삭제된 회차는 제외
+  const exceptSet = useMemo(() => new Set(recurExcept), [recurExcept]);
+  const isMeetingDayKey = (key: string) => meetingDays.has(key) && !exceptSet.has(key);
 
   // 날짜별 이벤트 수
   const byDate = useMemo(() => {
@@ -127,6 +135,21 @@ export default function MeetingSchedule({
   }
 
   const dayEvents = byDate.get(selected) ?? [];
+
+  async function excludeOccurrence() {
+    if (!window.confirm(`${selectedLabel()} 회차를 삭제할까요? 이 날 하나만 빠지고 나머지는 그대로예요.`))
+      return;
+    try {
+      await api(`/api/meetings/${code}/occurrences/exclude`, {
+        method: 'POST',
+        body: { date: selected },
+      });
+      onOccurrenceChanged?.();
+      window.dispatchEvent(new CustomEvent('exist:schedule-changed'));
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
 
   function resetForm() {
     setTitle('');
@@ -251,14 +274,27 @@ export default function MeetingSchedule({
         {/* 회의 본 일정이 이 날이면 표시 */}
         {isMeetingDayKey(selected) && (
           <div className="msched-main-event">
-            📌 이 회의 일정
-            {startsAt && (
-              <span>
-                {' '}
-                {new Date(startsAt).getHours()}:{pad(new Date(startsAt).getMinutes())}
-                {endsAt &&
-                  ` ~ ${new Date(endsAt).getHours()}:${pad(new Date(endsAt).getMinutes())}`}
-              </span>
+            <span className="msched-main-event-text">
+              📌 이 회의 일정
+              {startsAt && (
+                <span>
+                  {' '}
+                  {new Date(startsAt).getHours()}:{pad(new Date(startsAt).getMinutes())}
+                  {endsAt &&
+                    ` ~ ${new Date(endsAt).getHours()}:${pad(new Date(endsAt).getMinutes())}`}
+                </span>
+              )}
+            </span>
+            {/* 반복 회의면 이 회차만 삭제 (호스트) */}
+            {isHost && recur !== 'none' && (
+              <button
+                type="button"
+                className="msched-occ-del"
+                title="이 회차만 삭제"
+                onClick={() => void excludeOccurrence()}
+              >
+                이 회차 삭제
+              </button>
             )}
           </div>
         )}

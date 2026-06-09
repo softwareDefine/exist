@@ -9,7 +9,6 @@ import CodeDocEditor from './CodeDocEditor';
 import DocEditor from './DocEditor';
 import SheetEditor from './SheetEditor';
 import SlideEditor from './SlideEditor';
-import DatePicker from './DatePicker';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import MeetingSchedule from './MeetingSchedule';
@@ -53,6 +52,7 @@ interface MeetingDetail {
   ends_at: string | null;
   recur?: string | null;
   recur_until?: string | null;
+  recur_except?: string[];
   host: string;
   isHost: boolean;
   orgId: number | null;
@@ -529,15 +529,6 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       /* 전역 토스트 */
     }
   }
-  async function updatePeriod(start: string | null, end: string | null) {
-    try {
-      await api(`/api/meetings/${code}/period`, { method: 'PATCH', body: { start, end } });
-      void reloadDetail();
-    } catch {
-      /* 전역 토스트 */
-    }
-  }
-
   async function sendChatFile(file: File) {
     if (!file || uploadingFile) return;
     setUploadingFile(true);
@@ -925,6 +916,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               endsAt={detail.ends_at}
               recur={detail.recur ?? 'none'}
               recurUntil={detail.recur_until ?? null}
+              recurExcept={detail.recur_except ?? []}
+              onOccurrenceChanged={() => void reloadDetail()}
             />
           </div>
         )}
@@ -972,46 +965,40 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
             <section className="hub-set-card">
               <div className="hub-section-title">
                 <CalendarIcon size={15} /> 프로젝트 기간
-                <span className="hub-set-hostonly">선택 사항</span>
+                <span className="hub-set-hostonly">회의 시작·종료에서 자동</span>
               </div>
-              {detail.isHost ? (
-                <div className="hub-period-edit">
-                  <DatePicker
-                    value={detail.period?.start ?? null}
-                    placeholder="시작일"
-                    onChange={(v) => void updatePeriod(v, detail.period?.end ?? null)}
-                  />
-                  <span className="hub-period-tilde">~</span>
-                  <DatePicker
-                    value={detail.period?.end ?? null}
-                    placeholder="종료일"
-                    onChange={(v) => void updatePeriod(detail.period?.start ?? null, v)}
-                  />
-                  {detail.period && (
-                    <button className="hub-set-btn" onClick={() => void updatePeriod(null, null)}>
-                      기간 지우기
-                    </button>
-                  )}
-                  {detail.period?.end && (() => {
-                    const d = dday(detail.period.end);
-                    return d != null ? (
-                      <span className={`hub-dday${d < 0 ? ' over' : ''}`}>
-                        {d > 0 ? `D-${d}` : d === 0 ? 'D-DAY' : `D+${-d}`}
-                      </span>
-                    ) : null;
-                  })()}
-                </div>
-              ) : detail.period ? (
-                <div className="hub-period-view">
-                  {detail.period.start ?? '?'} ~ {detail.period.end ?? '?'}
-                  {detail.period.end && (() => {
-                    const d = dday(detail.period.end);
-                    return d != null ? <span className={`hub-dday${d < 0 ? ' over' : ''}`}>{d > 0 ? `D-${d}` : d === 0 ? 'D-DAY' : `D+${-d}`}</span> : null;
-                  })()}
-                </div>
-              ) : (
-                <div className="hub-section-empty">설정된 기간이 없어요</div>
-              )}
+              {(() => {
+                // 프로젝트 기간 = 회의 시작일 ~ 종료일(반복이면 반복 끝나는 날)
+                const pStart = detail.starts_at ? detail.starts_at.slice(0, 10) : null;
+                const pEnd =
+                  detail.recur && detail.recur !== 'none'
+                    ? detail.recur_until ?? null
+                    : detail.ends_at
+                      ? detail.ends_at.slice(0, 10)
+                      : null;
+                const fmt = (d: string) => d.replace(/-/g, '. ');
+                if (!pStart && !pEnd) {
+                  return (
+                    <div className="hub-section-empty">
+                      회의를 만들 때 시작·종료를 정하면 여기 기간이 표시돼요
+                    </div>
+                  );
+                }
+                return (
+                  <div className="hub-period-view">
+                    {pStart ? fmt(pStart) : '?'} ~ {pEnd ? fmt(pEnd) : '계속 반복'}
+                    {pEnd &&
+                      (() => {
+                        const d = dday(pEnd);
+                        return d != null ? (
+                          <span className={`hub-dday${d < 0 ? ' over' : ''}`}>
+                            {d > 0 ? `D-${d}` : d === 0 ? 'D-DAY' : `D+${-d}`}
+                          </span>
+                        ) : null;
+                      })()}
+                  </div>
+                );
+              })()}
             </section>
 
             <section className="hub-set-card">

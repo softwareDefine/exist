@@ -2600,6 +2600,9 @@ input:focus {
 }
 
 .msched-main-event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: #fff4e5;
   color: #b25e00;
   border-radius: 9px;
@@ -2607,6 +2610,26 @@ input:focus {
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 12px;
+}
+.msched-main-event-text {
+  flex: 1;
+  min-width: 0;
+}
+.msched-occ-del {
+  flex-shrink: 0;
+  border: 1px solid rgba(178, 94, 0, 0.35);
+  background: none;
+  color: #b25e00;
+  border-radius: 7px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.msched-occ-del:hover {
+  background: #e5484d;
+  border-color: #e5484d;
+  color: #fff;
 }
 
 .msched-events {

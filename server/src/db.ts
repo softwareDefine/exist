@@ -217,4 +217,11 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 반복 회의에서 제외한 특정 회차 날짜들 (JSON 배열 텍스트, 예: ["2026-06-17"])
+try {
+  db.exec(`ALTER TABLE meetings ADD COLUMN recur_except TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 export default db;

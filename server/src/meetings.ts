@@ -63,11 +63,16 @@ function expandOccurrences(
   recur: Recur,
   recurUntil: string | null,
   now: Date,
+  except?: Set<string>,
 ): { starts_at: string; ends_at: string | null }[] {
   if (!startsAt) return [];
   const base = new Date(startsAt);
   if (isNaN(base.getTime())) return [];
-  if (recur === 'none') return [{ starts_at: startsAt, ends_at: endsAt }];
+  const ymdOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  if (recur === 'none') {
+    if (except && except.has(ymdOf(base))) return [];
+    return [{ starts_at: startsAt, ends_at: endsAt }];
+  }
 
   const dur = endsAt ? new Date(endsAt).getTime() - base.getTime() : 0;
   const horizon = new Date(now.getTime() + 90 * 24 * 3600_000);
@@ -78,7 +83,7 @@ function expandOccurrences(
   const out: { starts_at: string; ends_at: string | null }[] = [];
   let cur = new Date(base);
   for (let guard = 0; guard < 500 && cur <= end; guard++) {
-    if (cur >= lower) {
+    if (cur >= lower && !(except && except.has(ymdOf(cur)))) {
       out.push({
         starts_at: toLocalISO(cur),
         ends_at: dur ? toLocalISO(new Date(cur.getTime() + dur)) : null,
@@ -88,6 +93,19 @@ function expandOccurrences(
     cur = stepDate(cur, recur);
   }
   return out;
+}
+
+/** meetings.recur_except (JSON 배열 텍스트) → 제외 날짜 Set */
+function parseExcept(raw: unknown): Set<string> {
+  if (typeof raw !== 'string' || !raw.trim()) return new Set();
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr)
+      ? new Set(arr.filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)))
+      : new Set();
+  } catch {
+    return new Set();
+  }
 }
 
 router.post('/', (req: AuthedRequest, res) => {
@@ -250,7 +268,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
 
   const rows = db
     .prepare(
-      `SELECT m.id, m.code, m.title, m.org_id, m.thumbnail, m.starts_at, m.ends_at, m.recur, m.recur_until
+      `SELECT m.id, m.code, m.title, m.org_id, m.thumbnail, m.starts_at, m.ends_at, m.recur, m.recur_until, m.recur_except
        FROM meetings m JOIN meeting_participants mp ON mp.meeting_id = m.id
        WHERE mp.user_id = ? AND m.starts_at IS NOT NULL${orgFilter}`,
     )
@@ -264,12 +282,20 @@ router.get('/schedule', (req: AuthedRequest, res) => {
     ends_at: string | null;
     recur: Recur;
     recur_until: string | null;
+    recur_except: string | null;
   }[];
 
   const now = new Date();
   const out: unknown[] = [];
   for (const m of rows) {
-    const occ = expandOccurrences(m.starts_at, m.ends_at, cleanRecur(m.recur), m.recur_until, now);
+    const occ = expandOccurrences(
+      m.starts_at,
+      m.ends_at,
+      cleanRecur(m.recur),
+      m.recur_until,
+      now,
+      parseExcept(m.recur_except),
+    );
     for (const o of occ) {
       out.push({
         id: m.id,
@@ -338,7 +364,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
 router.get('/:code', (req: AuthedRequest, res) => {
   const meeting = db
     .prepare(
-      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.recur, m.recur_until, m.host_id, m.org_id, m.thumbnail, m.settings,
+      `SELECT m.id, m.code, m.title, m.starts_at, m.ends_at, m.recur, m.recur_until, m.recur_except, m.host_id, m.org_id, m.thumbnail, m.settings,
               m.period_start, m.period_end, u.username AS host, o.name AS org_name
        FROM meetings m JOIN users u ON u.id = m.host_id
        LEFT JOIN organizations o ON o.id = m.org_id
@@ -353,6 +379,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
         ends_at: string | null;
         recur: string | null;
         recur_until: string | null;
+        recur_except: string | null;
         host_id: number;
         org_id: number | null;
         thumbnail: string | null;
@@ -400,6 +427,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
     ends_at: meeting.ends_at,
     recur: meeting.recur ?? 'none',
     recur_until: meeting.recur_until,
+    recur_except: [...parseExcept(meeting.recur_except)],
     host: meeting.host,
     isHost: meeting.host_id === req.userId,
     orgId: meeting.org_id,
@@ -594,6 +622,30 @@ router.delete('/:code', (req: AuthedRequest, res) => {
   }
   db.prepare('DELETE FROM meetings WHERE id = ?').run(meeting.id);
   res.json({ ok: true });
+});
+
+/** 반복 회의의 특정 회차(날짜) 삭제/복원 — 호스트만.
+ *  body: { date: 'YYYY-MM-DD', restore?: boolean } */
+router.post('/:code/occurrences/exclude', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id, recur, recur_except FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number; recur: string | null; recur_except: string | null }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  if (meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트만 회차를 삭제할 수 있어요' });
+  }
+  const date = cleanDate(req.body?.date);
+  if (!date) return res.status(400).json({ error: '날짜를 확인하세요' });
+  const set = parseExcept(meeting.recur_except);
+  if (req.body?.restore) set.delete(date);
+  else set.add(date);
+  db.prepare('UPDATE meetings SET recur_except = ? WHERE id = ?').run(
+    JSON.stringify([...set]),
+    meeting.id,
+  );
+  res.json({ ok: true, recur_except: [...set] });
 });
 
 /** 회의 일정 이벤트 목록 (참가자 공유) */
