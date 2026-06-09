@@ -15,6 +15,7 @@ export interface MeetingTabRequest {
   code: string;
   title: string;
   ts: number; // 같은 회의 재클릭도 감지
+  tab?: string; // 열 때 이동할 세부 탭 (call/chat/schedule 등)
 }
 
 type ActiveTab = { kind: 'ws'; id: number } | { kind: 'meeting'; code: string };
@@ -362,6 +363,11 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
                 code={t.code}
                 expanded={isExpanded}
                 onToggleExpand={() => setExpanded((cur) => (cur === t.code ? null : t.code))}
+                gotoTab={
+                  meetingRequest && meetingRequest.code === t.code && meetingRequest.tab
+                    ? { tab: meetingRequest.tab, ts: meetingRequest.ts }
+                    : undefined
+                }
               />
             </div>
           );

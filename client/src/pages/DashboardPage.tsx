@@ -32,8 +32,8 @@ export default function DashboardPage() {
   // 회의 설정 모달 (일정/설정 버튼)
   const [settingsMeeting, setSettingsMeeting] = useState<Meeting | null>(null);
 
-  function openMeetingTab(code: string, title: string) {
-    setMeetingRequest({ code, title, ts: Date.now() });
+  function openMeetingTab(code: string, title: string, tab?: string) {
+    setMeetingRequest({ code, title, ts: Date.now(), tab });
   }
 
   function toggleSidebar() {
@@ -137,13 +137,13 @@ export default function DashboardPage() {
                 <div>
                   <div className="name">{m.title}</div>
                   <div className="actions" onClick={(e) => e.stopPropagation()}>
-                    <button title="통화" onClick={() => openMeetingTab(m.code, m.title)}>
+                    <button title="통화" onClick={() => openMeetingTab(m.code, m.title, 'call')}>
                       <PhoneIcon size={17} />
                     </button>
-                    <button title="채팅" onClick={() => openMeetingTab(m.code, m.title)}>
+                    <button title="채팅" onClick={() => openMeetingTab(m.code, m.title, 'chat')}>
                       <ChatIcon size={17} />
                     </button>
-                    <button title="일정" onClick={() => setSettingsMeeting(m)}>
+                    <button title="일정" onClick={() => openMeetingTab(m.code, m.title, 'schedule')}>
                       <CalendarIcon size={17} />
                     </button>
                     <button title="설정" onClick={() => setSettingsMeeting(m)}>

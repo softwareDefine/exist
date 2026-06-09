@@ -140,10 +140,12 @@ interface Props {
   /** 통화 확대 상태 (오버레이) */
   expanded?: boolean;
   onToggleExpand?: () => void;
+  /** 열 때 이동할 세부 탭 (최근회의 버튼 등) */
+  gotoTab?: { tab: string; ts: number };
 }
 
 /** 회의 탭 = 대시보드(메인) + 통화/채팅 서브탭 */
-export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
+export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: Props) {
   const user = useAuthStore((s) => s.user);
   const presence = usePresence();
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
@@ -208,6 +210,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand }: Props) {
     if (subtab === 'sheet') setSheetMounted(true);
     if (subtab === 'slide') setSlideMounted(true);
   }, [subtab]);
+
+  // 최근회의 버튼 등에서 세부 탭 지정 → 해당 탭으로 이동
+  useEffect(() => {
+    if (gotoTab?.tab) setSubtab(gotoTab.tab as SubTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gotoTab?.ts]);
 
   // 무빙 통화창 드래그
   useEffect(() => {
