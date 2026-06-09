@@ -945,11 +945,11 @@ export default function NowBar({
 
             {/* 공통 푸터 — exist AI 브리핑 */}
             <div className="nb-expand-footer">
-              <span className="ai-badge">
-                <span className="dot" />
-                exist AI
+              <span className="nb-ai-mark">
+                <SparklesIcon size={13} />
               </span>
               <span className="ai-text">{brief || '상황을 분석하는 중이에요…'}</span>
+              <span className="nb-ai-by">exist AI</span>
             </div>
           </div>
         </div>

@@ -573,32 +573,30 @@ input:focus {
   min-width: 0;
 }
 
-.ai-badge {
+/* 조용한 인사이트 한 줄 — 작은 마크 + 본문 + 옅은 attribution */
+.nb-ai-mark {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--green);
-  background: var(--green-soft);
-  border-radius: 8px;
-  padding: 6px 10px;
+  color: var(--text-sub);
   flex-shrink: 0;
 }
 
-.ai-badge .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--green);
-  animation: pulse 2.5s infinite;
-}
-
 .ai-text {
-  font-size: 14px;
+  flex: 1;
+  font-size: 13.5px;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.nb-ai-by {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--text-sub);
+  opacity: 0.7;
 }
 
 /* 카드 3 — 할 일 진행률 */
