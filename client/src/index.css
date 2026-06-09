@@ -3640,6 +3640,16 @@ input:focus {
   cursor: pointer;
 }
 
+.datepick-day.disabled {
+  color: var(--text-sub);
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.datepick-day.disabled:hover {
+  background: none;
+}
+
 .datepick-day:hover {
   background: var(--surface-2);
 }

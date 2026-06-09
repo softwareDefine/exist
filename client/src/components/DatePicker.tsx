@@ -11,15 +11,19 @@ export default function DatePicker({
   value,
   onChange,
   placeholder = '날짜 선택',
+  min,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
   placeholder?: string;
+  /** 이 날짜(YYYY-MM-DD) 이전은 선택 불가 */
+  min?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const sel = value ? new Date(value + 'T00:00:00') : null;
+  const minDate = min ? new Date(min + 'T00:00:00') : null;
   const [view, setView] = useState(() => {
-    const base = sel ?? new Date();
+    const base = sel ?? (minDate && minDate.getTime() > Date.now() ? minDate : new Date());
     return new Date(base.getFullYear(), base.getMonth(), 1);
   });
 
@@ -32,6 +36,8 @@ export default function DatePicker({
     d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
   const isSel = (d: number) =>
     !!sel && d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear();
+  const isDisabled = (d: number) =>
+    !!minDate && new Date(year, month, d).getTime() < minDate.getTime();
 
   const cells: (number | null)[] = [];
   for (let i = 0; i < firstDow; i++) cells.push(null);
@@ -75,8 +81,10 @@ export default function DatePicker({
                   <button
                     type="button"
                     key={i}
-                    className={`datepick-day${isSel(d) ? ' sel' : ''}${isToday(d) ? ' today' : ''}`}
+                    disabled={isDisabled(d)}
+                    className={`datepick-day${isSel(d) ? ' sel' : ''}${isToday(d) ? ' today' : ''}${isDisabled(d) ? ' disabled' : ''}`}
                     onClick={() => {
+                      if (isDisabled(d)) return;
                       onChange(ymd(new Date(year, month, d)));
                       setOpen(false);
                     }}

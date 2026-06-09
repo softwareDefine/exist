@@ -335,11 +335,12 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                     </div>
                     {recur !== 'none' && (
                       <label className="cm-sched-row">
-                        <span>반복 종료</span>
+                        <span>반복 끝날</span>
                         <DatePicker
                           value={recurUntil}
                           onChange={setRecurUntil}
-                          placeholder="언제까지 (선택)"
+                          placeholder="안 정하면 계속 반복"
+                          min={start ? start.slice(0, 10) : new Date().toISOString().slice(0, 10)}
                         />
                       </label>
                     )}
