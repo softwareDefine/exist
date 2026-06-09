@@ -586,6 +586,12 @@ router.delete('/:code', (req: AuthedRequest, res) => {
   }
   db.prepare('DELETE FROM messages WHERE meeting_id = ?').run(meeting.id);
   db.prepare('DELETE FROM meeting_participants WHERE meeting_id = ?').run(meeting.id);
+  db.prepare('DELETE FROM meeting_events WHERE meeting_id = ?').run(meeting.id);
+  try {
+    db.prepare('DELETE FROM todos WHERE meeting_id = ?').run(meeting.id);
+  } catch {
+    /* todos에 meeting_id 컬럼이 없으면 무시 */
+  }
   db.prepare('DELETE FROM meetings WHERE id = ?').run(meeting.id);
   res.json({ ok: true });
 });
@@ -670,6 +676,43 @@ router.delete('/:code/events/:eventId', (req: AuthedRequest, res) => {
   }
   db.prepare('DELETE FROM meeting_events WHERE id = ?').run(req.params.eventId);
   res.json({ ok: true });
+});
+
+/** 회의 일정 이벤트 수정 (작성자 또는 호스트) */
+router.patch('/:code/events/:eventId', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as
+    | { id: number; host_id: number }
+    | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  const ev = db
+    .prepare('SELECT created_by, title, date, time, end_time, is_call FROM meeting_events WHERE id = ? AND meeting_id = ?')
+    .get(req.params.eventId, meeting.id) as
+    | { created_by: number; title: string; date: string; time: string | null; end_time: string | null; is_call: number }
+    | undefined;
+  if (!ev) return res.status(404).json({ error: '존재하지 않는 일정입니다' });
+  if (ev.created_by !== req.userId && meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '작성자나 호스트만 수정할 수 있어요' });
+  }
+
+  const { title, date, time, end_time, is_call } = req.body ?? {};
+  const hhmm = (v: unknown) => (v && /^\d{2}:\d{2}$/.test(String(v)) ? String(v) : null);
+  const newTitle = title !== undefined ? String(title).trim().slice(0, 80) : ev.title;
+  if (!newTitle) return res.status(400).json({ error: '일정 제목을 입력하세요' });
+  const newDate =
+    date !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(String(date)) ? String(date) : ev.date;
+  const t = time !== undefined ? hhmm(time) : ev.time;
+  const tEnd = t ? (end_time !== undefined ? hhmm(end_time) : ev.end_time) : null;
+  if (t && tEnd && tEnd <= t) {
+    return res.status(400).json({ error: '종료 시간이 시작보다 빨라요' });
+  }
+  const isCall = is_call !== undefined ? (is_call ? 1 : 0) : ev.is_call;
+
+  db.prepare(
+    'UPDATE meeting_events SET title = ?, date = ?, time = ?, end_time = ?, is_call = ? WHERE id = ?',
+  ).run(newTitle, newDate, t, tEnd, t ? isCall : 0, req.params.eventId);
+  res.json({ id: Number(req.params.eventId), title: newTitle, date: newDate, time: t, end_time: tEnd, is_call: t ? isCall : 0 });
 });
 
 /** 회의 채팅 히스토리 (최근 100개) */

@@ -214,6 +214,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const onlineRef = useRef<number>(1); // 통화 인원 — 리사이즈 캡(다 들어가면 그만)용
   const [todos, setTodos] = useState<MeetingTodo[]>([]);
   const [todoInput, setTodoInput] = useState('');
+  const [confirmDelMeeting, setConfirmDelMeeting] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // 회의 공유 할 일 로드
@@ -503,6 +504,20 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       void reloadDetail();
     } catch {
       /* 전역 토스트 */
+    }
+  }
+  async function deleteMeeting() {
+    if (!confirmDelMeeting) {
+      setConfirmDelMeeting(true);
+      return;
+    }
+    try {
+      await api(`/api/meetings/${code}`, { method: 'DELETE' });
+      // 대시보드·nowbar 갱신 + 열린 탭 닫기 (WorkspacePanel이 수신)
+      window.dispatchEvent(new CustomEvent('exist:schedule-changed'));
+      window.dispatchEvent(new CustomEvent('exist:meeting-deleted', { detail: { code } }));
+    } catch {
+      setConfirmDelMeeting(false);
     }
   }
   async function updateSettings(patch: Partial<MeetingSettings>) {
@@ -1056,6 +1071,24 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                 );
               })()}
             </section>
+
+            {detail.isHost && (
+              <section className="hub-set-card danger-zone">
+                <div className="hub-section-title">
+                  <GearIcon size={15} /> 회의 삭제
+                </div>
+                <p className="hub-danger-desc">
+                  회의와 모든 채팅·일정 기록이 영구적으로 사라져요. 되돌릴 수 없어요.
+                </p>
+                <button
+                  className={`hub-danger-btn${confirmDelMeeting ? ' confirm' : ''}`}
+                  onClick={() => void deleteMeeting()}
+                  onMouseLeave={() => setConfirmDelMeeting(false)}
+                >
+                  {confirmDelMeeting ? '정말 삭제할까요? 한 번 더 클릭' : '이 회의 삭제하기'}
+                </button>
+              </section>
+            )}
           </div>
         )}
 

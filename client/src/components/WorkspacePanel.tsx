@@ -160,6 +160,17 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     return () => window.removeEventListener('meeting:message', onMsg);
   }, []);
 
+  // 회의가 삭제되면 열려있던 탭도 닫기
+  useEffect(() => {
+    function onDeleted(e: Event) {
+      const code = (e as CustomEvent<{ code: string }>).detail?.code;
+      if (code) closeMeetingTab(code);
+    }
+    window.addEventListener('exist:meeting-deleted', onDeleted);
+    return () => window.removeEventListener('exist:meeting-deleted', onDeleted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaces.length]);
+
   // ESC로 전체화면 축소
   useEffect(() => {
     if (!expanded) return;

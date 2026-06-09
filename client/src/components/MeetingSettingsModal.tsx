@@ -105,7 +105,10 @@ export default function MeetingSettingsModal({ meeting, onClose, onChanged }: Pr
       return;
     }
     try {
-      await api(`/api/meetings/${meeting!.code}`, { method: 'DELETE' });
+      const code = meeting!.code;
+      await api(`/api/meetings/${code}`, { method: 'DELETE' });
+      window.dispatchEvent(new CustomEvent('exist:meeting-deleted', { detail: { code } }));
+      window.dispatchEvent(new CustomEvent('exist:schedule-changed'));
       onChanged();
       onClose();
     } catch {

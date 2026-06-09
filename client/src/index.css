@@ -2667,6 +2667,43 @@ input:focus {
   color: #ff5b5b;
 }
 
+.msched-event-edit {
+  border: none;
+  background: none;
+  color: #bbb;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.msched-event-edit:hover,
+.msched-event-edit.on {
+  color: var(--green);
+}
+
+.msched-add-actions {
+  display: flex;
+  gap: 8px;
+}
+.msched-add-cancel {
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-sub);
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.msched-add-cancel:hover {
+  background: var(--hover);
+}
+.msched-add-actions .msched-add-btn {
+  width: auto;
+  flex: 1;
+}
+
 .msched-add-row {
   display: flex;
   gap: 6px;
@@ -2988,6 +3025,35 @@ input:focus {
 .hub-set-btn.danger:hover {
   border-color: #e5484d;
   color: #e5484d;
+}
+
+.hub-set-card.danger-zone {
+  border-color: rgba(229, 72, 77, 0.35);
+}
+.hub-danger-desc {
+  margin: 4px 0 14px;
+  font-size: 13px;
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+.hub-danger-btn {
+  width: 100%;
+  border: 1px solid #e5484d;
+  background: none;
+  color: #e5484d;
+  border-radius: 10px;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.hub-danger-btn:hover {
+  background: rgba(229, 72, 77, 0.08);
+}
+.hub-danger-btn.confirm {
+  background: #e5484d;
+  color: #fff;
 }
 
 .hub-period-edit {

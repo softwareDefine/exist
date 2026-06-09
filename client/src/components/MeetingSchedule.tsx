@@ -57,6 +57,7 @@ export default function MeetingSchedule({
   const [time, setTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [isCall, setIsCall] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -127,6 +128,23 @@ export default function MeetingSchedule({
 
   const dayEvents = byDate.get(selected) ?? [];
 
+  function resetForm() {
+    setTitle('');
+    setTime('');
+    setEndTime('');
+    setIsCall(false);
+    setEditingId(null);
+  }
+
+  function startEdit(ev: MEvent) {
+    setEditingId(ev.id);
+    setSelected(ev.date);
+    setTitle(ev.title);
+    setTime(ev.time ?? '');
+    setEndTime(ev.end_time ?? '');
+    setIsCall(!!ev.is_call);
+  }
+
   async function addEvent(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -136,20 +154,19 @@ export default function MeetingSchedule({
       );
       return;
     }
-    await api(`/api/meetings/${code}/events`, {
-      method: 'POST',
-      body: {
-        title,
-        date: selected,
-        time: time || null,
-        end_time: time ? endTime || null : null,
-        is_call: isCall && !!time, // 통화는 시작 시간이 있어야 의미 있음
-      },
-    });
-    setTitle('');
-    setTime('');
-    setEndTime('');
-    setIsCall(false);
+    const body = {
+      title,
+      date: selected,
+      time: time || null,
+      end_time: time ? endTime || null : null,
+      is_call: isCall && !!time, // 통화는 시작 시간이 있어야 의미 있음
+    };
+    if (editingId != null) {
+      await api(`/api/meetings/${code}/events/${editingId}`, { method: 'PATCH', body });
+    } else {
+      await api(`/api/meetings/${code}/events`, { method: 'POST', body });
+    }
+    resetForm();
     void load();
     window.dispatchEvent(new CustomEvent('exist:schedule-changed')); // nowbar 일정 갱신
   }
@@ -268,9 +285,22 @@ export default function MeetingSchedule({
                 </span>
                 <span className="msched-event-author">{ev.author}</span>
                 {(ev.created_by === userId || isHost) && (
-                  <button className="msched-event-del" onClick={() => void removeEvent(ev.id)}>
-                    ×
-                  </button>
+                  <>
+                    <button
+                      className={`msched-event-edit${editingId === ev.id ? ' on' : ''}`}
+                      title="수정"
+                      onClick={() => startEdit(ev)}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      className="msched-event-del"
+                      title="삭제"
+                      onClick={() => void removeEvent(ev.id)}
+                    >
+                      ×
+                    </button>
+                  </>
                 )}
               </div>
             ))
@@ -313,11 +343,20 @@ export default function MeetingSchedule({
               </span>
             </button>
           </div>
-          <button type="submit" className="msched-add-btn" disabled={!title.trim()}>
-            일정 추가
-          </button>
+          <div className="msched-add-actions">
+            {editingId != null && (
+              <button type="button" className="msched-add-cancel" onClick={resetForm}>
+                취소
+              </button>
+            )}
+            <button type="submit" className="msched-add-btn" disabled={!title.trim()}>
+              {editingId != null ? '수정 저장' : '일정 추가'}
+            </button>
+          </div>
           <p className="msched-add-hint">
-            🔔 추가하면 참가자 전원에게 알림
+            {editingId != null
+              ? '✎ 일정을 수정하는 중이에요'
+              : '🔔 추가하면 참가자 전원에게 알림'}
             {isCall && ' · 통화는 10분 전에 "들어오세요" 알림'}
           </p>
         </form>
