@@ -224,6 +224,7 @@ export default function MeetingSchedule({ code, isHost, startsAt, endsAt }: Prop
           <button type="submit" className="msched-add-btn" disabled={!title.trim()}>
             일정 추가
           </button>
+          <p className="msched-add-hint">🔔 추가하면 회의 참가자 전원에게 알림이 가요</p>
         </form>
       </div>
     </div>

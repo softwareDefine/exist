@@ -566,16 +566,36 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
     return res.status(400).json({ error: '날짜를 확인하세요' });
   }
+  const code = String(req.params.code ?? '').toUpperCase();
   const meeting = db
-    .prepare('SELECT id FROM meetings WHERE code = ?')
-    .get(String(req.params.code ?? '').toUpperCase()) as { id: number } | undefined;
+    .prepare('SELECT id, title FROM meetings WHERE code = ?')
+    .get(code) as { id: number; title: string } | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const t = time && /^\d{2}:\d{2}$/.test(String(time)) ? String(time) : null;
+  const cleanTitle = String(title).trim().slice(0, 80);
   const info = db
     .prepare(
       'INSERT INTO meeting_events (meeting_id, title, date, time, created_by) VALUES (?, ?, ?, ?, ?)',
     )
-    .run(meeting.id, String(title).trim().slice(0, 80), String(date), t, req.userId);
+    .run(meeting.id, cleanTitle, String(date), t, req.userId);
+
+  // 회의 참가자 전원(작성자 제외)에게 일정 알림 — 회의 썸네일과 함께
+  const me = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as
+    | { username: string }
+    | undefined;
+  const others = db
+    .prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ? AND user_id != ?')
+    .all(meeting.id, req.userId) as { user_id: number }[];
+  const md = String(date).slice(5).replace('-', '/'); // MM/DD
+  const when = t ? `${md} ${t}` : md;
+  for (const p of others) {
+    notifyUser(p.user_id, {
+      from: me?.username ?? meeting.title,
+      text: `'${meeting.title}'에 일정 추가 — ${cleanTitle} (${when})`,
+      meetingCode: code,
+    });
+  }
+
   res.json({ id: info.lastInsertRowid, title, date, time: t });
 });
 
