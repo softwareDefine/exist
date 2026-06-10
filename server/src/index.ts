@@ -16,7 +16,6 @@ import workspacesRouter from './workspaces.js';
 import orgsRouter from './orgs.js';
 import notificationsRouter from './notifications.js';
 import runnerRouter from './runner.js';
-import { attachSync } from './sync.js';
 import { attachYjs } from './ydoc.js';
 import { initNotifier, notifyUser } from './notify.js';
 
@@ -83,8 +82,7 @@ io.use((socket, next) => {
 });
 
 attachSfu(io);
-attachSync(server);
-attachYjs(server);
+attachYjs(server); // tldraw /sync 제거 — 캔버스는 Excalidraw가 /yjs 사용
 initNotifier(io); // orgs 등 라우터에서 notifyUser 사용 가능하게
 
 // ── presence: 접속 중인 사용자 (exist의 존재감 레이어) ──
