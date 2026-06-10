@@ -14,11 +14,16 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       # mediasoup WebRTC — 맥미니 공인 IP (클라이언트가 미디어로 접속할 주소)
       ANNOUNCED_IP: ${ANNOUNCED_IP}
+      # 같은 공유기(LAN) 안 통화용 사설 IP — 헤어핀 NAT 회피. 맥미니 LAN IP.
+      LOCAL_IP: ${LOCAL_IP:-192.168.0.82}
       RTC_MIN_PORT: "40000"
       RTC_MAX_PORT: "40100"
+      # Colima는 UDP 포트포워딩을 못 함(lima는 TCP만). 미디어를 TCP로 우선 연결.
+      MEDIA_PREFER_TCP: "1"
     ports:
       - "4000:4000" # 앱(HTTP/WS) — nginx가 이쪽으로 프록시
       - "40000-40100:40000-40100/udp" # mediasoup RTP/RTCP
+      - "40000-40100:40000-40100/tcp" # Colima UDP 불가 → TCP 폴백(실동작 경로)
     volumes:
       - exist-data:/data # DB·업로드·ydocs 영속
 
