@@ -65,6 +65,9 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
     const applyRemote = () => {
       const api = apiRef.current;
       if (!api) return;
+      ((globalThis as Record<string, unknown>).__cd as string[] | undefined)?.push?.(
+        `APPLY-REMOTE n=${yEls.size}`,
+      );
       const elements = Array.from(yEls.values());
       const files = Array.from(yFiles.values());
       applyingRemote.current = true;
@@ -91,6 +94,7 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
     const onAwareness = () => {
       const api = apiRef.current;
       if (!api) return;
+      ((globalThis as Record<string, unknown>).__cd as string[] | undefined)?.push?.('AWARE→updateScene');
       const collaborators = new Map<string, unknown>();
       provider.awareness.getStates().forEach((state, clientId) => {
         if (clientId === provider.awareness.clientID) return;
@@ -124,6 +128,19 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
   // ── 로컬 변경 → Yjs ──
   const onChange = useCallback(
     (elements: readonly SceneElement[], _appState: unknown, files: Record<string, BinaryFile>) => {
+      const _cd = ((globalThis as Record<string, unknown>).__cd ??= [] as string[]) as string[];
+      if (_cd.length < 500)
+        _cd.push(
+          `chg apply=${applyingRemote.current ? 1 : 0} | ` +
+            elements
+              .map(
+                (e) =>
+                  `${e.id.slice(0, 3)}:v${e.version}:n${String(e.versionNonce ?? '').slice(-3)}:${Math.round(
+                    (e as Record<string, number>).width || 0,
+                  )}x${Math.round((e as Record<string, number>).height || 0)}`,
+              )
+              .join(' '),
+        );
       if (applyingRemote.current) return;
       const yEls = yElsRef.current;
       const yFiles = yFilesRef.current;
