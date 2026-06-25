@@ -75,8 +75,14 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
         applyingRemote.current = false;
       }
     };
-    yEls.observe(applyRemote);
-    yFiles.observe(applyRemote);
+    // 로컬 변경(내가 그리는 중)엔 반응 안 함 — 자기 observe가 updateScene으로
+    // 드래그 중인 도형을 시작 크기(w=0)로 되돌리는 self-reset 버그 방지. 원격만 반영.
+    const onRemote = (_e: unknown, txn: Y.Transaction) => {
+      if (txn.local) return;
+      applyRemote();
+    };
+    yEls.observe(onRemote);
+    yFiles.observe(onRemote);
     provider.on('sync', (isSynced: boolean) => {
       if (isSynced) applyRemote();
     });
@@ -102,8 +108,8 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
     provider.awareness.on('change', onAwareness);
 
     return () => {
-      yEls.unobserve(applyRemote);
-      yFiles.unobserve(applyRemote);
+      yEls.unobserve(onRemote);
+      yFiles.unobserve(onRemote);
       provider.awareness.off('change', onAwareness);
       provider.destroy();
       ydoc.destroy();
