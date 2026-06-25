@@ -16,7 +16,7 @@ import { useAuthStore } from '../store';
 const CURSOR_COLORS = ['#30a46c', '#e5484d', '#f76808', '#4f7cff', '#8e4ec6', '#0091ff', '#d6409f'];
 
 // Excalidraw 깊은 타입 의존을 피하기 위한 최소 구조 타입
-type SceneElement = { id: string; version: number; isDeleted?: boolean; [k: string]: unknown };
+type SceneElement = { id: string; version: number; versionNonce?: number; isDeleted?: boolean; [k: string]: unknown };
 type BinaryFile = { id: string; [k: string]: unknown };
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ExcalidrawAPI = any;
@@ -132,8 +132,12 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
       ydoc.transact(() => {
         for (const el of elements) {
           const cur = yEls.get(el.id);
-          // version이 더 높을 때만 기록 → 원격 반영으로 인한 에코 방지
-          if (!cur || (cur.version ?? 0) < (el.version ?? 0)) yEls.set(el.id, el);
+          // version 또는 versionNonce가 바뀌면 기록. Excalidraw는 드래그 중
+          // version을 거의 안 올리고 versionNonce(난수)만 갱신하므로, version만
+          // 비교하면 드래그한 크기 변화가 누락돼 시작점(w=0)만 저장됨.
+          // 에코는 onChange의 applyingRemote 가드 + observe의 txn.local 가드로 방지.
+          if (!cur || (cur.version ?? 0) < (el.version ?? 0) || cur.versionNonce !== el.versionNonce)
+            yEls.set(el.id, el);
         }
         if (files) {
           for (const id of Object.keys(files)) {
