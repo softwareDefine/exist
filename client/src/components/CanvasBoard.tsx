@@ -66,7 +66,16 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
       const api = apiRef.current;
       if (!api) return;
       ((globalThis as Record<string, unknown>).__cd as string[] | undefined)?.push?.(
-        `APPLY-REMOTE n=${yEls.size}`,
+        `APPLY-REMOTE size=${yEls.size} ` +
+          Array.from(yEls.values())
+            .slice(0, 3)
+            .map((v) => {
+              const r = v as Record<string, number>;
+              return `${Math.round(r.width || 0)}x${Math.round(r.height || 0)}@${Math.round(
+                r.x || 0,
+              )},${Math.round(r.y || 0)}`;
+            })
+            .join(' '),
       );
       const elements = Array.from(yEls.values());
       const files = Array.from(yFiles.values());
@@ -133,12 +142,12 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
         _cd.push(
           `chg apply=${applyingRemote.current ? 1 : 0} | ` +
             elements
-              .map(
-                (e) =>
-                  `${e.id.slice(0, 3)}:v${e.version}:n${String(e.versionNonce ?? '').slice(-3)}:${Math.round(
-                    (e as Record<string, number>).width || 0,
-                  )}x${Math.round((e as Record<string, number>).height || 0)}`,
-              )
+              .map((e) => {
+                const r = e as Record<string, number>;
+                return `${e.id.slice(0, 3)}:v${e.version}:n${String(e.versionNonce ?? '').slice(-3)}:${Math.round(
+                  r.width || 0,
+                )}x${Math.round(r.height || 0)}@${Math.round(r.x || 0)},${Math.round(r.y || 0)}`;
+              })
               .join(' '),
         );
       if (applyingRemote.current) return;
