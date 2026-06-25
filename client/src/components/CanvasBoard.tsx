@@ -154,7 +154,9 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
           // 비교하면 드래그한 크기 변화가 누락돼 시작점(w=0)만 저장됨.
           // 에코는 onChange의 applyingRemote 가드 + observe의 txn.local 가드로 방지.
           if (!cur || (cur.version ?? 0) < (el.version ?? 0) || cur.versionNonce !== el.versionNonce)
-            yEls.set(el.id, el);
+            // Excalidraw element는 Object.freeze로 동결돼 있어 그대로 넘기면
+            // Yjs가 저장/직렬화를 못 함. 동결 해제된 깊은 사본을 저장한다.
+            yEls.set(el.id, structuredClone(el) as SceneElement);
         }
         if (files) {
           for (const id of Object.keys(files)) {
@@ -162,6 +164,12 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
           }
         }
       });
+      // 진단: set 후 yEls에 크기 있는 도형이 실제로 들어갔는지
+      let big = 0;
+      yEls.forEach((v) => {
+        if (((v as Record<string, number>).width || 0) > 1) big++;
+      });
+      _cd.push(`after-set yEls.size=${yEls.size} big=${big}`);
     },
     [],
   );
