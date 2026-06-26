@@ -88,10 +88,20 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
       );
       const elements = Array.from(yEls.values());
       const files = Array.from(yFiles.values());
+      // Excalidraw updateScene은 version으로 reconcile하는데, 반복 적용으로 부풀려진
+      // 로컬 version 때문에 원격 이동(version이 조금만 증가)이 무시된다. 원격을 항상
+      // 채택하도록 로컬보다 낮거나 같은 version은 로컬+1로 보정(versionNonce 유지 → 에코 없음).
+      const localVer = new Map<string, number>();
+      for (const e of (api.getSceneElementsIncludingDeleted?.() ?? []) as SceneElement[])
+        localVer.set(e.id, e.version ?? 0);
+      const reconciled = elements.map((el) => {
+        const lv = localVer.get(el.id);
+        return lv === undefined || (el.version ?? 0) > lv ? el : { ...el, version: lv + 1 };
+      });
       applyingRemote.current = true;
       try {
         if (files.length) api.addFiles(files);
-        api.updateScene({ elements });
+        api.updateScene({ elements: reconciled });
       } finally {
         applyingRemote.current = false;
       }
