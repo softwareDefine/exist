@@ -74,18 +74,6 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
         pendingRemoteRef.current = true;
         return;
       }
-      ((globalThis as Record<string, unknown>).__cd as string[] | undefined)?.push?.(
-        `APPLY-REMOTE size=${yEls.size} ` +
-          Array.from(yEls.values())
-            .slice(0, 3)
-            .map((v) => {
-              const r = v as Record<string, number>;
-              return `${Math.round(r.width || 0)}x${Math.round(r.height || 0)}@${Math.round(
-                r.x || 0,
-              )},${Math.round(r.y || 0)}`;
-            })
-            .join(' '),
-      );
       const elements = Array.from(yEls.values());
       const files = Array.from(yFiles.values());
       // Excalidraw updateScene은 version으로 reconcile하는데, 반복 적용으로 부풀려진
@@ -123,7 +111,6 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
     const onAwareness = () => {
       const api = apiRef.current;
       if (!api) return;
-      ((globalThis as Record<string, unknown>).__cd as string[] | undefined)?.push?.('AWARE→updateScene');
       const collaborators = new Map<string, unknown>();
       provider.awareness.getStates().forEach((state, clientId) => {
         if (clientId === provider.awareness.clientID) return;
@@ -165,19 +152,6 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
         pendingRemoteRef.current = false;
         applyRemoteRef.current?.();
       }
-      const _cd = ((globalThis as Record<string, unknown>).__cd ??= [] as string[]) as string[];
-      if (_cd.length < 500)
-        _cd.push(
-          `chg apply=${applyingRemote.current ? 1 : 0} | ` +
-            elements
-              .map((e) => {
-                const r = e as Record<string, number>;
-                return `${e.id.slice(0, 3)}:v${e.version}:n${String(e.versionNonce ?? '').slice(-3)}:${Math.round(
-                  r.width || 0,
-                )}x${Math.round(r.height || 0)}@${Math.round(r.x || 0)},${Math.round(r.y || 0)}`;
-              })
-              .join(' '),
-        );
       if (applyingRemote.current) return;
       const yEls = yElsRef.current;
       const yFiles = yFilesRef.current;
@@ -201,12 +175,6 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
           }
         }
       });
-      // 진단: set 후 yEls에 크기 있는 도형이 실제로 들어갔는지
-      let big = 0;
-      yEls.forEach((v) => {
-        if (((v as Record<string, number>).width || 0) > 1) big++;
-      });
-      _cd.push(`after-set yEls.size=${yEls.size} big=${big}`);
     },
     [],
   );
