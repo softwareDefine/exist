@@ -31,6 +31,9 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
   const yFilesRef = useRef<Y.Map<BinaryFile> | null>(null);
   const providerRef = useRef<WebsocketProvider | null>(null);
   const applyingRemote = useRef(false);
+  const drawingRef = useRef(false); // 포인터로 그리는/이동하는 중인지
+  const pendingRemoteRef = useRef(false); // 그리는 중 보류된 원격 변경
+  const applyRemoteRef = useRef<(() => void) | null>(null);
 
   // 앱 다크모드(html.dark) 추종
   const [dark, setDark] = useState(
@@ -65,6 +68,12 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
     const applyRemote = () => {
       const api = apiRef.current;
       if (!api) return;
+      // 그리는/이동하는 중(포인터 down)엔 원격 적용을 보류한다 — updateScene이
+      // 진행 중인 내 입력을 덮어써 도형이 점으로 깨지는 것 방지. 끝나면 onChange에서 적용.
+      if (drawingRef.current) {
+        pendingRemoteRef.current = true;
+        return;
+      }
       ((globalThis as Record<string, unknown>).__cd as string[] | undefined)?.push?.(
         `APPLY-REMOTE size=${yEls.size} ` +
           Array.from(yEls.values())
@@ -79,25 +88,15 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
       );
       const elements = Array.from(yEls.values());
       const files = Array.from(yFiles.values());
-      // Excalidraw updateScene은 version으로 로컬과 reconcile해서, 로컬 version이
-      // 같거나 높으면 원격 변경(이동/수정)을 무시한다. updateScene이 반복되며
-      // 로컬 version이 부풀려지면 원격 이동이 영영 안 반영됨. 원격을 항상 채택하도록
-      // 로컬보다 낮은 version은 로컬+1로 보정한다(versionNonce는 유지 → 에코 없음).
-      const localVer = new Map<string, number>();
-      const cur = (api.getSceneElementsIncludingDeleted?.() ?? []) as SceneElement[];
-      for (const e of cur) localVer.set(e.id, e.version ?? 0);
-      const reconciled = elements.map((el) => {
-        const lv = localVer.get(el.id);
-        return lv === undefined || (el.version ?? 0) > lv ? el : { ...el, version: lv + 1 };
-      });
       applyingRemote.current = true;
       try {
         if (files.length) api.addFiles(files);
-        api.updateScene({ elements: reconciled });
+        api.updateScene({ elements });
       } finally {
         applyingRemote.current = false;
       }
     };
+    applyRemoteRef.current = applyRemote;
     // 로컬 변경(내가 그리는 중)엔 반응 안 함 — 자기 observe가 updateScene으로
     // 드래그 중인 도형을 시작 크기(w=0)로 되돌리는 self-reset 버그 방지. 원격만 반영.
     const onRemote = (_e: unknown, txn: Y.Transaction) => {
@@ -147,7 +146,15 @@ export default function CanvasBoard({ roomId }: { roomId: string }) {
 
   // ── 로컬 변경 → Yjs ──
   const onChange = useCallback(
-    (elements: readonly SceneElement[], _appState: unknown, files: Record<string, BinaryFile>) => {
+    (elements: readonly SceneElement[], appState: unknown, files: Record<string, BinaryFile>) => {
+      // 그리기/이동 진행 상태 추적: 끝나는 순간(down→up) 보류된 원격 변경을 적용
+      const drawing = (appState as Record<string, unknown>).cursorButton === 'down';
+      const wasDrawing = drawingRef.current;
+      drawingRef.current = drawing;
+      if (wasDrawing && !drawing && pendingRemoteRef.current) {
+        pendingRemoteRef.current = false;
+        applyRemoteRef.current?.();
+      }
       const _cd = ((globalThis as Record<string, unknown>).__cd ??= [] as string[]) as string[];
       if (_cd.length < 500)
         _cd.push(
