@@ -555,7 +555,7 @@ export default function MeetingView({
               background: '#111',
               borderRadius: 12,
               overflow: 'hidden',
-              marginBottom: 16,
+              marginBottom: 18,
             }}
           >
             <VideoTile
@@ -565,40 +565,58 @@ export default function MeetingView({
               isLocal
               paused={!camOn}
             />
-          </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 18 }}>
-            <button
-              onClick={() => setMicOn((v) => !v)}
+            {/* 미리보기 위 통합 컨트롤 — 원형 토글 */}
+            <div
               style={{
-                flex: 1,
-                padding: '9px 0',
-                borderRadius: 9,
-                border: '1px solid #e2e2e2',
-                background: micOn ? '#fff' : '#fdecec',
-                color: micOn ? '#333' : '#c0392b',
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
+                position: 'absolute',
+                bottom: 12,
+                left: 0,
+                right: 0,
+                display: 'flex',
+                gap: 12,
+                justifyContent: 'center',
+                zIndex: 2,
               }}
             >
-              {micOn ? '🎤 마이크 켜짐' : '🔇 마이크 꺼짐'}
-            </button>
-            <button
-              onClick={() => setCamOn((v) => !v)}
-              style={{
-                flex: 1,
-                padding: '9px 0',
-                borderRadius: 9,
-                border: '1px solid #e2e2e2',
-                background: camOn ? '#fff' : '#fdecec',
-                color: camOn ? '#333' : '#c0392b',
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
-              }}
-            >
-              {camOn ? '📹 카메라 켜짐' : '🚫 카메라 꺼짐'}
-            </button>
+              <button
+                onClick={() => setMicOn((v) => !v)}
+                title={micOn ? '마이크 끄기' : '마이크 켜기'}
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: '50%',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: micOn ? 'rgba(255,255,255,0.92)' : '#e5484d',
+                  color: micOn ? '#222' : '#fff',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+                }}
+              >
+                <MicIcon size={20} />
+              </button>
+              <button
+                onClick={() => setCamOn((v) => !v)}
+                title={camOn ? '카메라 끄기' : '카메라 켜기'}
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: '50%',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: camOn ? 'rgba(255,255,255,0.92)' : '#e5484d',
+                  color: camOn ? '#222' : '#fff',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+                }}
+              >
+                <CamIcon size={20} />
+              </button>
+            </div>
           </div>
           <button
             onClick={() => {
