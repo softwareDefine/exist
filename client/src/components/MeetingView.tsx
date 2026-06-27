@@ -525,12 +525,12 @@ export default function MeetingView({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#f4f5f7',
+          background: 'var(--bg)',
         }}
       >
         <div
           style={{
-            background: '#fff',
+            background: 'var(--surface)',
             borderRadius: 16,
             padding: 24,
             width: 440,
@@ -539,16 +539,16 @@ export default function MeetingView({
             boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
           }}
         >
-          <h2 style={{ margin: '0 0 4px', fontSize: 18, color: '#111' }}>
+          <h2 style={{ margin: '0 0 4px', fontSize: 18, color: 'var(--text)' }}>
             {title || '회의'}에 입장
           </h2>
-          <div style={{ fontSize: 12, color: '#999', marginBottom: 6 }}>코드 {code}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 6 }}>코드 {code}</div>
           {onlinePeers.length > 0 ? (
             <div style={{ fontSize: 13, color: '#21C818', fontWeight: 700, marginBottom: 16 }}>
               ● 지금 통화 중 · {onlinePeers.join(', ')}
             </div>
           ) : (
-            <div style={{ fontSize: 12.5, color: '#aaa', marginBottom: 16 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--text-sub)', marginBottom: 16 }}>
               아직 통화에 아무도 없어요 · 먼저 시작해보세요
             </div>
           )}
@@ -649,7 +649,7 @@ export default function MeetingView({
               padding: '10px 0',
               marginTop: 8,
               background: 'transparent',
-              color: '#888',
+              color: 'var(--text-sub)',
               border: 'none',
               cursor: 'pointer',
               fontSize: 13,

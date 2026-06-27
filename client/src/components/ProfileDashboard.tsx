@@ -77,8 +77,8 @@ export default function ProfileDashboard() {
           )}
         </div>
         <div>
-          <div style={{ fontSize: 15, color: '#999' }}>{greeting()}</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a' }}>
+          <div style={{ fontSize: 15, color: 'var(--text-sub)' }}>{greeting()}</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>
             {user?.username ?? '게스트'}님 👋
           </div>
         </div>
@@ -100,7 +100,7 @@ export default function ProfileDashboard() {
           <div style={statLabel}>미완료 할 일</div>
         </div>
         <div style={statCard}>
-          <div style={{ ...statNum, color: ov?.todoOverdue ? '#e5484d' : '#cfcfcf' }}>
+          <div style={{ ...statNum, color: ov?.todoOverdue ? '#e5484d' : 'var(--text-sub)' }}>
             {ov?.todoOverdue ?? '–'}
           </div>
           <div style={statLabel}>마감 지난 할 일</div>
@@ -155,7 +155,7 @@ const avatarBox: CSSProperties = {
   width: 68,
   height: 68,
   borderRadius: 18,
-  background: '#f2f3f5',
+  background: 'var(--border)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -178,8 +178,8 @@ const grid: CSSProperties = {
   marginBottom: 32,
 };
 const statCard: CSSProperties = {
-  background: '#fafafa',
-  border: '1px solid #f0f0f0',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
   borderRadius: 16,
   padding: '30px 20px',
   textAlign: 'center',
@@ -187,17 +187,17 @@ const statCard: CSSProperties = {
 const statNum: CSSProperties = {
   fontSize: 40,
   fontWeight: 800,
-  color: '#21C818',
+  color: 'var(--green)',
   marginBottom: 6,
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
 };
-const statLabel: CSSProperties = { fontSize: 13, color: '#888' };
+const statLabel: CSSProperties = { fontSize: 13, color: 'var(--text-sub)' };
 const sectionTitle: CSSProperties = {
   fontSize: 15,
   fontWeight: 700,
-  color: '#444',
+  color: 'var(--text)',
   margin: '0 0 14px',
 };
 const actionRow: CSSProperties = { display: 'flex', gap: 12, marginBottom: 32, flexWrap: 'wrap' };
@@ -207,9 +207,9 @@ const actionBtn: CSSProperties = {
   gap: 8,
   padding: '12px 20px',
   borderRadius: 12,
-  border: '1px solid #e2e2e2',
-  background: '#fff',
-  color: '#333',
+  border: '1px solid var(--border)',
+  background: 'var(--surface)',
+  color: 'var(--text)',
   fontSize: 14,
   fontWeight: 600,
   cursor: 'pointer',
@@ -221,8 +221,8 @@ const meetGrid: CSSProperties = {
 };
 const meetCard: CSSProperties = {
   textAlign: 'left',
-  background: '#fff',
-  border: '1px solid #ececec',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
   borderRadius: 14,
   padding: '16px 18px',
   cursor: 'pointer',
@@ -230,7 +230,7 @@ const meetCard: CSSProperties = {
 const meetTitle: CSSProperties = {
   fontSize: 15,
   fontWeight: 700,
-  color: '#1a1a1a',
+  color: 'var(--text)',
   marginBottom: 6,
   whiteSpace: 'nowrap',
   overflow: 'hidden',

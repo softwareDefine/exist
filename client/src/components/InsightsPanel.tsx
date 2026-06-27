@@ -64,7 +64,7 @@ export default function InsightsPanel({ orgId }: { orgId: number }) {
         </span>
       </div>
 
-      <p style={{ margin: '10px 0 14px', lineHeight: 1.6, color: '#333' }}>{ins.summary}</p>
+      <p style={{ margin: '10px 0 14px', lineHeight: 1.6, color: 'var(--text)' }}>{ins.summary}</p>
 
       {ins.trend && <div style={trendBox}>📈 {ins.trend}</div>}
 
@@ -110,14 +110,14 @@ export default function InsightsPanel({ orgId }: { orgId: number }) {
         </div>
       )}
 
-      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #f0f0f0' }}>
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
         <div style={sectTitle}>🌱 ESG · 원격근무 사회적 가치 (추정)</div>
         <div style={grid}>
           <Stat value={`${m.esg.savedCo2Kg}kg`} label="CO₂ 절감" />
           <Stat value={`${m.esg.savedKm}km`} label="통근거리 절감" />
           <Stat value={`${m.esg.savedHours}h`} label="통근시간 절감" />
         </div>
-        <div style={{ fontSize: 11, color: '#aaa', marginTop: 8, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-sub)', marginTop: 8, lineHeight: 1.5 }}>
           * 원격 회의 참여 {m.esg.replacedCommutes}일(person-day) 기준 추정. 왕복 17.3km·73분(2024
           통신3사), 승용차 125.2g CO₂/km(환경부·국립환경과학원 2020). 통근 대체 가정에 따른 추정치.
         </div>
@@ -130,7 +130,7 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   return (
     <div style={stat}>
       <div style={{ fontSize: 22, fontWeight: 700, color: '#21C818' }}>{value}</div>
-      <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>
         {label}
         {sub ? ` ${sub}` : ''}
       </div>
@@ -148,16 +148,16 @@ function RiskCard({ label, data }: { label: string; data: { level: string; reaso
         : 'rgba(33,200,24,0.07)';
   return (
     <div style={{ background: bg, borderRadius: 11, padding: '12px 14px' }}>
-      <div style={{ fontSize: 12, color: '#888', marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-sub)', marginBottom: 3 }}>{label}</div>
       <div style={{ fontSize: 17, fontWeight: 800, color }}>{data.level}</div>
-      <div style={{ fontSize: 12, color: '#777', marginTop: 3 }}>{data.reason}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 3 }}>{data.reason}</div>
     </div>
   );
 }
 
 const box: CSSProperties = {
-  background: '#fff',
-  border: '1px solid #ececec',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
   borderRadius: 14,
   padding: 18,
   margin: '0 0 20px',
@@ -183,11 +183,11 @@ const grid: CSSProperties = {
   gap: 10,
 };
 const trendBox: CSSProperties = {
-  background: '#f6f8fa',
+  background: 'var(--bg)',
   borderRadius: 9,
   padding: '9px 13px',
   fontSize: 13,
-  color: '#555',
+  color: 'var(--text-sub)',
   marginBottom: 12,
 };
 const predGrid: CSSProperties = {
@@ -197,12 +197,17 @@ const predGrid: CSSProperties = {
   marginBottom: 16,
 };
 const stat: CSSProperties = {
-  background: '#fafafa',
+  background: 'var(--bg)',
   borderRadius: 10,
   padding: '12px 14px',
   textAlign: 'center',
 };
-const sectTitle: CSSProperties = { fontSize: 13, fontWeight: 700, marginBottom: 6, color: '#555' };
+const sectTitle: CSSProperties = {
+  fontSize: 13,
+  fontWeight: 700,
+  marginBottom: 6,
+  color: 'var(--text-sub)',
+};
 const riskItem: CSSProperties = {
   fontSize: 13,
   color: '#c0392b',

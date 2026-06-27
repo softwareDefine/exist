@@ -39,7 +39,7 @@ export function ChatIcon({ size }: IconProps) {
         stroke="currentColor"
         strokeWidth="1.7"
         strokeLinejoin="round"
-        fill="#fff"
+        fill="var(--surface)"
       />
       {/* 앞 말풍선 (보내는 쪽) — 겹쳐서 대화 느낌 */}
       <path
@@ -47,7 +47,7 @@ export function ChatIcon({ size }: IconProps) {
         stroke="currentColor"
         strokeWidth="1.7"
         strokeLinejoin="round"
-        fill="#fff"
+        fill="var(--surface)"
       />
     </Svg>
   );
