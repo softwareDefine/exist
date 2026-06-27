@@ -17,6 +17,7 @@ interface Metrics {
   activity: { calls: number; messages: number };
   participation: { username: string; messages: number }[];
   quietMembers: string[];
+  esg: { replacedCommutes: number; savedKm: number; savedCo2Kg: number; savedHours: number };
 }
 interface Insights {
   summary: string;
@@ -98,6 +99,19 @@ export default function InsightsPanel({ orgId }: { orgId: number }) {
           ))}
         </div>
       )}
+
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #f0f0f0' }}>
+        <div style={sectTitle}>🌱 ESG · 원격근무 사회적 가치 (추정)</div>
+        <div style={grid}>
+          <Stat value={`${m.esg.savedCo2Kg}kg`} label="CO₂ 절감" />
+          <Stat value={`${m.esg.savedKm}km`} label="통근거리 절감" />
+          <Stat value={`${m.esg.savedHours}h`} label="통근시간 절감" />
+        </div>
+        <div style={{ fontSize: 11, color: '#aaa', marginTop: 8, lineHeight: 1.5 }}>
+          * 원격 회의 참여 {m.esg.replacedCommutes}일(person-day) 기준 추정. 왕복 17.3km·73분(2024
+          통신3사), 승용차 125.2g CO₂/km(환경부·국립환경과학원 2020). 통근 대체 가정에 따른 추정치.
+        </div>
+      </div>
     </section>
   );
 }

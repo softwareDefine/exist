@@ -14,6 +14,12 @@ import { isMember } from './orgs.js';
 const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const PERIOD_DAYS = 14;
+// ESG 환산 계수 (공신력 출처 — 임의 수치 아님):
+//  - 왕복 통근 17.3km·73분: 2024년 통신3사 모바일 데이터 기반 직장인 출퇴근 평균(이투데이/국민일보)
+//  - 승용차 125.2g CO₂/km: 환경부·국립환경과학원 2020년 승용 평균 실배출량
+const COMMUTE_ROUND_KM = 17.3;
+const COMMUTE_ROUND_MIN = 73;
+const CAR_CO2_G_PER_KM = 125.2;
 
 interface OrgMetrics {
   orgName: string;
@@ -25,6 +31,12 @@ interface OrgMetrics {
   activity: { calls: number; messages: number };
   participation: { username: string; messages: number }[];
   quietMembers: string[];
+  esg: {
+    replacedCommutes: number; // 원격근무 person-day 추정(통근 대체 횟수)
+    savedKm: number;
+    savedCo2Kg: number;
+    savedHours: number;
+  };
 }
 
 function collectOrgMetrics(orgId: number): OrgMetrics | null {
@@ -97,6 +109,25 @@ function collectOrgMetrics(orgId: number): OrgMetrics | null {
   const active = new Set(msgRows.map((r) => r.username));
   const quietMembers = members.map((m) => m.username).filter((u) => !active.has(u));
 
+  // ESG: 원격근무 person-day 추정 = 회의에 참여한 (멤버, 날짜) 고유 수
+  // (exist로 원격 회의한 날 = 출근 1회 대체로 가정 — SKT 사회적 가치 환산 방법론)
+  const replaced = mids.length
+    ? (
+        db
+          .prepare(
+            `SELECT COUNT(*) AS n FROM (
+               SELECT DISTINCT mp.user_id, date(mp.joined_at) AS d
+               FROM meeting_participants mp
+               WHERE mp.meeting_id IN (${ph}) AND mp.joined_at >= ?
+             )`,
+          )
+          .get(...mids, since) as { n: number }
+      ).n
+    : 0;
+  const savedKm = Math.round(replaced * COMMUTE_ROUND_KM * 10) / 10;
+  const savedCo2Kg = Math.round(((savedKm * CAR_CO2_G_PER_KM) / 1000) * 10) / 10;
+  const savedHours = Math.round(((replaced * COMMUTE_ROUND_MIN) / 60) * 10) / 10;
+
   return {
     orgName: org.name,
     periodDays: PERIOD_DAYS,
@@ -114,6 +145,7 @@ function collectOrgMetrics(orgId: number): OrgMetrics | null {
       .map((r) => ({ username: r.username, messages: r.cnt }))
       .sort((a, b) => b.messages - a.messages),
     quietMembers,
+    esg: { replacedCommutes: replaced, savedKm, savedCo2Kg, savedHours },
   };
 }
 
