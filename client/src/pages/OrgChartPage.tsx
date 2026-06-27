@@ -6,6 +6,7 @@ import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
 import { BuildingIcon, UsersIcon } from '../components/Icons';
 import { POSITIONS } from '../lib/positions';
+import InsightsPanel from '../components/InsightsPanel';
 
 interface Member {
   userId: number;
@@ -168,6 +169,8 @@ export default function OrgChartPage() {
               </button>
             )}
           </div>
+
+          <InsightsPanel orgId={orgId} />
 
           {/* 가입 대기 — 관리자만, 직급·부서 미리 정하며 승인 */}
           {manager && detail.pending.length > 0 && (

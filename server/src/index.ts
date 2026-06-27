@@ -16,6 +16,7 @@ import workspacesRouter from './workspaces.js';
 import orgsRouter from './orgs.js';
 import notificationsRouter from './notifications.js';
 import runnerRouter from './runner.js';
+import insightsRouter from './insights.js';
 import { attachYjs } from './ydoc.js';
 import { initNotifier, notifyUser } from './notify.js';
 
@@ -45,6 +46,7 @@ app.use('/api/workspaces', workspacesRouter);
 app.use('/api/orgs', orgsRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/run', runnerRouter);
+app.use('/api/insights', insightsRouter);
 
 // 프로덕션: 빌드된 클라이언트 정적 서빙 + SPA 폴백
 const clientDist = path.resolve(__dirname, '..', '..', 'client', 'dist');
