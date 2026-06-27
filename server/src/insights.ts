@@ -17,11 +17,27 @@ const PERIOD_DAYS = 14;
 // ESG 환산 계수 (공신력 출처 — 임의 수치 아님):
 //  - 왕복 통근 17.3km·73분: 2024년 통신3사 모바일 데이터 기반 직장인 출퇴근 평균(이투데이/국민일보)
 //  - 승용차 125.2g CO₂/km: 환경부·국립환경과학원 2020년 승용 평균 실배출량
-const COMMUTE_ROUND_KM = 17.3;
-const COMMUTE_ROUND_MIN = 73;
-const CAR_CO2_G_PER_KM = 125.2;
+export const COMMUTE_ROUND_KM = 17.3;
+export const COMMUTE_ROUND_MIN = 73;
+export const CAR_CO2_G_PER_KM = 125.2;
 
-interface OrgMetrics {
+/**
+ * ESG 환산 — 원격근무 person-day(통근 대체 횟수)를 통근거리·CO₂·시간 절감으로.
+ * 순수함수(테스트 대상). 소수 첫째 자리 반올림.
+ */
+export function esgFromCommutes(replaced: number): {
+  replacedCommutes: number;
+  savedKm: number;
+  savedCo2Kg: number;
+  savedHours: number;
+} {
+  const savedKm = Math.round(replaced * COMMUTE_ROUND_KM * 10) / 10;
+  const savedCo2Kg = Math.round(((savedKm * CAR_CO2_G_PER_KM) / 1000) * 10) / 10;
+  const savedHours = Math.round(((replaced * COMMUTE_ROUND_MIN) / 60) * 10) / 10;
+  return { replacedCommutes: replaced, savedKm, savedCo2Kg, savedHours };
+}
+
+export interface OrgMetrics {
   orgName: string;
   periodDays: number;
   memberCount: number;
@@ -137,9 +153,7 @@ function collectOrgMetrics(orgId: number): OrgMetrics | null {
           .get(...mids, since) as { n: number }
       ).n
     : 0;
-  const savedKm = Math.round(replaced * COMMUTE_ROUND_KM * 10) / 10;
-  const savedCo2Kg = Math.round(((savedKm * CAR_CO2_G_PER_KM) / 1000) * 10) / 10;
-  const savedHours = Math.round(((replaced * COMMUTE_ROUND_MIN) / 60) * 10) / 10;
+  const esg = esgFromCommutes(replaced);
 
   // ── 추세·예측 신호 ──
   const weekAgoIso = new Date(now - 7 * 86_400_000).toISOString();
@@ -218,13 +232,13 @@ function collectOrgMetrics(orgId: number): OrgMetrics | null {
       .map((r) => ({ username: r.username, messages: r.cnt }))
       .sort((a, b) => b.messages - a.messages),
     quietMembers,
-    esg: { replacedCommutes: replaced, savedKm, savedCo2Kg, savedHours },
+    esg,
     trends: { activityTrend, msgRecent, msgPrev, callRecent, callPrev },
     signals: { soonDue, nightRatio, topShare, callMinPerMember },
   };
 }
 
-interface Insights {
+export interface Insights {
   summary: string;
   trend: string;
   burnoutRisk: { level: string; reason: string };
@@ -233,8 +247,8 @@ interface Insights {
   recommendations: string[];
 }
 
-/** 규칙 기반 폴백 — API 키 없거나 AI 실패 시 */
-function ruleBasedInsights(m: OrgMetrics): Insights {
+/** 규칙 기반 폴백 — API 키 없거나 AI 실패 시. 순수함수(metrics→insights, 테스트 대상) */
+export function ruleBasedInsights(m: OrgMetrics): Insights {
   const risks: string[] = [];
   const recs: string[] = [];
 

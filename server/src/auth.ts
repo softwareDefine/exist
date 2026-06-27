@@ -17,12 +17,12 @@ export interface AuthedRequest extends Request {
   username?: string;
 }
 
-function hashPassword(password: string, salt: string): string {
+export function hashPassword(password: string, salt: string): string {
   return crypto.scryptSync(password, salt, 64).toString('hex');
 }
 
 /** 복구 코드 생성 — "XXXX-XXXX-XXXX-XXXX" (혼동 문자 제외) */
-function generateRecoveryCode(): string {
+export function generateRecoveryCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const group = () =>
     Array.from({ length: 4 }, () => chars[crypto.randomInt(chars.length)]).join('');
