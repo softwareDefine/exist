@@ -107,14 +107,14 @@ export function HomeIcon({ size }: IconProps) {
       <path
         d="M4.2 11c0-.6.3-1.2.8-1.6l5.8-4.4a2 2 0 0 1 2.4 0l5.8 4.4c.5.4.8 1 .8 1.6v8a1.4 1.4 0 0 1-1.4 1.4H5.6A1.4 1.4 0 0 1 4.2 19z"
         stroke="currentColor"
-        strokeWidth="2.3"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
         d="M9.7 20.4v-6h4.6v6"
         stroke="currentColor"
-        strokeWidth="2.3"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
