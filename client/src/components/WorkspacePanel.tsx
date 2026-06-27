@@ -263,8 +263,9 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
           className={`ws-tab home${active === null ? ' active' : ''}`}
           onClick={() => setActive(null)}
           title="홈 — 내 대시보드"
+          style={{ lineHeight: 0 }}
         >
-          <HomeIcon size={16} />
+          <HomeIcon size={18} />
         </button>
         {workspaces.map((ws) =>
           renaming === ws.id ? (
