@@ -385,7 +385,7 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
           );
         })}
 
-        {active === null && meetingTabs.length === 0 && <ProfileDashboard />}
+        {active === null && <ProfileDashboard />}
       </div>
     </section>
   );
