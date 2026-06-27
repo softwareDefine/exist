@@ -257,4 +257,24 @@ router.get('/brief', async (req: AuthedRequest, res) => {
   res.json(brief);
 });
 
+/** 개인 대시보드 요약 — 참여 회의·미완료 할 일·다음 일정·라이브 통화 */
+router.get('/overview', (req: AuthedRequest, res) => {
+  const ctx = getUserContext(req.userId!);
+  const now = ctx.now.getTime();
+  const undone = ctx.todos.filter((t) => !t.done);
+  const overdue = undone.filter((t) => t.due_at && new Date(t.due_at).getTime() < now);
+  const next = ctx.meetings
+    .filter((m) => m.starts_at && new Date(m.starts_at).getTime() > now)
+    .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())[0];
+  res.json({
+    meetingCount: ctx.meetings.length,
+    todoUndone: undone.length,
+    todoOverdue: overdue.length,
+    liveCalls: ctx.meetings
+      .filter((m) => m.in_call > 0)
+      .map((m) => ({ title: m.title, code: m.code, inCall: m.in_call })),
+    nextMeeting: next ? { title: next.title, code: next.code, startsAt: next.starts_at } : null,
+  });
+});
+
 export default router;

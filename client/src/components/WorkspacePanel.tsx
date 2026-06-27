@@ -5,6 +5,7 @@ import { useOrgStore, type OrgContext } from '../orgStore';
 import { FolderIcon, UsersIcon, CloseIcon } from './Icons';
 import CanvasBoard from './CanvasBoard';
 import MeetingHub from './MeetingHub';
+import ProfileDashboard from './ProfileDashboard';
 
 interface Workspace {
   id: number;
@@ -384,9 +385,7 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
           );
         })}
 
-        {active === null && meetingTabs.length === 0 && (
-          <div className="workspace-empty">최근 회의를 클릭하면 회의 공간이 열려요</div>
-        )}
+        {active === null && meetingTabs.length === 0 && <ProfileDashboard />}
       </div>
     </section>
   );
