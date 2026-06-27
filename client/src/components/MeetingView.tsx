@@ -571,10 +571,10 @@ export default function MeetingView({
                 position: 'absolute',
                 bottom: 12,
                 left: 0,
-                right: 0,
+                right: 14,
                 display: 'flex',
                 gap: 12,
-                justifyContent: 'center',
+                justifyContent: 'flex-end',
                 zIndex: 2,
               }}
             >
