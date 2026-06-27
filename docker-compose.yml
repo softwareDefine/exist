@@ -12,6 +12,9 @@ services:
       DATA_DIR: /data
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      # 코드 실행은 격리된 runner 컨테이너로 위임(내부망). git push 만 게이트로 제어.
+      RUNNER_URL: http://runner:5000
+      CODE_EXEC_ENABLED: ${CODE_EXEC_ENABLED:-0}
       # mediasoup WebRTC — 맥미니 공인 IP (클라이언트가 미디어로 접속할 주소)
       ANNOUNCED_IP: ${ANNOUNCED_IP}
       # 같은 공유기(LAN) 안 통화용 사설 IP — 헤어핀 NAT 회피. 맥미니 LAN IP.
@@ -26,6 +29,37 @@ services:
       - "40000-40100:40000-40100/tcp" # Colima UDP 불가 → TCP 폴백(실동작 경로)
     volumes:
       - exist-data:/data # DB·업로드·ydocs 영속
+    networks:
+      - default # 외부(클라이언트/OpenAI)
+      - runner-net # 격리 러너와의 내부 통신
+    depends_on:
+      - runner
+
+  # 격리된 코드 실행 전용 컨테이너.
+  # internal 네트워크(인터넷 차단) + 권한 제거 + read_only + 자원 제한으로,
+  # 임의 코드가 돌아도 호스트(맥미니)·exist DB·외부망에 닿지 못한다.
+  runner:
+    build: ./runner
+    image: exist-runner:latest
+    container_name: exist-runner
+    restart: unless-stopped
+    read_only: true # 루트 파일시스템 읽기 전용
+    tmpfs:
+      - /tmp:exec,size=256m,mode=1777 # 임시 작업·컴파일 산출물(실행 가능)만 허용
+    mem_limit: 512m
+    cpus: "0.75"
+    pids_limit: 128 # fork 폭탄 방지
+    cap_drop:
+      - ALL # 모든 리눅스 capability 제거
+    security_opt:
+      - no-new-privileges:true # setuid 권한 상승 차단
+    user: "65534:65534" # nobody — non-root 실행
+    networks:
+      - runner-net # internal 전용 → 외부 인터넷 불가
+
+networks:
+  runner-net:
+    internal: true # 외부 라우팅 없음(코드 실행 컨테이너 격리)
 
 volumes:
   exist-data:

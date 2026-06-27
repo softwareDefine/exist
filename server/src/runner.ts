@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -14,6 +14,34 @@ import { requireAuth } from './auth.js';
 
 const router = Router();
 router.use(requireAuth);
+
+/*
+ * 보안 모델 — 코드/명령 실행은 서버 셸/파일시스템을 건드린다.
+ *
+ *  · /exec  : 격리된 별도 컨테이너(runner 서비스)로 위임한다. RUNNER_URL 이 설정되면
+ *             그쪽으로 프록시 → 임의 코드는 internal 네트워크·cap_drop·non-root·read_only
+ *             로 격리된 컨테이너 안에서만 돌아 호스트/DB 에 닿지 못한다.
+ *             RUNNER_URL 이 없으면(로컬 개발) CODE_EXEC_ENABLED=1 일 때만 직접 실행.
+ *  · /git   : 외부(GitHub) 접근이 필요해 격리망에 못 둔다 → CODE_EXEC_ENABLED 게이트.
+ *  · /sql   : 인메모리 SQLite. ATTACH/확장 로드만 막으면 파일 접근이 없어 안전.
+ */
+const CODE_EXEC_ENABLED = process.env.CODE_EXEC_ENABLED === '1';
+const RUNNER_URL = process.env.RUNNER_URL?.replace(/\/$/, '');
+
+const requireExecEnabled: RequestHandler = (_req, res, next) => {
+  if (!CODE_EXEC_ENABLED) {
+    res.status(403).json({
+      lines: [
+        {
+          type: 'error',
+          text: '이 환경에서는 서버 코드 실행이 비활성화되어 있어요. (관리자: CODE_EXEC_ENABLED=1)',
+        },
+      ],
+    });
+    return;
+  }
+  next();
+};
 
 const RUN_TIMEOUT = 12000;
 const isWin = process.platform === 'win32';
@@ -93,11 +121,39 @@ function runShell(
   });
 }
 
-/** 코드 실행 — 임시 디렉터리에 파일 쓰고 빌드/런 */
+/** 코드 실행 — 격리 러너로 위임(RUNNER_URL), 없으면 로컬 직접 실행(게이트) */
 router.post('/exec', async (req, res) => {
   const { lang, entry, files } = req.body as { lang: string; entry: string; files: RunFile[] };
   if (!lang || !entry || !Array.isArray(files)) {
     return res.status(400).json({ error: '잘못된 요청' });
+  }
+
+  // 격리 러너가 설정돼 있으면 그쪽으로 위임한다(프로덕션 경로).
+  if (RUNNER_URL) {
+    try {
+      const upstream = await fetch(`${RUNNER_URL}/exec`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ lang, entry, files }),
+        // 러너 자체 타임아웃(12s)보다 넉넉히
+        signal: AbortSignal.timeout(20000),
+      });
+      const data = await upstream.json();
+      return res.status(upstream.status).json(data);
+    } catch {
+      return res.json({
+        lines: [{ type: 'error', text: '실행 러너에 연결할 수 없어요. 잠시 후 다시 시도해주세요.' }],
+      });
+    }
+  }
+
+  // 러너 미설정(로컬 개발): 명시적으로 켠 경우에만 이 컨테이너에서 직접 실행.
+  if (!CODE_EXEC_ENABLED) {
+    return res.status(403).json({
+      lines: [
+        { type: 'error', text: '서버 코드 실행이 비활성화되어 있어요. (관리자: RUNNER_URL 또는 CODE_EXEC_ENABLED=1)' },
+      ],
+    });
   }
   const cmd = commandFor(lang, entry, files);
   if ('error' in cmd) {
@@ -151,7 +207,7 @@ router.post('/exec', async (req, res) => {
   }
 });
 
-/** SQL 실행 — 인메모리 SQLite */
+/** SQL 실행 — 인메모리 SQLite (ATTACH/확장 로드 차단 → 파일시스템 격리) */
 router.post('/sql', (req, res) => {
   const { sql } = req.body as { sql: string };
   if (typeof sql !== 'string') return res.status(400).json({ error: '잘못된 요청' });
@@ -163,6 +219,11 @@ router.post('/sql', (req, res) => {
       .map((s) => s.trim())
       .filter(Boolean);
     for (const stmt of statements) {
+      // 인메모리를 벗어나 호스트 파일에 접근하는 경로 차단
+      if (/^\s*(attach|detach)\b/i.test(stmt) || /\bload_extension\s*\(/i.test(stmt)) {
+        lines.push({ type: 'error', text: 'ATTACH/확장 로드는 허용되지 않아요.' });
+        continue;
+      }
       try {
         if (/^\s*(select|pragma|with|explain)\b/i.test(stmt)) {
           const rows = sdb.prepare(stmt).all() as Record<string, unknown>[];
@@ -193,8 +254,8 @@ router.post('/sql', (req, res) => {
   }
 });
 
-/** git push — 프로젝트 파일을 임시 repo에 커밋 후 원격으로 push */
-router.post('/git', async (req, res) => {
+/** git push — 외부 GitHub 접근이 필요해 격리망에 못 둔다 → 명시적 게이트 */
+router.post('/git', requireExecEnabled, async (req, res) => {
   const {
     remote,
     token,

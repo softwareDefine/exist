@@ -1,0 +1,11 @@
+{
+  "name": "exist-runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "server.js",
+  "description": "격리된 코드 실행 전용 서비스 — exist 본체와 분리된 컨테이너에서 동작",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
