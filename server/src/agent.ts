@@ -266,7 +266,11 @@ router.get('/overview', (req: AuthedRequest, res) => {
   const next = ctx.meetings
     .filter((m) => m.starts_at && new Date(m.starts_at).getTime() > now)
     .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())[0];
+  const u = db.prepare('SELECT avatar FROM users WHERE id = ?').get(req.userId!) as
+    | { avatar?: string }
+    | undefined;
   res.json({
+    avatar: u?.avatar ?? '🐧',
     meetingCount: ctx.meetings.length,
     todoUndone: undone.length,
     todoOverdue: overdue.length,

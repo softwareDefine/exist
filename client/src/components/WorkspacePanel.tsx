@@ -259,6 +259,13 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
   return (
     <section className="workspace-panel">
       <div className="workspace-tabs">
+        <button
+          className={`ws-tab home${active === null ? ' active' : ''}`}
+          onClick={() => setActive(null)}
+          title="홈 — 내 대시보드"
+        >
+          🏠 홈
+        </button>
         {workspaces.map((ws) =>
           renaming === ws.id ? (
             <form key={ws.id} className="ws-create" onSubmit={renameWorkspace}>
