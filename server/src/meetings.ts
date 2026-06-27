@@ -7,7 +7,7 @@ import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { invalidateBrief } from './agent.js';
 import { emitToUser, notifyUser } from './notify.js';
-import { getRoomSize } from './sfu.js';
+import { getRoomSize, getRoomPeers } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
 
@@ -439,6 +439,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
         ? { start: meeting.period_start, end: meeting.period_end }
         : null,
     online: getRoomSize(meeting.code),
+    callPeers: getRoomPeers(meeting.code),
     participants: participants.map((p) => ({
       username: p.username,
       avatar: p.avatar,

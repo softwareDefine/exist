@@ -125,8 +125,8 @@ interface MeetingViewProps {
   onLeave: (message?: string) => void;
   /** 프리뷰에서 '입장하기'로 통화 시작 시 호출 */
   onJoined?: () => void;
-  /** 현재 통화 중 인원 (프리뷰에 표시) */
-  onlineCount?: number;
+  /** 현재 통화 중인 사람 이름 (프리뷰에 표시) */
+  onlinePeers?: string[];
 }
 
 export default function MeetingView({
@@ -136,7 +136,7 @@ export default function MeetingView({
   onToggleExpand,
   onLeave,
   onJoined,
-  onlineCount = 0,
+  onlinePeers = [],
 }: MeetingViewProps) {
   const user = useAuthStore((s) => s.user);
 
@@ -534,13 +534,17 @@ export default function MeetingView({
             boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
           }}
         >
-          <h2 style={{ margin: '0 0 4px', fontSize: 18 }}>{title || '회의'}에 입장</h2>
-          <div style={{ fontSize: 12, color: '#999', marginBottom: onlineCount > 0 ? 6 : 16 }}>
-            코드 {code}
-          </div>
-          {onlineCount > 0 && (
+          <h2 style={{ margin: '0 0 4px', fontSize: 18, color: '#111' }}>
+            {title || '회의'}에 입장
+          </h2>
+          <div style={{ fontSize: 12, color: '#999', marginBottom: 6 }}>코드 {code}</div>
+          {onlinePeers.length > 0 ? (
             <div style={{ fontSize: 13, color: '#21C818', fontWeight: 700, marginBottom: 16 }}>
-              ● 지금 {onlineCount}명 통화 중
+              ● 지금 통화 중 · {onlinePeers.join(', ')}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12.5, color: '#aaa', marginBottom: 16 }}>
+              아직 통화에 아무도 없어요 · 먼저 시작해보세요
             </div>
           )}
           <div

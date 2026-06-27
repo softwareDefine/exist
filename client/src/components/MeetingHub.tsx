@@ -62,6 +62,7 @@ interface MeetingDetail {
   settings?: MeetingSettings;
   period?: { start: string | null; end: string | null } | null;
   participants: Participant[];
+  callPeers: string[];
 }
 
 function formatRange(starts: string | null, ends: string | null): string | null {
@@ -1123,7 +1124,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               expanded={expanded}
               onToggleExpand={onToggleExpand}
               onJoined={() => setInCall(true)}
-              onlineCount={detail?.online ?? 0}
+              onlinePeers={detail?.callPeers ?? []}
               onLeave={(message) => {
                 setInCall(false);
                 setSubtab('dash');

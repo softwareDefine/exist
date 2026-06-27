@@ -153,6 +153,13 @@ export function getRoomSize(code: string): number {
   return rooms.get(code)?.peers.size ?? 0;
 }
 
+/** 회의 허브용 — 현재 통화 참여자 이름 목록 (프리뷰에 표시) */
+export function getRoomPeers(code: string): string[] {
+  const room = rooms.get(code);
+  if (!room) return [];
+  return [...room.peers.values()].map((p) => p.username);
+}
+
 export function attachSfu(io: Server) {
   io.on('connection', (socket: Socket) => {
     let room: Room | null = null;
