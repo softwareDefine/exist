@@ -18,6 +18,9 @@ services:
       RTC_MAX_PORT: "40100"
       # Colima는 UDP 포트포워딩을 못 함(lima는 TCP만). 미디어를 TCP로 우선 연결.
       MEDIA_PREFER_TCP: "1"
+      # 코드 실행(/exec)은 격리된 runner 컨테이너로 위임. git push(/git)만 게이트.
+      RUNNER_URL: http://runner:5000
+      CODE_EXEC_ENABLED: ${CODE_EXEC_ENABLED:-0}
     ports:
       # 4000은 nginx가 망 안에서 접근하므로 미공개. 미디어는 UDP+TCP 둘 다 publish
       # (Colima에선 UDP가 안 넘어와서 TCP가 실제 동작 경로)
@@ -26,7 +29,30 @@ services:
     volumes:
       - exist-data:/data
     networks:
-      - sofie-portfolio_default
+      - sofie-portfolio_default # nginx 프록시 + 외부
+      - runner-net # 격리 러너와 내부 통신
+    depends_on:
+      - runner
+
+  # 격리된 코드 실행 전용 컨테이너 (이미지는 별도 빌드: docker build -t exist-runner:latest ../runner)
+  # internal 네트워크(인터넷 차단) + 권한 제거 + read_only + 자원 제한.
+  runner:
+    image: exist-runner:latest
+    container_name: exist-runner
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:exec,size=256m,mode=1777
+    mem_limit: 512m
+    cpus: "0.75"
+    pids_limit: 128
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "65534:65534"
+    networks:
+      - runner-net # internal 전용 → 외부 인터넷 불가
 
 volumes:
   # 외부 볼륨(접두사 없는 exist-data)에 실데이터가 있음. external 미지정 시
@@ -37,3 +63,5 @@ volumes:
 networks:
   sofie-portfolio_default:
     external: true
+  runner-net:
+    internal: true # 외부 라우팅 없음(코드 실행 컨테이너 격리)

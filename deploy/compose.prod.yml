@@ -22,6 +22,9 @@ services:
       RTC_MAX_PORT: "40100"
       # Colima는 UDP 포트포워딩을 못 함(lima는 TCP만). 미디어를 TCP로 우선 연결.
       MEDIA_PREFER_TCP: "1"
+      # 코드 실행(/exec)은 격리된 runner 컨테이너로 위임. git push(/git)만 게이트.
+      RUNNER_URL: http://runner:5000
+      CODE_EXEC_ENABLED: ${CODE_EXEC_ENABLED:-0}
     ports:
       - "40000-40100:40000-40100/udp"
       - "40000-40100:40000-40100/tcp"
@@ -29,6 +32,32 @@ services:
       - exist-data:/data
     networks:
       - sofie-portfolio_default
+      - runner-net
+    depends_on:
+      - runner
+
+  # 격리된 코드 실행 전용 컨테이너.
+  # internal 네트워크(인터넷 차단) + 권한 제거 + read_only + 자원 제한.
+  runner:
+    build:
+      context: ../runner
+      dockerfile: Dockerfile
+    image: exist-runner:latest
+    container_name: exist-runner
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:exec,size=256m,mode=1777
+    mem_limit: 512m
+    cpus: "0.75"
+    pids_limit: 128
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "65534:65534"
+    networks:
+      - runner-net
 
 volumes:
   exist-data:
@@ -37,3 +66,5 @@ volumes:
 networks:
   sofie-portfolio_default:
     external: true
+  runner-net:
+    internal: true # 외부 라우팅 없음(코드 실행 컨테이너 격리)
