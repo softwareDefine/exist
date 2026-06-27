@@ -21,6 +21,9 @@ interface Metrics {
 }
 interface Insights {
   summary: string;
+  trend: string;
+  burnoutRisk: { level: string; reason: string };
+  delayRisk: { level: string; reason: string };
   risks: string[];
   recommendations: string[];
 }
@@ -61,7 +64,14 @@ export default function InsightsPanel({ orgId }: { orgId: number }) {
         </span>
       </div>
 
-      <p style={{ margin: '10px 0 16px', lineHeight: 1.6, color: '#333' }}>{ins.summary}</p>
+      <p style={{ margin: '10px 0 14px', lineHeight: 1.6, color: '#333' }}>{ins.summary}</p>
+
+      {ins.trend && <div style={trendBox}>📈 {ins.trend}</div>}
+
+      <div style={predGrid}>
+        <RiskCard label="번아웃 위험 예측" data={ins.burnoutRisk} />
+        <RiskCard label="일정 지연 위험 예측" data={ins.delayRisk} />
+      </div>
 
       <div style={grid}>
         <Stat
@@ -128,6 +138,23 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
+function RiskCard({ label, data }: { label: string; data: { level: string; reason: string } }) {
+  const color = data.level === '높음' ? '#e5484d' : data.level === '보통' ? '#f76808' : '#21C818';
+  const bg =
+    data.level === '높음'
+      ? 'rgba(229,72,77,0.07)'
+      : data.level === '보통'
+        ? 'rgba(247,104,8,0.08)'
+        : 'rgba(33,200,24,0.07)';
+  return (
+    <div style={{ background: bg, borderRadius: 11, padding: '12px 14px' }}>
+      <div style={{ fontSize: 12, color: '#888', marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 17, fontWeight: 800, color }}>{data.level}</div>
+      <div style={{ fontSize: 12, color: '#777', marginTop: 3 }}>{data.reason}</div>
+    </div>
+  );
+}
+
 const box: CSSProperties = {
   background: '#fff',
   border: '1px solid #ececec',
@@ -154,6 +181,20 @@ const grid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
   gap: 10,
+};
+const trendBox: CSSProperties = {
+  background: '#f6f8fa',
+  borderRadius: 9,
+  padding: '9px 13px',
+  fontSize: 13,
+  color: '#555',
+  marginBottom: 12,
+};
+const predGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 10,
+  marginBottom: 16,
 };
 const stat: CSSProperties = {
   background: '#fafafa',

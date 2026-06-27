@@ -37,6 +37,19 @@ interface OrgMetrics {
     savedCo2Kg: number;
     savedHours: number;
   };
+  trends: {
+    activityTrend: 'up' | 'down' | 'flat'; // 최근 7일 vs 이전 7일
+    msgRecent: number;
+    msgPrev: number;
+    callRecent: number;
+    callPrev: number;
+  };
+  signals: {
+    soonDue: number; // 3일 내 마감 미완료
+    nightRatio: number; // 야간(22~06시) 메시지 비율 %
+    topShare: number; // 상위 1인 메시지 점유율 %
+    callMinPerMember: number; // 인당 통화 시간(분)
+  };
 }
 
 function collectOrgMetrics(orgId: number): OrgMetrics | null {
@@ -128,6 +141,66 @@ function collectOrgMetrics(orgId: number): OrgMetrics | null {
   const savedCo2Kg = Math.round(((savedKm * CAR_CO2_G_PER_KM) / 1000) * 10) / 10;
   const savedHours = Math.round(((replaced * COMMUTE_ROUND_MIN) / 60) * 10) / 10;
 
+  // ── 추세·예측 신호 ──
+  const weekAgoIso = new Date(now - 7 * 86_400_000).toISOString();
+  const weekAgoDate = weekAgoIso.slice(0, 10);
+
+  // 활동 추세: 최근 7일 vs 이전 7일 (메시지 + 통화 가중)
+  const msgRecent = mids.length
+    ? (
+        db
+          .prepare(`SELECT COUNT(*) n FROM messages WHERE meeting_id IN (${ph}) AND created_at >= ?`)
+          .get(...mids, weekAgoIso) as { n: number }
+      ).n
+    : 0;
+  const msgPrev = Math.max(0, messages - msgRecent);
+  const callRecent = mids.length
+    ? (
+        db
+          .prepare(
+            `SELECT COUNT(*) n FROM meeting_events WHERE meeting_id IN (${ph}) AND is_call=1 AND date >= ?`,
+          )
+          .get(...mids, weekAgoDate) as { n: number }
+      ).n
+    : 0;
+  const callPrev = Math.max(0, callRows.length - callRecent);
+  const recentAct = msgRecent + callRecent * 5;
+  const prevAct = msgPrev + callPrev * 5;
+  const activityTrend: 'up' | 'down' | 'flat' =
+    prevAct === 0
+      ? recentAct > 0
+        ? 'up'
+        : 'flat'
+      : recentAct > prevAct * 1.15
+        ? 'up'
+        : recentAct < prevAct * 0.85
+          ? 'down'
+          : 'flat';
+
+  // 마감 임박(3일 내) 미완료 — 지연 위험 신호
+  const soonLimit = now + 3 * 86_400_000;
+  const soonDue = todoRows.filter(
+    (t) => !t.done && t.due_at && new Date(t.due_at).getTime() <= soonLimit,
+  ).length;
+
+  // 야간(현지 22~06시) 메시지 비율 — 번아웃 신호
+  const nightMsg = mids.length
+    ? (
+        db
+          .prepare(
+            `SELECT COUNT(*) n FROM messages
+             WHERE meeting_id IN (${ph}) AND created_at >= ?
+               AND (CAST(strftime('%H', created_at, '+9 hours') AS INTEGER) >= 22
+                 OR CAST(strftime('%H', created_at, '+9 hours') AS INTEGER) < 6)`,
+          )
+          .get(...mids, since) as { n: number }
+      ).n
+    : 0;
+  const nightRatio = messages > 0 ? Math.round((nightMsg / messages) * 100) : 0;
+  const topMsg = msgRows.length ? Math.max(...msgRows.map((r) => r.cnt)) : 0;
+  const topShare = messages > 0 ? Math.round((topMsg / messages) * 100) : 0;
+  const callMinPerMember = members.length ? Math.round(totalMinutes / members.length) : 0;
+
   return {
     orgName: org.name,
     periodDays: PERIOD_DAYS,
@@ -146,11 +219,16 @@ function collectOrgMetrics(orgId: number): OrgMetrics | null {
       .sort((a, b) => b.messages - a.messages),
     quietMembers,
     esg: { replacedCommutes: replaced, savedKm, savedCo2Kg, savedHours },
+    trends: { activityTrend, msgRecent, msgPrev, callRecent, callPrev },
+    signals: { soonDue, nightRatio, topShare, callMinPerMember },
   };
 }
 
 interface Insights {
   summary: string;
+  trend: string;
+  burnoutRisk: { level: string; reason: string };
+  delayRisk: { level: string; reason: string };
   risks: string[];
   recommendations: string[];
 }
@@ -174,21 +252,69 @@ function ruleBasedInsights(m: OrgMetrics): Insights {
   const summary =
     `최근 ${m.periodDays}일 동안 회의 ${m.meetingCount}개, 할 일 완료율 ` +
     `${m.todos.completionRate}%(${m.todos.done}/${m.todos.total}), 통화 ${m.calls.count}회 진행됐습니다.`;
-  return { summary, risks, recommendations: recs };
+
+  const trend =
+    m.trends.activityTrend === 'up'
+      ? '최근 7일 활동이 이전보다 늘었습니다'
+      : m.trends.activityTrend === 'down'
+        ? '최근 7일 활동이 이전보다 줄었습니다'
+        : '최근 활동이 이전과 비슷하게 유지되고 있습니다';
+
+  const burnoutLevel =
+    m.signals.nightRatio >= 30 || m.signals.callMinPerMember >= 150 || m.signals.topShare >= 70
+      ? '높음'
+      : m.signals.nightRatio >= 15 || m.signals.callMinPerMember >= 80 || m.signals.topShare >= 55
+        ? '보통'
+        : '낮음';
+  const burnoutReason =
+    m.signals.nightRatio >= 15
+      ? `야간 활동 ${m.signals.nightRatio}%`
+      : m.signals.topShare >= 55
+        ? `특정 멤버 편중 ${m.signals.topShare}%`
+        : m.signals.callMinPerMember >= 80
+          ? `인당 통화 ${m.signals.callMinPerMember}분`
+          : '과부하 신호 낮음';
+
+  const delayLevel =
+    m.todos.overdue > 0 || (m.todos.total > 0 && m.todos.completionRate < 40)
+      ? '높음'
+      : m.signals.soonDue > 0 || m.trends.activityTrend === 'down'
+        ? '보통'
+        : '낮음';
+  const delayReason =
+    m.todos.overdue > 0
+      ? `마감 지난 할 일 ${m.todos.overdue}건`
+      : m.signals.soonDue > 0
+        ? `임박 마감 ${m.signals.soonDue}건`
+        : m.todos.total > 0 && m.todos.completionRate < 40
+          ? `완료율 ${m.todos.completionRate}%`
+          : '지연 신호 낮음';
+
+  return {
+    summary,
+    trend,
+    burnoutRisk: { level: burnoutLevel, reason: burnoutReason },
+    delayRisk: { level: delayLevel, reason: delayReason },
+    risks,
+    recommendations: recs,
+  };
 }
 
 async function aiInsights(m: OrgMetrics): Promise<Insights> {
   const system =
-    '너는 재택근무 플랫폼 exist의 팀 분석 AI다. 조직의 협업 데이터 집계치를 보고 팀 상태를 진단한다.\n' +
-    '응답은 오직 JSON 하나. 형식: {"summary": string, "risks": string[], "recommendations": string[]}.\n' +
-    'summary: 팀 상태 2~3문장 요약(한국어). risks: 데이터에서 드러난 리스크(각 40자 이내, 최대 4개, 없으면 빈 배열). ' +
-    'recommendations: 실행 가능한 제안(각 40자 이내, 최대 3개).\n' +
-    '반드시 주어진 수치에 근거하고, 데이터에 없는 사실·수치는 지어내지 않는다.';
+    '너는 재택근무 플랫폼 exist의 팀 분석 AI다. 조직의 협업 데이터 집계치(추세 trends·신호 signals 포함)를 보고 팀 상태를 진단하고 위험을 예측한다.\n' +
+    '응답은 오직 JSON 하나. 형식: {"summary": string, "trend": string, "burnoutRisk": {"level": string, "reason": string}, "delayRisk": {"level": string, "reason": string}, "risks": string[], "recommendations": string[]}.\n' +
+    'summary: 팀 상태 2문장(한국어). ' +
+    'trend: 최근 7일 vs 이전 7일 활동 추세 해석 한 문장. ' +
+    'burnoutRisk: 번아웃 위험 예측 — level은 "낮음"|"보통"|"높음" 중 하나, reason은 근거(40자내). 야간 메시지 비율(signals.nightRatio), 인당 통화시간(signals.callMinPerMember), 참여 편중(signals.topShare)을 종합 판단. ' +
+    'delayRisk: 일정 지연 위험 예측 — level은 "낮음"|"보통"|"높음", reason은 근거(40자내). 완료율, 마감 지난 할 일(todos.overdue), 임박 마감(signals.soonDue), 활동 추세를 종합 판단. ' +
+    'risks: 기타 리스크(각 40자내, 최대 3개). recommendations: 실행 제안(각 40자내, 최대 3개).\n' +
+    '반드시 주어진 수치에 근거하고, 데이터에 없는 사실·수치는 지어내지 않는다. 데이터가 적으면 위험을 "낮음"으로 둔다.';
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
     temperature: 0.3,
-    max_tokens: 500,
+    max_tokens: 700,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -200,9 +326,19 @@ async function aiInsights(m: OrgMetrics): Promise<Insights> {
   if (!raw) throw new Error('empty AI response');
   const parsed = JSON.parse(raw) as Partial<Insights>;
   const fallback = ruleBasedInsights(m);
+  const risk = (r: unknown, fb: { level: string; reason: string }) => {
+    const o = (r ?? {}) as { level?: unknown; reason?: unknown };
+    return {
+      level: String(o.level ?? fb.level).trim() || fb.level,
+      reason: String(o.reason ?? fb.reason).trim() || fb.reason,
+    };
+  };
   return {
     summary: String(parsed.summary ?? '').trim() || fallback.summary,
-    risks: Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 4) : [],
+    trend: String(parsed.trend ?? '').trim() || fallback.trend,
+    burnoutRisk: risk(parsed.burnoutRisk, fallback.burnoutRisk),
+    delayRisk: risk(parsed.delayRisk, fallback.delayRisk),
+    risks: Array.isArray(parsed.risks) ? parsed.risks.map(String).slice(0, 3) : [],
     recommendations: Array.isArray(parsed.recommendations)
       ? parsed.recommendations.map(String).slice(0, 3)
       : [],
