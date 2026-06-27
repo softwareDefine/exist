@@ -166,6 +166,25 @@
 강퇴(MTG-05) · 화면공유/PiP/무중단확대(CALL-05~07) · 안읽음배지(CHAT-02) · 조직 승인플로우(ORG-02) · 실시간 푸시(NOTI-02)
 > 단, 가장 중요한 2명 시나리오(통화 중계 CALL-03, 캔버스 동기화 COL-01)는 별도 2-브라우저로 검증 완료.
 
-### 다음 단계
-3단계 단위 테스트(vitest) — 순수 함수 위주: AUTH-07(해시), INS-02~07(집계·예측·ESG), ORG-07, HOME-06, CALL-08.
-4단계 통합 테스트(supertest) — API: AUTH-02·03·05·08, MTG-04, INS-01·03·08, RUN-02·03·04, NFR-04.
+---
+
+## 3단계 단위 테스트 (vitest) — 2026-06-28 ✅
+`server/src/__tests__/` · `npm test` · **20개 통과**
+- positions: positionRank·byPositionDesc (ORG-07 보조)
+- auth: hashPassword(결정성·salt분리·128hex, AUTH-07)·generateRecoveryCode(형식·혼동문자 제외)
+- insights: esgFromCommutes(계수 환산, INS-07)·ruleBasedInsights(번아웃 INS-05·지연 INS-06·추세 INS-04·리스크)
+
+## 4단계 통합 테스트 (supertest) — 2026-06-28 ✅
+`server/src/__tests__/api.test.ts` · **11개 통과**
+- 인증: 가입검증(AUTH-02)·중복(AUTH-03)·로그인(AUTH-04)·세션401(AUTH-08)
+- 보안: 헤더(NFR-04)·코드실행 무인증401·**RUN-04 가드(인증돼도 403)**·insights 권한(INS-01)
+
+## CI (GitHub Actions) — 2026-06-28 ✅
+`.github/workflows/ci.yml` · push/PR마다 자동 — **server build+test · client build · runner syntax 전부 green**
+
+### 테스트 점수
+- **전체 31 tests passing** (단위 20 + 통합 11), tsc 빌드 통과, CI success
+- 리팩토링: 순수함수 export 추출(hashPassword·esgFromCommutes·ruleBasedInsights), app 생성을 app.ts로 분리(supertest용)
+
+### 남은 보강 (100점까지)
+관측성(구조화 로깅·에러추적) · 입력검증 전반(zod) · 2명 시나리오(강퇴·화면공유·승인) · A11Y · runner 언어 확장(Java/Go/Rust)
