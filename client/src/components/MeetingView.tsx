@@ -141,6 +141,8 @@ export default function MeetingView({
   const [remotePeers, setRemotePeers] = useState<Map<string, RemotePeer>>(new Map());
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const [phase, setPhase] = useState<'preview' | 'live'>('preview');
+  const [previewTrack, setPreviewTrack] = useState<MediaStreamTrack>();
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -167,8 +169,30 @@ export default function MeetingView({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, chatOpen]);
 
+  // 입장 전 디바이스 프리뷰 — 로컬 미리보기만(서버로 송출하지 않음)
   useEffect(() => {
-    if (!code) return;
+    if (phase !== 'preview') return;
+    let stream: MediaStream | null = null;
+    let closed = false;
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then((s) => {
+        if (closed) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        stream = s;
+        setPreviewTrack(s.getVideoTracks()[0]);
+      })
+      .catch(() => setPreviewTrack(undefined));
+    return () => {
+      closed = true;
+      stream?.getTracks().forEach((t) => t.stop());
+    };
+  }, [phase]);
+
+  useEffect(() => {
+    if (!code || phase !== 'live') return;
     const socket = getSocket();
     let recvTransport: Transport | null = null;
     let localStream: MediaStream | null = null;
@@ -297,16 +321,27 @@ export default function MeetingView({
       const audioTrack = localStream.getAudioTracks()[0];
       if (videoTrack) {
         setLocalTrack(videoTrack);
-        producersRef.current.video = await sendTransport.produce({
+        const vp = await sendTransport.produce({
           track: videoTrack,
           appData: { source: 'camera' },
         });
+        producersRef.current.video = vp;
+        // 프리뷰에서 카메라를 끈 채 입장하면 즉시 일시정지(송출 안 함)
+        if (!camOn) {
+          vp.pause();
+          void request(socket, 'producer:pause', { producerId: vp.id }).catch(() => {});
+        }
       }
       if (audioTrack) {
-        producersRef.current.audio = await sendTransport.produce({
+        const ap = await sendTransport.produce({
           track: audioTrack,
           appData: { source: 'camera' },
         });
+        producersRef.current.audio = ap;
+        if (!micOn) {
+          ap.pause();
+          void request(socket, 'producer:pause', { producerId: ap.id }).catch(() => {});
+        }
       }
 
       // 6. 기존 참가자 + producer consume
@@ -393,7 +428,7 @@ export default function MeetingView({
       localStream?.getTracks().forEach((t) => t.stop());
       socket.disconnect();
     };
-  }, [code, user?.username]);
+  }, [code, user?.username, phase]);
 
   function toggleMic() {
     const p = producersRef.current.audio;
@@ -474,6 +509,115 @@ export default function MeetingView({
         .map((p) => ({ key: p.peerId, track: p.screenTrack!, username: p.username })),
     ];
   const hasScreen = screens.length > 0;
+
+  // 입장 전 디바이스 프리뷰 게이트 (카메라/마이크 미리 확인 후 입장)
+  if (phase === 'preview') {
+    return (
+      <div
+        className={`meeting-room${embedded ? ' embedded' : ''}`}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <div
+          style={{
+            background: '#fff',
+            borderRadius: 16,
+            padding: 24,
+            width: 440,
+            maxWidth: '92%',
+            textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+          }}
+        >
+          <h2 style={{ margin: '0 0 4px', fontSize: 18 }}>{title || '회의'}에 입장</h2>
+          <div style={{ fontSize: 12, color: '#999', marginBottom: 16 }}>코드 {code}</div>
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              aspectRatio: '16 / 9',
+              background: '#111',
+              borderRadius: 12,
+              overflow: 'hidden',
+              marginBottom: 16,
+            }}
+          >
+            <VideoTile
+              track={previewTrack}
+              username={user?.username ?? '나'}
+              muted
+              isLocal
+              paused={!camOn}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 18 }}>
+            <button
+              onClick={() => setMicOn((v) => !v)}
+              style={{
+                flex: 1,
+                padding: '9px 0',
+                borderRadius: 9,
+                border: '1px solid #e2e2e2',
+                background: micOn ? '#fff' : '#fdecec',
+                color: micOn ? '#333' : '#c0392b',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              {micOn ? '🎤 마이크 켜짐' : '🔇 마이크 꺼짐'}
+            </button>
+            <button
+              onClick={() => setCamOn((v) => !v)}
+              style={{
+                flex: 1,
+                padding: '9px 0',
+                borderRadius: 9,
+                border: '1px solid #e2e2e2',
+                background: camOn ? '#fff' : '#fdecec',
+                color: camOn ? '#333' : '#c0392b',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              {camOn ? '📹 카메라 켜짐' : '🚫 카메라 꺼짐'}
+            </button>
+          </div>
+          <button
+            onClick={() => setPhase('live')}
+            style={{
+              width: '100%',
+              padding: '12px 0',
+              background: '#21C818',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 10,
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            입장하기
+          </button>
+          <button
+            onClick={() => onLeave?.('')}
+            style={{
+              width: '100%',
+              padding: '10px 0',
+              marginTop: 8,
+              background: 'transparent',
+              color: '#888',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 13,
+            }}
+          >
+            취소
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`meeting-room${embedded ? ' embedded' : ''}`}>
