@@ -1,10 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuthStore } from '../store';
+import { useOrgStore } from '../orgStore';
 
 /*
  * 개인 프로필 대시보드 — '홈' 탭(회의 미선택)에서 작업공간을 꽉 채워 표시.
- * 참여 회의·미완료 할 일·마감 지난 할 일·다음 일정·라이브 통화를 요약한다.
+ * 요약 통계 + 빠른 시작(새 회의·팀 인사이트) + 최근 회의(클릭해서 열기).
  */
 
 interface Overview {
@@ -13,6 +15,7 @@ interface Overview {
   todoUndone: number;
   todoOverdue: number;
   liveCalls: { title: string; code: string; inCall: number }[];
+  recentMeetings: { title: string; code: string; inCall: number }[];
   nextMeeting: { title: string; code: string; startsAt: string | null } | null;
 }
 
@@ -26,6 +29,8 @@ function greeting(): string {
 
 export default function ProfileDashboard() {
   const user = useAuthStore((s) => s.user);
+  const org = useOrgStore((s) => s.current);
+  const navigate = useNavigate();
   const [ov, setOv] = useState<Overview | null>(null);
 
   useEffect(() => {
@@ -37,6 +42,10 @@ export default function ProfileDashboard() {
       alive = false;
     };
   }, []);
+
+  const openMeeting = (code: string, title: string) =>
+    window.dispatchEvent(new CustomEvent('exist:open-meeting', { detail: { code, title } }));
+  const newMeeting = () => window.dispatchEvent(new CustomEvent('exist:new-meeting'));
 
   const live = ov?.liveCalls[0];
   const nextStr = ov?.nextMeeting?.startsAt
@@ -62,7 +71,7 @@ export default function ProfileDashboard() {
 
       {live && (
         <div style={liveBox}>
-          🔴 지금 <b>{live.title}</b>에서 {live.inCall}명 통화 중 — 왼쪽 회의에서 참여하세요
+          🔴 지금 <b>{live.title}</b>에서 {live.inCall}명 통화 중 — 아래 최근 회의에서 참여하세요
         </div>
       )}
 
@@ -89,10 +98,33 @@ export default function ProfileDashboard() {
         </div>
       </div>
 
-      <div style={hint}>
-        ← 왼쪽에서 회의를 선택하거나 <b style={{ color: '#21C818' }}>＋</b> 로 새 회의를
-        만들어보세요
+      <div style={sectionTitle}>빠른 시작</div>
+      <div style={actionRow}>
+        <button style={actionBtn} onClick={newMeeting}>
+          <span style={{ fontSize: 20 }}>＋</span> 새 회의 만들기
+        </button>
+        {typeof org === 'number' && (
+          <button style={actionBtn} onClick={() => navigate(`/org/${org}`)}>
+            <span style={{ fontSize: 18 }}>📊</span> 팀 인사이트 보기
+          </button>
+        )}
       </div>
+
+      {ov && ov.recentMeetings.length > 0 && (
+        <>
+          <div style={sectionTitle}>최근 회의</div>
+          <div style={meetGrid}>
+            {ov.recentMeetings.map((m) => (
+              <button key={m.code} style={meetCard} onClick={() => openMeeting(m.code, m.title)}>
+                <div style={meetTitle}>{m.title}</div>
+                <div style={{ ...meetSub, color: m.inCall > 0 ? '#e5484d' : '#aaa' }}>
+                  {m.inCall > 0 ? `🔴 ${m.inCall}명 통화 중` : '클릭해서 열기 →'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -103,7 +135,7 @@ const wrap: CSSProperties = {
   padding: '44px 52px',
   boxSizing: 'border-box',
 };
-const header: CSSProperties = { display: 'flex', alignItems: 'center', gap: 18, marginBottom: 30 };
+const header: CSSProperties = { display: 'flex', alignItems: 'center', gap: 18, marginBottom: 28 };
 const avatarBox: CSSProperties = {
   width: 68,
   height: 68,
@@ -127,7 +159,7 @@ const grid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
   gap: 16,
-  marginBottom: 30,
+  marginBottom: 32,
 };
 const statCard: CSSProperties = {
   background: '#fafafa',
@@ -146,4 +178,46 @@ const statNum: CSSProperties = {
   textOverflow: 'ellipsis',
 };
 const statLabel: CSSProperties = { fontSize: 13, color: '#888' };
-const hint: CSSProperties = { fontSize: 14, color: '#aaa' };
+const sectionTitle: CSSProperties = {
+  fontSize: 15,
+  fontWeight: 700,
+  color: '#444',
+  margin: '0 0 14px',
+};
+const actionRow: CSSProperties = { display: 'flex', gap: 12, marginBottom: 32, flexWrap: 'wrap' };
+const actionBtn: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '12px 20px',
+  borderRadius: 12,
+  border: '1px solid #e2e2e2',
+  background: '#fff',
+  color: '#333',
+  fontSize: 14,
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+const meetGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+  gap: 12,
+};
+const meetCard: CSSProperties = {
+  textAlign: 'left',
+  background: '#fff',
+  border: '1px solid #ececec',
+  borderRadius: 14,
+  padding: '16px 18px',
+  cursor: 'pointer',
+};
+const meetTitle: CSSProperties = {
+  fontSize: 15,
+  fontWeight: 700,
+  color: '#1a1a1a',
+  marginBottom: 6,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+};
+const meetSub: CSSProperties = { fontSize: 12.5 };

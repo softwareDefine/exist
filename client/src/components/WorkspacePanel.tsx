@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { useOrgStore, type OrgContext } from '../orgStore';
-import { FolderIcon, UsersIcon, CloseIcon } from './Icons';
+import { FolderIcon, UsersIcon, CloseIcon, HomeIcon } from './Icons';
 import CanvasBoard from './CanvasBoard';
 import MeetingHub from './MeetingHub';
 import ProfileDashboard from './ProfileDashboard';
@@ -264,7 +264,7 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
           onClick={() => setActive(null)}
           title="홈 — 내 대시보드"
         >
-          🏠 홈
+          <HomeIcon size={16} />
         </button>
         {workspaces.map((ws) =>
           renaming === ws.id ? (

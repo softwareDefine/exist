@@ -92,8 +92,15 @@ export default function DashboardPage() {
       const d = (e as CustomEvent<{ code: string; title?: string; tab?: string }>).detail;
       if (d?.code) openMeetingTab(d.code, d.title ?? d.code, d.tab);
     }
+    function onNew() {
+      openCreate(false);
+    }
     window.addEventListener('exist:open-meeting', onOpen);
-    return () => window.removeEventListener('exist:open-meeting', onOpen);
+    window.addEventListener('exist:new-meeting', onNew);
+    return () => {
+      window.removeEventListener('exist:open-meeting', onOpen);
+      window.removeEventListener('exist:new-meeting', onNew);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

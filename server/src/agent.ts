@@ -277,6 +277,9 @@ router.get('/overview', (req: AuthedRequest, res) => {
     liveCalls: ctx.meetings
       .filter((m) => m.in_call > 0)
       .map((m) => ({ title: m.title, code: m.code, inCall: m.in_call })),
+    recentMeetings: ctx.meetings
+      .slice(0, 8)
+      .map((m) => ({ title: m.title, code: m.code, inCall: m.in_call })),
     nextMeeting: next ? { title: next.title, code: next.code, startsAt: next.starts_at } : null,
   });
 });
