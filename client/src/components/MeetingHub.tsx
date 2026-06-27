@@ -563,7 +563,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   }
 
   function joinCall() {
-    setInCall(true);
+    // 통화 탭으로 이동 → MeetingView가 프리뷰(디바이스 확인)부터 띄움.
+    // 실제 통화 시작(inCall)은 프리뷰의 '입장하기' → onJoined에서 처리.
     setSubtab('call');
   }
 
@@ -1080,7 +1081,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
         )}
 
         {/* 통화 — 입장하면 서브탭 옮겨도 마운트 유지. 다른 서브탭에선 우하단 미니 PiP */}
-        {inCall && (
+        {(inCall || subtab === 'call') && (
           <div
             className={`hub-call${subtab === 'call' ? '' : ' mini'}`}
             style={
@@ -1121,6 +1122,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               embedded
               expanded={expanded}
               onToggleExpand={onToggleExpand}
+              onJoined={() => setInCall(true)}
+              onlineCount={detail?.online ?? 0}
               onLeave={(message) => {
                 setInCall(false);
                 setSubtab('dash');
@@ -1129,25 +1132,6 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                   window.dispatchEvent(new CustomEvent('app:error', { detail: message }));
               }}
             />
-          </div>
-        )}
-        {!inCall && subtab === 'call' && (
-          <div className="hub-call-lobby">
-            <div className="hub-call-lobby-inner">
-              <PhoneIcon size={36} />
-              <p>
-                아직 통화에 참여하지 않았어요
-                {detail && detail.online > 0 && (
-                  <>
-                    <br />
-                    <b className="hub-live">지금 {detail.online}명이 통화 중이에요</b>
-                  </>
-                )}
-              </p>
-              <button className="hub-join" onClick={joinCall}>
-                <PhoneIcon size={18} /> 통화 참여하기
-              </button>
-            </div>
           </div>
         )}
 

@@ -123,6 +123,10 @@ interface MeetingViewProps {
   onToggleExpand?: () => void;
   /** 나가기/강퇴 시 호출 — embedded면 탭 닫기, 전체화면이면 대시보드 이동 */
   onLeave: (message?: string) => void;
+  /** 프리뷰에서 '입장하기'로 통화 시작 시 호출 */
+  onJoined?: () => void;
+  /** 현재 통화 중 인원 (프리뷰에 표시) */
+  onlineCount?: number;
 }
 
 export default function MeetingView({
@@ -131,6 +135,8 @@ export default function MeetingView({
   expanded = false,
   onToggleExpand,
   onLeave,
+  onJoined,
+  onlineCount = 0,
 }: MeetingViewProps) {
   const user = useAuthStore((s) => s.user);
 
@@ -529,7 +535,14 @@ export default function MeetingView({
           }}
         >
           <h2 style={{ margin: '0 0 4px', fontSize: 18 }}>{title || '회의'}에 입장</h2>
-          <div style={{ fontSize: 12, color: '#999', marginBottom: 16 }}>코드 {code}</div>
+          <div style={{ fontSize: 12, color: '#999', marginBottom: onlineCount > 0 ? 6 : 16 }}>
+            코드 {code}
+          </div>
+          {onlineCount > 0 && (
+            <div style={{ fontSize: 13, color: '#21C818', fontWeight: 700, marginBottom: 16 }}>
+              ● 지금 {onlineCount}명 통화 중
+            </div>
+          )}
           <div
             style={{
               position: 'relative',
@@ -584,7 +597,10 @@ export default function MeetingView({
             </button>
           </div>
           <button
-            onClick={() => setPhase('live')}
+            onClick={() => {
+              setPhase('live');
+              onJoined?.();
+            }}
             style={{
               width: '100%',
               padding: '12px 0',
