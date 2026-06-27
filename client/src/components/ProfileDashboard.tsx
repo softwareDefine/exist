@@ -48,6 +48,11 @@ export default function ProfileDashboard() {
   const newMeeting = () => window.dispatchEvent(new CustomEvent('exist:new-meeting'));
 
   const live = ov?.liveCalls[0];
+  const avatarVal = ov?.avatar ?? user?.avatar ?? '🐧';
+  const avatarIsImg =
+    avatarVal.startsWith('/api') ||
+    avatarVal.startsWith('http') ||
+    avatarVal.startsWith('/uploads');
   const nextStr = ov?.nextMeeting?.startsAt
     ? new Date(ov.nextMeeting.startsAt).toLocaleString('ko-KR', {
         month: 'numeric',
@@ -60,7 +65,17 @@ export default function ProfileDashboard() {
   return (
     <div style={wrap}>
       <div style={header}>
-        <div style={avatarBox}>{ov?.avatar ?? user?.avatar ?? '🐧'}</div>
+        <div style={avatarBox}>
+          {avatarIsImg ? (
+            <img
+              src={avatarVal}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            avatarVal
+          )}
+        </div>
         <div>
           <div style={{ fontSize: 15, color: '#999' }}>{greeting()}</div>
           <div style={{ fontSize: 28, fontWeight: 800, color: '#1a1a1a' }}>
@@ -146,6 +161,7 @@ const avatarBox: CSSProperties = {
   justifyContent: 'center',
   fontSize: 38,
   flexShrink: 0,
+  overflow: 'hidden',
 };
 const liveBox: CSSProperties = {
   background: 'rgba(229,72,77,0.08)',
