@@ -521,7 +521,12 @@ export default function MeetingView({
     return (
       <div
         className={`meeting-room${embedded ? ' embedded' : ''}`}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f4f5f7',
+        }}
       >
         <div
           style={{
