@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { useOrgStore } from '../orgStore';
+import DirectMessages from './DirectMessages';
 
 /*
  * 개인 프로필 대시보드 — '홈' 탭(회의 미선택)에서 작업공간을 꽉 채워 표시.
@@ -125,6 +126,11 @@ export default function ProfileDashboard() {
         )}
       </div>
 
+      {/* 1:1 DM — 조직이면 멤버 목록, 개인이면 이름 검색으로 대화 */}
+      <div style={dmSection}>
+        <DirectMessages scope={org} />
+      </div>
+
       {ov && ov.recentMeetings.length > 0 && (
         <>
           <div style={sectionTitle}>최근 회의</div>
@@ -201,6 +207,7 @@ const sectionTitle: CSSProperties = {
   margin: '0 0 14px',
 };
 const actionRow: CSSProperties = { display: 'flex', gap: 12, marginBottom: 32, flexWrap: 'wrap' };
+const dmSection: CSSProperties = { maxWidth: 520, marginBottom: 32 };
 const actionBtn: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
