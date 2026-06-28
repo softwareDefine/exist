@@ -8,6 +8,7 @@ import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
 import MeetingThumb from '../components/MeetingThumb';
 import OrgSwitcher from '../components/OrgSwitcher';
+import DirectMessages from '../components/DirectMessages';
 import { useOrgStore } from '../orgStore';
 
 export default function DashboardPage() {
@@ -220,6 +221,9 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          {/* 조직 컨텍스트에서만 — 조직 멤버끼리 1:1 DM */}
+          {orgCurrent !== 'personal' && <DirectMessages orgId={orgCurrent} />}
 
         </aside>
 

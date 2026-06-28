@@ -224,4 +224,22 @@ try {
   /* 이미 존재 */
 }
 
+/* 조직별 1:1 다이렉트 메시지 (DM).
+ * org_id로 스코프 — 같은 두 사람이라도 조직이 다르면 별도 대화방.
+ * read: 받는 사람(to_id) 기준 읽음 여부. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS dm_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id     INTEGER NOT NULL REFERENCES organizations(id),
+    from_id    INTEGER NOT NULL REFERENCES users(id),
+    to_id      INTEGER NOT NULL REFERENCES users(id),
+    text       TEXT NOT NULL,
+    read       INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  /* 한 조직 안 두 사람의 대화를 시간순으로 뽑기 좋게 */
+  CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(org_id, from_id, to_id, id);
+  CREATE INDEX IF NOT EXISTS idx_dm_inbox ON dm_messages(org_id, to_id, read);
+`);
+
 export default db;

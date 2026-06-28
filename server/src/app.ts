@@ -9,6 +9,7 @@ import todosRouter from './todos.js';
 import agentRouter from './agent.js';
 import workspacesRouter from './workspaces.js';
 import orgsRouter from './orgs.js';
+import dmRouter from './dm.js';
 import notificationsRouter from './notifications.js';
 import runnerRouter from './runner.js';
 import insightsRouter from './insights.js';
@@ -43,6 +44,7 @@ export function createApp() {
   app.use('/api/agent', agentRouter);
   app.use('/api/workspaces', workspacesRouter);
   app.use('/api/orgs', orgsRouter);
+  app.use('/api/dm', dmRouter);
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/run', runnerRouter);
   app.use('/api/insights', insightsRouter);
