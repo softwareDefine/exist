@@ -1,21 +1,25 @@
-import { Router } from 'express';
+import { Router, type Response } from 'express';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { isMember } from './orgs.js';
 import { emitToUser } from './notify.js';
 
 /*
- * 조직별 1:1 다이렉트 메시지(DM).
- * 같은 조직의 active 멤버끼리만 대화할 수 있고, 대화방은 조직(org_id) 단위로 분리된다.
+ * 1:1 다이렉트 메시지(DM).
+ * 스코프(:scope)는 조직 id(숫자) 또는 'personal'(조직 무관, org_id NULL).
+ *  - 조직 스코프: 같은 조직 active 멤버끼리만. 상대 목록 = 조직 멤버 전원.
+ *  - 개인 스코프: 아무 사용자와 가능. 상대 목록 = 대화한 적 있는 사람만 (+ 이름 검색으로 새 대화).
  * 실시간 전달은 emitToUser('dm:message') — 보내는 사람의 다른 탭도 함께 동기화.
  */
 
 const router = Router();
 router.use(requireAuth);
 
-/** path의 orgId를 검증하고 내가 active 멤버인지 확인. 아니면 res 응답 후 null 반환 */
-function requireOrgMember(req: AuthedRequest, res: import('express').Response): number | null {
-  const orgId = Number(req.params.orgId);
+/** :scope 검증 → { orgId }. 조직 스코프면 멤버 여부 확인. 잘못되면 res 응답 후 null */
+function resolveScope(req: AuthedRequest, res: Response): { orgId: number | null } | null {
+  const raw = req.params.scope;
+  if (raw === 'personal') return { orgId: null };
+  const orgId = Number(raw);
   if (!Number.isInteger(orgId)) {
     res.status(400).json({ error: '잘못된 조직입니다' });
     return null;
@@ -24,39 +28,41 @@ function requireOrgMember(req: AuthedRequest, res: import('express').Response): 
     res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
     return null;
   }
-  return orgId;
+  return { orgId };
 }
 
-/** 대화 목록 — 조직의 다른 active 멤버 전원 + (있으면) 마지막 메시지·안읽음 수.
- *  메시지가 오간 상대는 최근순으로, 나머지는 이름순으로 정렬. */
-router.get('/:orgId/threads', (req: AuthedRequest, res) => {
-  const orgId = requireOrgMember(req, res);
-  if (orgId == null) return;
-  const me = req.userId!;
+/** org_id 조건절 — 개인(null)은 IS NULL, 조직은 = ? */
+function scopeClause(orgId: number | null): { sql: string; args: number[] } {
+  return orgId == null ? { sql: 'org_id IS NULL', args: [] } : { sql: 'org_id = ?', args: [orgId] };
+}
 
-  const members = db
-    .prepare(
-      `SELECT u.id AS user_id, u.username, u.avatar, om.position, om.department
-       FROM organization_members om JOIN users u ON u.id = om.user_id
-       WHERE om.org_id = ? AND om.status = 'active' AND u.id != ?`,
-    )
-    .all(orgId, me) as {
-    user_id: number;
-    username: string;
-    avatar: string | null;
-    position: string | null;
-    department: string | null;
-  }[];
+function userExists(id: number): boolean {
+  return !!db.prepare('SELECT 1 FROM users WHERE id = ?').get(id);
+}
+
+/** 상대(userId)가 이 스코프에서 대화 가능한 사람인지 */
+function peerOk(orgId: number | null, peer: number): boolean {
+  return orgId == null ? userExists(peer) : isMember(orgId, peer);
+}
+
+/** 대화 목록.
+ *  조직: 멤버 전원 + (있으면) 마지막 메시지·안읽음.  개인: 대화한 적 있는 상대만. */
+router.get('/:scope/threads', (req: AuthedRequest, res) => {
+  const scope = resolveScope(req, res);
+  if (!scope) return;
+  const { orgId } = scope;
+  const me = req.userId!;
+  const sc = scopeClause(orgId);
 
   // 상대별 마지막 메시지 id
   const lastIds = db
     .prepare(
       `SELECT CASE WHEN from_id = ? THEN to_id ELSE from_id END AS partner, MAX(id) AS last_id
        FROM dm_messages
-       WHERE org_id = ? AND (from_id = ? OR to_id = ?)
+       WHERE ${sc.sql} AND (from_id = ? OR to_id = ?)
        GROUP BY partner`,
     )
-    .all(me, orgId, me, me) as { partner: number; last_id: number }[];
+    .all(me, ...sc.args, me, me) as { partner: number; last_id: number }[];
 
   const lastById = new Map<number, { text: string; ts: number; fromId: number }>();
   for (const { partner, last_id } of lastIds) {
@@ -77,13 +83,42 @@ router.get('/:orgId/threads', (req: AuthedRequest, res) => {
     .prepare(
       `SELECT from_id AS partner, COUNT(*) AS n
        FROM dm_messages
-       WHERE org_id = ? AND to_id = ? AND read = 0
+       WHERE ${sc.sql} AND to_id = ? AND read = 0
        GROUP BY from_id`,
     )
-    .all(orgId, me) as { partner: number; n: number }[];
+    .all(...sc.args, me) as { partner: number; n: number }[];
   const unreadById = new Map(unreadRows.map((r) => [r.partner, r.n]));
 
-  const threads = members.map((m) => {
+  // 상대 후보 — 조직은 멤버 전원, 개인은 대화한 상대만
+  let base: {
+    user_id: number;
+    username: string;
+    avatar: string | null;
+    position: string | null;
+    department: string | null;
+  }[];
+
+  if (orgId != null) {
+    base = db
+      .prepare(
+        `SELECT u.id AS user_id, u.username, u.avatar, om.position, om.department
+         FROM organization_members om JOIN users u ON u.id = om.user_id
+         WHERE om.org_id = ? AND om.status = 'active' AND u.id != ?`,
+      )
+      .all(orgId, me) as typeof base;
+  } else {
+    const ids = [...lastById.keys()];
+    base = ids.length
+      ? (db
+          .prepare(
+            `SELECT id AS user_id, username, avatar, NULL AS position, NULL AS department
+             FROM users WHERE id IN (${ids.map(() => '?').join(',')})`,
+          )
+          .all(...ids) as typeof base)
+      : [];
+  }
+
+  const threads = base.map((m) => {
     const last = lastById.get(m.user_id);
     return {
       userId: m.user_id,
@@ -109,34 +144,70 @@ router.get('/:orgId/threads', (req: AuthedRequest, res) => {
   res.json(threads);
 });
 
-/** 조직 전체 DM 안읽음 수 — 대시보드 배지용 */
-router.get('/:orgId/unread', (req: AuthedRequest, res) => {
-  const orgId = requireOrgMember(req, res);
-  if (orgId == null) return;
+/** 새 대화 상대 검색 — 개인: 전체 사용자(본인 제외), 조직: 그 조직 active 멤버 */
+router.get('/:scope/search', (req: AuthedRequest, res) => {
+  const scope = resolveScope(req, res);
+  if (!scope) return;
+  const { orgId } = scope;
+  const me = req.userId!;
+  const q = String(req.query.q ?? '').trim();
+  if (!q) return res.json([]);
+
+  let rows: { userId: number; username: string; avatar: string | null }[];
+  if (orgId == null) {
+    rows = db
+      .prepare(
+        `SELECT id AS userId, username, avatar FROM users
+         WHERE username LIKE ? AND id != ?
+         ORDER BY CASE WHEN username = ? THEN 0 WHEN username LIKE ? THEN 1 ELSE 2 END, username
+         LIMIT 8`,
+      )
+      .all(`%${q}%`, me, q, `${q}%`) as typeof rows;
+  } else {
+    rows = db
+      .prepare(
+        `SELECT u.id AS userId, u.username, u.avatar FROM users u
+         JOIN organization_members om ON om.user_id = u.id
+         WHERE om.org_id = ? AND om.status = 'active' AND u.id != ? AND u.username LIKE ?
+         ORDER BY CASE WHEN u.username = ? THEN 0 WHEN u.username LIKE ? THEN 1 ELSE 2 END, u.username
+         LIMIT 8`,
+      )
+      .all(orgId, me, `%${q}%`, q, `${q}%`) as typeof rows;
+  }
+  res.json(rows);
+});
+
+/** 스코프 전체 DM 안읽음 수 — 대시보드 배지용 */
+router.get('/:scope/unread', (req: AuthedRequest, res) => {
+  const scope = resolveScope(req, res);
+  if (!scope) return;
+  const sc = scopeClause(scope.orgId);
   const row = db
-    .prepare('SELECT COUNT(*) AS n FROM dm_messages WHERE org_id = ? AND to_id = ? AND read = 0')
-    .get(orgId, req.userId!) as { n: number };
+    .prepare(`SELECT COUNT(*) AS n FROM dm_messages WHERE ${sc.sql} AND to_id = ? AND read = 0`)
+    .get(...sc.args, req.userId!) as { n: number };
   res.json({ unread: row.n });
 });
 
 /** 특정 상대와의 대화 히스토리(최근 200개) — 가져오면서 그 상대가 보낸 메시지는 읽음 처리 */
-router.get('/:orgId/with/:userId', (req: AuthedRequest, res) => {
-  const orgId = requireOrgMember(req, res);
-  if (orgId == null) return;
+router.get('/:scope/with/:userId', (req: AuthedRequest, res) => {
+  const scope = resolveScope(req, res);
+  if (!scope) return;
+  const { orgId } = scope;
   const me = req.userId!;
   const peer = Number(req.params.userId);
   if (!Number.isInteger(peer)) return res.status(400).json({ error: '잘못된 상대입니다' });
-  if (!isMember(orgId, peer)) return res.status(404).json({ error: '상대를 찾을 수 없어요' });
+  if (!peerOk(orgId, peer)) return res.status(404).json({ error: '상대를 찾을 수 없어요' });
+  const sc = scopeClause(orgId);
 
   const rows = db
     .prepare(
       `SELECT m.id, m.from_id, m.to_id, m.text, m.created_at, u.username, u.avatar
        FROM dm_messages m JOIN users u ON u.id = m.from_id
-       WHERE m.org_id = ?
+       WHERE ${sc.sql}
          AND ((m.from_id = ? AND m.to_id = ?) OR (m.from_id = ? AND m.to_id = ?))
        ORDER BY m.id DESC LIMIT 200`,
     )
-    .all(orgId, me, peer, peer, me) as {
+    .all(...sc.args, me, peer, peer, me) as {
     id: number;
     from_id: number;
     to_id: number;
@@ -148,8 +219,8 @@ router.get('/:orgId/with/:userId', (req: AuthedRequest, res) => {
 
   // 상대가 보낸 메시지 읽음 처리
   db.prepare(
-    'UPDATE dm_messages SET read = 1 WHERE org_id = ? AND from_id = ? AND to_id = ? AND read = 0',
-  ).run(orgId, peer, me);
+    `UPDATE dm_messages SET read = 1 WHERE ${sc.sql} AND from_id = ? AND to_id = ? AND read = 0`,
+  ).run(...sc.args, peer, me);
 
   res.json(
     rows.reverse().map((r) => ({
@@ -165,27 +236,29 @@ router.get('/:orgId/with/:userId', (req: AuthedRequest, res) => {
 });
 
 /** 특정 상대가 보낸 메시지를 읽음 처리 — 대화창이 열려 있을 때 실시간 수신분 정리용 */
-router.post('/:orgId/with/:userId/read', (req: AuthedRequest, res) => {
-  const orgId = requireOrgMember(req, res);
-  if (orgId == null) return;
+router.post('/:scope/with/:userId/read', (req: AuthedRequest, res) => {
+  const scope = resolveScope(req, res);
+  if (!scope) return;
   const peer = Number(req.params.userId);
   if (!Number.isInteger(peer)) return res.status(400).json({ error: '잘못된 상대입니다' });
+  const sc = scopeClause(scope.orgId);
   db.prepare(
-    'UPDATE dm_messages SET read = 1 WHERE org_id = ? AND from_id = ? AND to_id = ? AND read = 0',
-  ).run(orgId, peer, req.userId!);
+    `UPDATE dm_messages SET read = 1 WHERE ${sc.sql} AND from_id = ? AND to_id = ? AND read = 0`,
+  ).run(...sc.args, peer, req.userId!);
   res.json({ ok: true });
 });
 
 /** 메시지 전송 — 저장 후 받는 사람·보낸 사람 모든 소켓에 dm:message 푸시 */
-router.post('/:orgId/with/:userId', (req: AuthedRequest, res) => {
-  const orgId = requireOrgMember(req, res);
-  if (orgId == null) return;
+router.post('/:scope/with/:userId', (req: AuthedRequest, res) => {
+  const scope = resolveScope(req, res);
+  if (!scope) return;
+  const { orgId } = scope;
   const me = req.userId!;
   const peer = Number(req.params.userId);
   if (!Number.isInteger(peer) || peer === me) {
     return res.status(400).json({ error: '잘못된 상대입니다' });
   }
-  if (!isMember(orgId, peer)) return res.status(404).json({ error: '상대를 찾을 수 없어요' });
+  if (!peerOk(orgId, peer)) return res.status(404).json({ error: '상대를 찾을 수 없어요' });
 
   const text = String(req.body?.text ?? '').trim().slice(0, 2000);
   if (!text) return res.status(400).json({ error: '메시지를 입력하세요' });
@@ -201,7 +274,7 @@ router.post('/:orgId/with/:userId', (req: AuthedRequest, res) => {
 
   const payload = {
     id,
-    orgId,
+    orgId, // 개인 DM이면 null
     fromId: me,
     toId: peer,
     from: req.username,

@@ -1677,6 +1677,55 @@ input:focus {
   padding: 8px 4px;
 }
 
+/* 개인 DM — 이름 검색 */
+.dm-search {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.dm-search input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 9px 13px;
+  font-size: 13px;
+  background: var(--surface);
+}
+
+.dm-search input:focus {
+  border-color: var(--green);
+  outline: none;
+}
+
+.dm-search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  z-index: 20;
+}
+
+.dm-search-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 9px 11px;
+  cursor: pointer;
+}
+
+.dm-search-hit:hover {
+  background: var(--surface-2);
+}
+
 .dm-item {
   display: flex;
   align-items: center;

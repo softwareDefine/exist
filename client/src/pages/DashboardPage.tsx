@@ -222,8 +222,8 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* 조직 컨텍스트에서만 — 조직 멤버끼리 1:1 DM */}
-          {orgCurrent !== 'personal' && <DirectMessages orgId={orgCurrent} />}
+          {/* 1:1 DM — 조직이면 멤버 목록, 개인이면 이름 검색으로 대화 */}
+          <DirectMessages scope={orgCurrent} />
 
         </aside>
 

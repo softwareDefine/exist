@@ -224,22 +224,50 @@ try {
   /* 이미 존재 */
 }
 
-/* 조직별 1:1 다이렉트 메시지 (DM).
- * org_id로 스코프 — 같은 두 사람이라도 조직이 다르면 별도 대화방.
+/* 1:1 다이렉트 메시지 (DM).
+ * org_id로 스코프 — 조직이 다르면 별도 대화방. org_id NULL = 개인(조직 무관) DM.
  * read: 받는 사람(to_id) 기준 읽음 여부. */
 db.exec(`
   CREATE TABLE IF NOT EXISTS dm_messages (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    org_id     INTEGER NOT NULL REFERENCES organizations(id),
+    org_id     INTEGER REFERENCES organizations(id),
     from_id    INTEGER NOT NULL REFERENCES users(id),
     to_id      INTEGER NOT NULL REFERENCES users(id),
     text       TEXT NOT NULL,
     read       INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
-  /* 한 조직 안 두 사람의 대화를 시간순으로 뽑기 좋게 */
+  /* 두 사람의 대화를 시간순으로 뽑기 좋게 */
   CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(org_id, from_id, to_id, id);
   CREATE INDEX IF NOT EXISTS idx_dm_inbox ON dm_messages(org_id, to_id, read);
 `);
+
+// 마이그레이션: 개인 DM 지원 — 기존 테이블 org_id가 NOT NULL이면 NULL 허용으로 재생성
+try {
+  const col = db
+    .prepare(`SELECT "notnull" AS nn FROM pragma_table_info('dm_messages') WHERE name = 'org_id'`)
+    .get() as { nn: number } | undefined;
+  if (col && col.nn === 1) {
+    db.exec(`
+      CREATE TABLE dm_messages_new (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        org_id     INTEGER REFERENCES organizations(id),
+        from_id    INTEGER NOT NULL REFERENCES users(id),
+        to_id      INTEGER NOT NULL REFERENCES users(id),
+        text       TEXT NOT NULL,
+        read       INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO dm_messages_new (id, org_id, from_id, to_id, text, read, created_at)
+        SELECT id, org_id, from_id, to_id, text, read, created_at FROM dm_messages;
+      DROP TABLE dm_messages;
+      ALTER TABLE dm_messages_new RENAME TO dm_messages;
+      CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(org_id, from_id, to_id, id);
+      CREATE INDEX IF NOT EXISTS idx_dm_inbox ON dm_messages(org_id, to_id, read);
+    `);
+  }
+} catch {
+  /* 이미 nullable */
+}
 
 export default db;

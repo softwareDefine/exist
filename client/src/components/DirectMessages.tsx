@@ -5,9 +5,13 @@ import { useAuthStore } from '../store';
 import Avatar from './Avatar';
 import { ChatIcon, CloseIcon } from './Icons';
 
-/* 조직별 1:1 다이렉트 메시지(DM).
- * 대시보드 사이드바에 현재 조직 멤버 목록을 띄우고, 멤버를 누르면
- * 우하단 플로팅 채팅창이 열린다. 실시간 수신은 소켓 'dm:message'. */
+/* 1:1 다이렉트 메시지(DM).
+ * scope = 조직 id(숫자) 또는 'personal'(조직 무관).
+ *  - 조직: 사이드바에 멤버 목록을 띄우고 누르면 대화창.
+ *  - 개인: 대화한 적 있는 상대 목록 + 이름 검색으로 새 대화 시작.
+ * 멤버/상대를 누르면 우하단 플로팅 채팅창이 열린다. 실시간 수신은 소켓 'dm:message'. */
+
+export type DmScope = number | 'personal';
 
 interface Thread {
   userId: number;
@@ -31,10 +35,10 @@ interface DmMessage {
   ts: number;
 }
 
-/** 소켓으로 들어오는 실시간 메시지 */
+/** 소켓으로 들어오는 실시간 메시지 (개인 DM이면 orgId = null) */
 interface IncomingDm {
   id: number;
-  orgId: number;
+  orgId: number | null;
   fromId: number;
   toId: number;
   from: string;
@@ -73,17 +77,18 @@ function relTime(ts: number): string {
 
 /** 우하단 플로팅 대화창 */
 function DmWindow({
-  orgId,
+  scope,
   peer,
   onClose,
   onActivity,
 }: {
-  orgId: number;
+  scope: DmScope;
   peer: Thread;
   onClose: () => void;
   /** 새 메시지로 스레드 목록을 갱신해야 할 때 */
   onActivity: () => void;
 }) {
+  const scopeOrg = scope === 'personal' ? null : scope;
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -92,7 +97,7 @@ function DmWindow({
   // 히스토리 로드 (열면서 상대 메시지 읽음 처리됨)
   useEffect(() => {
     let alive = true;
-    void api<DmMessage[]>(`/api/dm/${orgId}/with/${peer.userId}`)
+    void api<DmMessage[]>(`/api/dm/${scope}/with/${peer.userId}`)
       .then((h) => {
         if (alive) setMessages(h);
       })
@@ -100,18 +105,18 @@ function DmWindow({
     return () => {
       alive = false;
     };
-  }, [orgId, peer.userId]);
+  }, [scope, peer.userId]);
 
   // 실시간 수신 — 이 상대와의 메시지만 추가 (id로 중복 제거)
   useEffect(() => {
     const socket = getSocket();
     function onDm(m: IncomingDm) {
-      if (m.orgId !== orgId) return;
+      if (m.orgId !== scopeOrg) return;
       const isThis = m.fromId === peer.userId || (m.toId === peer.userId && m.fromId !== peer.userId);
       if (!isThis) return;
       // 상대가 보낸 메시지면 창이 열려 있으니 바로 읽음 처리 (배지 재출현 방지)
       if (m.fromId === peer.userId) {
-        void api(`/api/dm/${orgId}/with/${peer.userId}/read`, { method: 'POST' }).catch(() => {});
+        void api(`/api/dm/${scope}/with/${peer.userId}/read`, { method: 'POST' }).catch(() => {});
       }
       setMessages((prev) => {
         if (prev.some((x) => x.id === m.id)) return prev;
@@ -133,7 +138,7 @@ function DmWindow({
     return () => {
       socket.off('dm:message', onDm);
     };
-  }, [orgId, peer.userId]);
+  }, [scope, scopeOrg, peer.userId]);
 
   // 새 메시지 오면 맨 아래로
   useEffect(() => {
@@ -147,7 +152,7 @@ function DmWindow({
     setSending(true);
     setInput('');
     try {
-      const m = await api<IncomingDm>(`/api/dm/${orgId}/with/${peer.userId}`, {
+      const m = await api<IncomingDm>(`/api/dm/${scope}/with/${peer.userId}`, {
         method: 'POST',
         body: { text },
       });
@@ -249,31 +254,59 @@ function DmWindow({
   );
 }
 
-export default function DirectMessages({ orgId }: { orgId: number }) {
+/** 이름 검색 결과 (새 대화 시작용) */
+interface SearchHit {
+  userId: number;
+  username: string;
+  avatar: string | null;
+}
+
+export default function DirectMessages({ scope }: { scope: DmScope }) {
   const myId = useAuthStore((s) => s.user?.id);
+  const personal = scope === 'personal';
+  const scopeOrg = personal ? null : scope;
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activePeer, setActivePeer] = useState<Thread | null>(null);
+  const [query, setQuery] = useState('');
+  const [hits, setHits] = useState<SearchHit[]>([]);
   const activeRef = useRef<number | null>(null);
   activeRef.current = activePeer?.userId ?? null;
 
   function loadThreads() {
-    void api<Thread[]>(`/api/dm/${orgId}/threads`)
+    void api<Thread[]>(`/api/dm/${scope}/threads`)
       .then(setThreads)
       .catch(() => setThreads([]));
   }
 
-  // 조직 바뀌면 목록 새로고침 + 열린 창 닫기
+  // 스코프(조직/개인) 바뀌면 목록 새로고침 + 열린 창·검색 초기화
   useEffect(() => {
     setActivePeer(null);
+    setQuery('');
+    setHits([]);
     loadThreads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId]);
+  }, [scope]);
+
+  // 이름 검색 (디바운스) — 새 대화 상대 찾기
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setHits([]);
+      return;
+    }
+    const id = setTimeout(() => {
+      void api<SearchHit[]>(`/api/dm/${scope}/search?q=${encodeURIComponent(q)}`)
+        .then(setHits)
+        .catch(() => setHits([]));
+    }, 250);
+    return () => clearTimeout(id);
+  }, [query, scope]);
 
   // 실시간 — 스레드 목록의 미리보기·안읽음 갱신
   useEffect(() => {
     const socket = getSocket();
     function onDm(m: IncomingDm) {
-      if (m.orgId !== orgId) return;
+      if (m.orgId !== scopeOrg) return;
       const partner = m.fromId === myId ? m.toId : m.fromId;
       const incoming = m.toId === myId; // 내가 받은 메시지
       setThreads((prev) => {
@@ -302,7 +335,7 @@ export default function DirectMessages({ orgId }: { orgId: number }) {
       socket.off('dm:message', onDm);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId, myId]);
+  }, [scope, scopeOrg, myId]);
 
   function openThread(t: Thread) {
     // 열면 안읽음 비우기 (서버는 히스토리 조회 시 읽음 처리)
@@ -310,14 +343,57 @@ export default function DirectMessages({ orgId }: { orgId: number }) {
     setActivePeer(t);
   }
 
+  // 검색 결과에서 새 대화 열기 — 이미 있는 스레드면 그걸, 없으면 임시 스레드로
+  function openHit(h: SearchHit) {
+    setQuery('');
+    setHits([]);
+    const existing = threads.find((t) => t.userId === h.userId);
+    if (existing) return openThread(existing);
+    openThread({
+      userId: h.userId,
+      username: h.username,
+      avatar: h.avatar,
+      position: null,
+      department: null,
+      lastText: null,
+      lastTs: null,
+      lastMine: false,
+      unread: 0,
+    });
+  }
+
   return (
     <>
       <div className="section-title">
         <ChatIcon size={20} /> 다이렉트 메시지
       </div>
+
+      {/* 개인 스코프: 이름으로 검색해 새 대화 시작 */}
+      {personal && (
+        <div className="dm-search">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="이름으로 검색해 새 대화"
+          />
+          {hits.length > 0 && (
+            <div className="dm-search-results">
+              {hits.map((h) => (
+                <button key={h.userId} className="dm-search-hit" onClick={() => openHit(h)}>
+                  <Avatar value={h.avatar} className="dm-item-avatar" />
+                  <span className="dm-item-name">{h.username}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="dm-list">
         {threads.length === 0 && (
-          <div className="dm-empty">이 조직에 다른 멤버가 없어요</div>
+          <div className="dm-empty">
+            {personal ? '위에서 이름을 검색해 대화를 시작해보세요' : '이 조직에 다른 멤버가 없어요'}
+          </div>
         )}
         {threads.map((t) => (
           <button
@@ -351,7 +427,7 @@ export default function DirectMessages({ orgId }: { orgId: number }) {
 
       {activePeer && (
         <DmWindow
-          orgId={orgId}
+          scope={scope}
           peer={activePeer}
           onClose={() => setActivePeer(null)}
           onActivity={loadThreads}
