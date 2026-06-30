@@ -366,6 +366,14 @@ input:focus {
   box-shadow: none;
 }
 
+/* 빈 상태(온보딩 카드) — 확장 박스가 없으니 모서리 각지게 X, 테두리 색만 바뀜 */
+.nowbar-pill:hover .nowbar-card.front.nb-onboard {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border-color: #ccc;
+}
+
 /* 펼쳐진 동안 뒤 카드 겹침은 숨김 (확장과 충돌 방지) */
 .nowbar-pill:hover .nowbar-card.next {
   opacity: 0;
