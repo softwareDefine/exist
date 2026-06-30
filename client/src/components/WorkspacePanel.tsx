@@ -260,7 +260,7 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     <section className="workspace-panel">
       <div className="workspace-tabs">
         <button
-          className={`ws-tab home${active === null ? ' active' : ''}`}
+          className={`ws-tab home${active === null ? ' active' : ''}${orgCurrent !== 'personal' ? ' org' : ''}`}
           onClick={() => setActive(null)}
           title="홈 — 내 대시보드"
           style={{ lineHeight: 0, alignSelf: 'stretch', justifyContent: 'center' }}

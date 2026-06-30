@@ -14,6 +14,8 @@ import {
   SparklesIcon,
   BellIcon,
   PhoneIcon,
+  GearIcon,
+  LogOutIcon,
 } from './Icons';
 import { getSocket } from '../lib/socket';
 import { useOrgStore } from '../orgStore';
@@ -337,10 +339,10 @@ function ProfileMenu({
             <Avatar value={avatar} className="profile-name-avatar" /> <b>{user?.username}</b>
           </div>
           <button className="profile-item" onClick={onOpenSettings}>
-            ⚙️ 설정
+            <GearIcon size={16} /> 설정
           </button>
           <button className="profile-item danger" onClick={logout}>
-            🚪 로그아웃
+            <LogOutIcon size={16} /> 로그아웃
           </button>
         </div>
       </div>

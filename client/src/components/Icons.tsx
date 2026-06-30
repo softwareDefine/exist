@@ -79,6 +79,27 @@ export function GearIcon({ size }: IconProps) {
   );
 }
 
+export function LogOutIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path
+        d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16.5 8.5 20 12l-3.5 3.5M20 12H9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function ClockIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

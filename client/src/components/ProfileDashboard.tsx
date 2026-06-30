@@ -127,9 +127,12 @@ export default function ProfileDashboard() {
       </div>
 
       {/* 1:1 DM — 조직이면 멤버 목록, 개인이면 이름 검색으로 대화 */}
-      <div style={dmSection}>
-        <DirectMessages scope={org} />
-      </div>
+      {/* DM 기능 임시 비활성화 (배포용) — 복구 시 false → true */}
+      {false && (
+        <div style={dmSection}>
+          <DirectMessages scope={org} />
+        </div>
+      )}
 
       {ov && ov.recentMeetings.length > 0 && (
         <>

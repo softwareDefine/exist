@@ -59,13 +59,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   border-radius: 9px;
 }
 
 .nowbar-theme:hover {
-  background: var(--surface-3);
+  background: var(--surface-2);
   color: var(--text);
 }
 
@@ -2145,6 +2145,18 @@ input:focus {
   white-space: nowrap;
   opacity: 0.75;
   transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.ws-tab.home {
+  /* 아이콘 전용 탭 — 정사각 유지 (개인 모드: 탭 높이 따라감, 원래 동작) */
+  aspect-ratio: 1;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* 조직 모드에선 회의 탭 높이(48px)로 고정 — 로딩/탭 유무와 무관하게 일정 */
+.ws-tab.home.org {
+  height: 48px;
 }
 
 .ws-tab:hover {
@@ -6852,11 +6864,11 @@ input:focus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border: none;
   background: none;
-  border-radius: 50%;
+  border-radius: 9px;
   color: var(--text);
   transition: background 0.15s;
 }

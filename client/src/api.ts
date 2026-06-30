@@ -23,7 +23,10 @@ export async function api<T = unknown>(
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const message = (data as { error?: string }).error ?? '요청 실패';
+    const serverMsg = (data as { error?: string }).error;
+    const message = serverMsg
+      ? `${serverMsg} (${res.status})`
+      : `요청 실패 (${res.status}) · ${options.method ?? 'GET'} ${path}`;
     if (res.status === 401) {
       useAuthStore.getState().logout();
     } else if (!path.startsWith('/api/auth/')) {
