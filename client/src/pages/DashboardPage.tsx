@@ -3,12 +3,13 @@ import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspacePanel';
-import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, HistoryIcon } from '../components/Icons';
+import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, HistoryIcon, PinIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
 import MeetingThumb from '../components/MeetingThumb';
 import OrgSwitcher from '../components/OrgSwitcher';
 import { useOrgStore } from '../orgStore';
+import { readPins, PINS_EVENT } from '../lib/pins';
 
 export default function DashboardPage() {
   const location = useLocation();
@@ -20,6 +21,8 @@ export default function DashboardPage() {
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [schedule, setSchedule] = useState<Meeting[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  // 맨 위 고정한 그룹 id (기기별 — localStorage). 토글은 그룹 설정 화면(MeetingHub)에서.
+  const [pinned, setPinned] = useState<number[]>(readPins);
   // 강퇴 등 라우팅으로 전달된 안내 메시지
   const message = (location.state as { message?: string } | null)?.message ?? '';
 
@@ -86,6 +89,13 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 그룹 설정 화면에서 고정 토글 시 사이드바 목록 즉시 반영
+  useEffect(() => {
+    const onPins = (e: Event) => setPinned((e as CustomEvent<number[]>).detail);
+    window.addEventListener(PINS_EVENT, onPins);
+    return () => window.removeEventListener(PINS_EVENT, onPins);
+  }, []);
+
   // 알림의 "지금 들어가기" 등 → 회의(통화) 탭 열기
   useEffect(() => {
     function onOpen(e: Event) {
@@ -147,6 +157,30 @@ export default function DashboardPage() {
     return [...byId.values()];
   }, [recent, schedule]);
 
+  // 사이드바 "최근 그룹" 정렬: ① 고정 ② 임박 일정(미래 가까운 순) ③ 최근순
+  const sortedGroups = useMemo(() => {
+    const now = Date.now();
+    const nextStart = new Map<number, number>();
+    for (const m of nowbarGroups) {
+      if (!m.starts_at) continue;
+      const t = Date.parse(m.starts_at);
+      if (Number.isNaN(t) || t < now) continue; // 미래 일정만
+      const prev = nextStart.get(m.id);
+      if (prev == null || t < prev) nextStart.set(m.id, t);
+    }
+    const pinnedSet = new Set(pinned);
+    const rank = (m: Meeting) => (pinnedSet.has(m.id) ? 0 : nextStart.has(m.id) ? 1 : 2);
+    return [...nowbarGroups]
+      .sort((a, b) => {
+        const ra = rank(a);
+        const rb = rank(b);
+        if (ra !== rb) return ra - rb;
+        if (ra === 1) return (nextStart.get(a.id) ?? 0) - (nextStart.get(b.id) ?? 0);
+        return 0;
+      })
+      .map((m) => ({ meeting: m, isPinned: pinnedSet.has(m.id), nextStart: nextStart.get(m.id) ?? null }));
+  }, [nowbarGroups, pinned]);
+
   return (
     <>
       <NowBar
@@ -166,14 +200,14 @@ export default function DashboardPage() {
 
           <div className="join-card">
             <div className="head">
-              <h2>회의 입장</h2>
-              <button className="new-btn" onClick={() => openCreate(false)} title="새 회의 만들기">
+              <h2>그룹 입장</h2>
+              <button className="new-btn" onClick={() => openCreate(false)} title="새 그룹 만들기">
                 +
               </button>
             </div>
             <form onSubmit={joinMeeting}>
               <input
-                placeholder="회의 코드"
+                placeholder="그룹 코드"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
               />
@@ -184,19 +218,22 @@ export default function DashboardPage() {
           </div>
 
           <div className="section-title">
-            <HistoryIcon size={21} /> 최근 회의
+            <HistoryIcon size={21} /> 최근 그룹
           </div>
           <div className="recent-list">
-            {recent.map((m) => (
+            {sortedGroups.map(({ meeting: m, isPinned }) => (
               <div
                 key={m.id}
-                className="recent-card clickable"
+                className={`recent-card clickable${isPinned ? ' pinned' : ''}`}
                 onClick={() => openMeetingTab(m.code, m.title)}
-                title="클릭하면 옆 탭에서 회의가 열려요"
+                title="클릭하면 옆 탭에서 그룹이 열려요"
               >
                 <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="thumb" />
                 <div>
-                  <div className="name">{m.title}</div>
+                  <div className="name">
+                    {m.title}
+                    {isPinned && <PinIcon size={17} />}
+                  </div>
                   <div className="actions" onClick={(e) => e.stopPropagation()}>
                     <button title="통화" onClick={() => openMeetingTab(m.code, m.title, 'call')}>
                       <PhoneIcon size={17} />
@@ -214,9 +251,9 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
-            {recent.length === 0 && (
+            {sortedGroups.length === 0 && (
               <div className="recent-card">
-                <div>아직 회의가 없어요. + 버튼으로 만들어보세요.</div>
+                <div>아직 그룹이 없어요. + 버튼으로 만들어보세요.</div>
               </div>
             )}
           </div>

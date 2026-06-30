@@ -250,8 +250,8 @@ export default function MeetingSchedule({
                 </span>
                 <span className="msched-day-events">
                   {isMeetingDay && (
-                    <span className="msched-chip meeting" title="이 회의 일정">
-                      <i className="msched-chip-dot" />이 회의
+                    <span className="msched-chip meeting" title="이 그룹 일정">
+                      <i className="msched-chip-dot" />이 그룹
                     </span>
                   )}
                   {chips.map((e) => (
@@ -275,7 +275,7 @@ export default function MeetingSchedule({
         {isMeetingDayKey(selected) && (
           <div className="msched-main-event">
             <span className="msched-main-event-text">
-              📌 이 회의 일정
+              📌 이 그룹 일정
               {startsAt && (
                 <span>
                   {' '}

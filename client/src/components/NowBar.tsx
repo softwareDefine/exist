@@ -714,7 +714,7 @@ export default function NowBar({
               ))}
             </div>
           ) : (
-            <div className="nb-next-empty">진행 중인 회의가 없어요</div>
+            <div className="nb-next-empty">진행 중인 그룹이 없어요</div>
           )}
         </div>
 
@@ -920,7 +920,7 @@ export default function NowBar({
                     )}
                   </>
                 ) : (
-                  <div className="nb-next-empty">진행 중인 회의가 없어요</div>
+                  <div className="nb-next-empty">진행 중인 그룹이 없어요</div>
                 )}
               </div>
             )}

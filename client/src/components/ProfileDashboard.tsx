@@ -79,7 +79,7 @@ export default function ProfileDashboard() {
         </div>
         <div>
           <div style={{ fontSize: 15, color: 'var(--text-sub)' }}>{greeting()}</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)' }}>
             {user?.username ?? '게스트'}님 👋
           </div>
         </div>
@@ -94,7 +94,7 @@ export default function ProfileDashboard() {
       <div style={grid}>
         <div style={statCard}>
           <div style={statNum}>{ov?.meetingCount ?? '–'}</div>
-          <div style={statLabel}>참여 중인 회의</div>
+          <div style={statLabel}>참여 중인 그룹</div>
         </div>
         <div style={statCard}>
           <div style={{ ...statNum, color: '#21C818' }}>{ov?.todoUndone ?? '–'}</div>
@@ -117,7 +117,7 @@ export default function ProfileDashboard() {
       <div style={sectionTitle}>빠른 시작</div>
       <div style={actionRow}>
         <button style={actionBtn} onClick={newMeeting}>
-          <span style={{ fontSize: 20 }}>＋</span> 새 회의 만들기
+          <span style={{ fontSize: 20 }}>＋</span> 새 그룹 만들기
         </button>
         {typeof org === 'number' && (
           <button style={actionBtn} onClick={() => navigate(`/org/${org}`)}>
@@ -136,7 +136,7 @@ export default function ProfileDashboard() {
 
       {ov && ov.recentMeetings.length > 0 && (
         <>
-          <div style={sectionTitle}>최근 회의</div>
+          <div style={sectionTitle}>최근 그룹</div>
           <div style={meetGrid}>
             {ov.recentMeetings.map((m) => (
               <button key={m.code} style={meetCard} onClick={() => openMeeting(m.code, m.title)}>
@@ -195,7 +195,7 @@ const statCard: CSSProperties = {
 };
 const statNum: CSSProperties = {
   fontSize: 40,
-  fontWeight: 800,
+  fontWeight: 700,
   color: 'var(--green)',
   marginBottom: 6,
   whiteSpace: 'nowrap',

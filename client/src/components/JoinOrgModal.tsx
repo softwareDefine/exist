@@ -52,7 +52,7 @@ export default function JoinOrgModal({ open, onClose }: Props) {
           <>
             <div className="modal-head">✉️ 가입 신청을 보냈어요</div>
             <div className="modal-sub">
-              <b>{done}</b> 관리자가 승인하면 조직 회의에 참여할 수 있어요.
+              <b>{done}</b> 관리자가 승인하면 조직 그룹에 참여할 수 있어요.
             </div>
             <div className="modal-actions">
               <button className="modal-primary" onClick={onClose}>

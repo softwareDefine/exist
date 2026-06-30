@@ -79,7 +79,7 @@ export default function InsightsPanel({ orgId }: { orgId: number }) {
           value={`${m.todos.completionRate}%`}
           sub={`${m.todos.done}/${m.todos.total}`}
         />
-        <Stat label="회의" value={`${m.meetingCount}`} sub="개" />
+        <Stat label="그룹" value={`${m.meetingCount}`} sub="개" />
         <Stat
           label="통화"
           value={`${m.calls.count}회`}

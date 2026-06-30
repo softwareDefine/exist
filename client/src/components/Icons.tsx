@@ -100,6 +100,15 @@ export function LogOutIcon({ size }: IconProps) {
   );
 }
 
+export function PinIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <circle cx="15" cy="9" r="4.8" fill="currentColor" />
+      <path d="M12 12 4.5 19.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function ClockIcon({ size }: IconProps) {
   return (
     <Svg size={size}>

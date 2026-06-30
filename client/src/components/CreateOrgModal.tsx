@@ -81,7 +81,7 @@ export default function CreateOrgModal({ open, onClose }: Props) {
         ) : (
           <form onSubmit={submit}>
             <div className="modal-head">새 조직 만들기</div>
-            <div className="modal-sub">회사·팀 단위로 회의와 멤버를 관리해요</div>
+            <div className="modal-sub">회사·팀 단위로 그룹과 멤버를 관리해요</div>
             <label className="modal-label">
               조직 이름
               <input

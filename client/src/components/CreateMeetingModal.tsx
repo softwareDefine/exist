@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useOrgStore, type OrgContext } from '../orgStore';
+import { useAuthStore } from '../store';
 import { CloseIcon, CalendarIcon, CopyIcon, CheckMarkIcon, BuildingIcon } from './Icons';
 import Avatar from './Avatar';
 
@@ -43,6 +44,9 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
   const [searching, setSearching] = useState(false);
   const [created, setCreated] = useState<{ code: string; title: string; invited: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -57,6 +61,8 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
     setResults([]);
     setCreated(null);
     setCopied(false);
+    setPhoto(null);
+    setPhotoPreview(null);
   }, [open, current, defaultSchedule]);
 
   // 초대할 사람 검색 (디바운스)
@@ -109,6 +115,13 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
 
   if (!open) return null;
 
+  function onPhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f || !f.type.startsWith('image/')) return;
+    setPhoto(f);
+    setPhotoPreview(URL.createObjectURL(f));
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -127,6 +140,21 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
           invite: invite.map((p) => p.username),
         },
       });
+      // 그룹 생성 직후 사진이 있으면 업로드 (호스트=생성자라 권한 OK)
+      if (photo) {
+        try {
+          await fetch(`/api/meetings/${m.code}/thumbnail`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${useAuthStore.getState().token ?? ''}`,
+              'Content-Type': photo.type,
+            },
+            body: photo,
+          });
+        } catch {
+          /* 사진 실패해도 그룹 생성은 유지 */
+        }
+      }
       setCreated({ code: m.code, title, invited: m.invited?.length ?? 0 });
       onCreated();
     } catch {
@@ -160,7 +188,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
         {created ? (
           <div className="cm-done">
             <div className="cm-done-emoji">🎉</div>
-            <h2 className="cm-done-title">회의가 만들어졌어요</h2>
+            <h2 className="cm-done-title">그룹이 만들어졌어요</h2>
             <p className="cm-done-sub">
               {created.invited > 0
                 ? `${created.invited}명을 초대했어요. 코드로도 참여할 수 있어요`
@@ -188,7 +216,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                 <CalendarIcon size={22} />
               </div>
               <div className="cm-header-text">
-                <h2>새 회의 만들기</h2>
+                <h2>새 그룹 만들기</h2>
                 <p>팀과 함께할 공간을 만들어요</p>
               </div>
               <button type="button" className="cm-x" onClick={onClose}>
@@ -198,7 +226,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
 
             <div className="cm-body">
               <div className="cm-field">
-                <span className="cm-field-label">회의 이름</span>
+                <span className="cm-field-label">그룹 이름</span>
                 <input
                   className="cm-input"
                   value={title}
@@ -206,6 +234,53 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                   placeholder="예: 주간 스프린트 리뷰"
                   autoFocus
                 />
+              </div>
+
+              <div className="cm-field">
+                <span className="cm-field-label">
+                  그룹 사진 <span className="cm-opt">(선택)</span>
+                </span>
+                <div className="cm-photo-row">
+                  <button
+                    type="button"
+                    className="cm-photo-pick"
+                    onClick={() => photoRef.current?.click()}
+                  >
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="" />
+                    ) : (
+                      <span className="cm-photo-plus">+</span>
+                    )}
+                  </button>
+                  <input
+                    ref={photoRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={onPhotoPick}
+                  />
+                  <div className="cm-photo-actions">
+                    <button
+                      type="button"
+                      className="cm-photo-btn"
+                      onClick={() => photoRef.current?.click()}
+                    >
+                      {photoPreview ? '변경' : '사진 선택'}
+                    </button>
+                    {photoPreview && (
+                      <button
+                        type="button"
+                        className="cm-photo-btn ghost"
+                        onClick={() => {
+                          setPhoto(null);
+                          setPhotoPreview(null);
+                        }}
+                      >
+                        제거
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="cm-field">
@@ -217,7 +292,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                     onClick={() => setOrgCtx('personal')}
                   >
                     <span className="cm-org-ic personal">👤</span>
-                    <span className="cm-org-name">개인 회의</span>
+                    <span className="cm-org-name">개인 그룹</span>
                   </button>
                   {orgs.map((o) => (
                     <button
@@ -349,7 +424,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                 취소
               </button>
               <button type="submit" className="cm-btn primary" disabled={!title.trim()}>
-                회의 만들기
+                그룹 만들기
               </button>
             </div>
           </form>

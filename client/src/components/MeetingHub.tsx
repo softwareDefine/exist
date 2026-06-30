@@ -12,6 +12,7 @@ import SlideEditor from './SlideEditor';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import MeetingSchedule from './MeetingSchedule';
+import { togglePin, isPinned, PINS_EVENT } from '../lib/pins';
 import {
   PhoneIcon,
   CalendarIcon,
@@ -27,6 +28,7 @@ import {
   CopyIcon,
   CheckIcon,
   CheckMarkIcon,
+  PinIcon,
 } from './Icons';
 
 interface Participant {
@@ -217,6 +219,16 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [todoInput, setTodoInput] = useState('');
   const [confirmDelMeeting, setConfirmDelMeeting] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [pinnedNow, setPinnedNow] = useState(false);
+
+  // 사이드바 고정 상태 동기화 (다른 곳에서 토글돼도 반영)
+  useEffect(() => {
+    if (!detail) return;
+    const sync = () => setPinnedNow(isPinned(detail.id));
+    sync();
+    window.addEventListener(PINS_EVENT, sync);
+    return () => window.removeEventListener(PINS_EVENT, sync);
+  }, [detail]);
 
   // 회의 공유 할 일 로드
   useEffect(() => {
@@ -276,7 +288,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     const onKicked = (data: { code: string }) => {
       if (data.code?.toUpperCase() === code.toUpperCase()) {
         window.dispatchEvent(
-          new CustomEvent('app:error', { detail: '회의에서 내보내졌어요.' }),
+          new CustomEvent('app:error', { detail: '그룹에서 내보내졌어요.' }),
         );
       }
     };
@@ -488,7 +500,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     }
   }
   async function kickParticipant(username: string) {
-    if (!confirm(`${username} 님을 회의에서 내보낼까요?`)) return;
+    if (!confirm(`${username} 님을 그룹에서 내보낼까요?`)) return;
     try {
       await api(`/api/meetings/${code}/participants/${encodeURIComponent(username)}`, {
         method: 'DELETE',
@@ -644,7 +656,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
         {subtab === 'dash' && (
           <div className="hub-dash">
             {!detail ? (
-              <div className="hub-loading">회의 정보를 불러오는 중…</div>
+              <div className="hub-loading">그룹 정보를 불러오는 중…</div>
             ) : (
               <>
                 {/* HERO — 회의 정보 + 통화 CTA 통합 */}
@@ -967,7 +979,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
             <section className="hub-set-card">
               <div className="hub-section-title">
                 <CalendarIcon size={15} /> 프로젝트 기간
-                <span className="hub-set-hostonly">회의 시작·종료에서 자동</span>
+                <span className="hub-set-hostonly">그룹 시작·종료에서 자동</span>
               </div>
               {(() => {
                 // 프로젝트 기간 = 회의 시작일 ~ 종료일(반복이면 반복 끝나는 날)
@@ -982,7 +994,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                 if (!pStart && !pEnd) {
                   return (
                     <div className="hub-section-empty">
-                      회의를 만들 때 시작·종료를 정하면 여기 기간이 표시돼요
+                      그룹을 만들 때 시작·종료를 정하면 여기 기간이 표시돼요
                     </div>
                   );
                 }
@@ -1041,7 +1053,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                     <Toggle
                       on={s.locked}
                       label="입장 잠금"
-                      desc="새로운 사람의 회의 참여를 막아요"
+                      desc="새로운 사람의 그룹 참여를 막아요"
                       onToggle={() => void updateSettings({ locked: !s.locked })}
                     />
                     <Toggle
@@ -1061,10 +1073,32 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               })()}
             </section>
 
+            <section className="hub-set-card">
+              <div className="hub-section-title">
+                <PinIcon size={15} /> 내 사이드바
+              </div>
+              <div className="hub-perm">
+                <span className="hub-perm-text">
+                  <span className="hub-perm-label">맨 위 고정</span>
+                  <span className="hub-perm-desc">최근 그룹 목록 맨 위에 고정해요 (나에게만 적용)</span>
+                </span>
+                <button
+                  className={`hub-switch${pinnedNow ? ' on' : ''}`}
+                  onClick={() => {
+                    togglePin(detail.id);
+                    setPinnedNow((p) => !p);
+                  }}
+                  aria-label="맨 위 고정"
+                >
+                  <i />
+                </button>
+              </div>
+            </section>
+
             {detail.isHost && (
               <section className="hub-set-card danger-zone">
                 <div className="hub-section-title">
-                  <GearIcon size={15} /> 회의 삭제
+                  <GearIcon size={15} /> 그룹 삭제
                 </div>
                 <p className="hub-danger-desc">
                   회의와 모든 채팅·일정 기록이 영구적으로 사라져요. 되돌릴 수 없어요.

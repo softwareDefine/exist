@@ -353,7 +353,7 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
             </span>
             <span
               className="tab-close"
-              title="회의 나가기"
+              title="그룹 나가기"
               onClick={(e) => {
                 e.stopPropagation();
                 closeMeetingTab(t.code);
