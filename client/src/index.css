@@ -14,13 +14,13 @@
 @font-face {
   font-family: 'NanumSquareNeo';
   src: url('/fonts/NanumSquareNeoTTF-cBd.woff') format('woff');
-  font-weight: 700;
+  font-weight: 600;
   font-display: swap;
 }
 @font-face {
   font-family: 'NanumSquareNeo';
   src: url('/fonts/NanumSquareNeoTTF-dEb.woff') format('woff');
-  font-weight: 700;
+  font-weight: 600;
   font-display: swap;
 }
 @font-face {
@@ -226,7 +226,7 @@ input:focus {
   background: var(--surface);
   color: var(--text-sub);
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.2px;
   cursor: pointer;
   opacity: 0.65;
@@ -389,7 +389,7 @@ input:focus {
 
 .nb-expand-title {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
   margin-bottom: 10px;
   display: flex;
@@ -402,7 +402,7 @@ input:focus {
   border-radius: 7px;
   padding: 3px 9px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green-dark);
   background: var(--green-soft);
   cursor: pointer;
@@ -419,7 +419,7 @@ input:focus {
   padding: 1px 6px;
   border-radius: 6px;
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green-dark);
   background: var(--green-soft);
 }
@@ -442,7 +442,7 @@ input:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 15px;
   margin-bottom: 8px;
 }
@@ -489,7 +489,7 @@ input:focus {
 .nb-cal-day.today {
   background: var(--green);
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .nb-cal-mark {
@@ -635,7 +635,7 @@ input:focus {
 
 .progress-pct {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
   font-variant-numeric: tabular-nums;
 }
@@ -658,7 +658,7 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -675,7 +675,7 @@ input:focus {
 }
 
 .nb-current-text .title {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
@@ -748,7 +748,7 @@ input:focus {
   background: var(--green);
   color: #fff;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 6px 11px;
   cursor: pointer;
   white-space: nowrap;
@@ -822,7 +822,7 @@ input:focus {
 
 .nb-notif-from {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -884,7 +884,7 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* 회의 썸네일 공통 — 사진이면 크롭 */
@@ -909,7 +909,7 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .nb-notif-lead.fresh .nb-notif-thumb {
@@ -925,11 +925,11 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .nb-next-title {
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1043,7 +1043,7 @@ input:focus {
 
 .nowbar-clock {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -1270,7 +1270,7 @@ input:focus {
   background: none;
   color: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 8px 4px;
 }
 
@@ -1336,7 +1336,7 @@ input:focus {
   flex-direction: column;
   gap: 6px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: #444;
   margin-bottom: 12px;
 }
@@ -1377,7 +1377,7 @@ input:focus {
   border-radius: 10px;
   padding: 12px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .modal-cancel {
@@ -1410,7 +1410,7 @@ input:focus {
   background: var(--surface);
   padding: 10px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .modal-ghost:hover {
@@ -1455,7 +1455,7 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -1478,7 +1478,7 @@ input:focus {
   border-radius: 9px;
   padding: 9px 14px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -1512,7 +1512,7 @@ input:focus {
 
 .settings-section {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
   margin: 16px 0 10px;
 }
@@ -1551,7 +1551,7 @@ input:focus {
   color: #d33;
   padding: 11px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .modal-danger:hover,
@@ -1570,7 +1570,7 @@ input:focus {
 .meeting-code-box {
   font-family: 'Inter', monospace;
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 4px;
   text-align: center;
   background: var(--green-soft);
@@ -1633,12 +1633,12 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
 .recent-card .name {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 15px;
 }
 
@@ -1787,7 +1787,7 @@ input:focus {
 }
 
 .dm-item-name {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 14px;
   color: var(--text);
   white-space: nowrap;
@@ -1831,7 +1831,7 @@ input:focus {
   background: #ff5b5b;
   color: #fff;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   flex-shrink: 0;
 }
@@ -1880,7 +1880,7 @@ input:focus {
 }
 
 .dm-head-name {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 15px;
   white-space: nowrap;
   overflow: hidden;
@@ -1949,7 +1949,7 @@ input:focus {
 
 .dm-window-body .chat-empty p {
   margin: 4px 0 0;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -1983,7 +1983,7 @@ input:focus {
   border: none;
   background: var(--green);
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 14px;
   padding: 0 16px;
   border-radius: 10px;
@@ -2158,7 +2158,7 @@ input:focus {
   background: var(--surface-2);
   padding: 9px 16px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   white-space: nowrap;
   opacity: 0.75;
@@ -2233,7 +2233,7 @@ input:focus {
   background: none;
   padding: 10px 14px 12px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   border-bottom: 2.5px solid transparent;
   margin-bottom: -1px;
@@ -2290,7 +2290,7 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 26px;
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
@@ -2302,7 +2302,7 @@ input:focus {
 .hub-hero-title {
   margin: 0;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
   color: #fff;
 }
@@ -2315,7 +2315,7 @@ input:focus {
 
 .hub-hero-sub b {
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .hub-hero-sub .hub-sub-org {
@@ -2337,7 +2337,7 @@ input:focus {
   background: rgba(255, 255, 255, 0.18);
   border: 1px solid rgba(255, 255, 255, 0.28);
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.04em;
   border-radius: 8px;
@@ -2388,7 +2388,7 @@ input:focus {
   border-radius: 11px;
   padding: 11px 22px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -2449,7 +2449,7 @@ input:focus {
   border-radius: 13px;
   background: var(--surface);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.14s, transform 0.12s, box-shadow 0.14s;
@@ -2505,7 +2505,7 @@ input:focus {
 /* 일정 정보 */
 .hub-sched-time {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   margin-bottom: 10px;
 }
@@ -2513,7 +2513,7 @@ input:focus {
 .hub-sched-badge {
   display: inline-block;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 4px 10px;
   border-radius: 8px;
   background: var(--surface-2);
@@ -2544,7 +2544,7 @@ input:focus {
 
 .hub-sub-org {
   color: var(--text-sub);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* 캔버스 바로가기 카드 */
@@ -2570,7 +2570,7 @@ input:focus {
   align-items: center;
   gap: 7px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   margin-bottom: 14px;
 }
@@ -2580,7 +2580,7 @@ input:focus {
 }
 
 .hub-section-title .hub-roster-org {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
 }
 
@@ -2613,7 +2613,7 @@ input:focus {
   gap: 5px;
   min-width: 56px;
   color: var(--text-sub);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .hub-meta-val {
@@ -2624,7 +2624,7 @@ input:focus {
 .hub-todo-count {
   margin-left: auto;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
 }
 
@@ -2653,7 +2653,7 @@ input:focus {
 
 .hub-todo-pct {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
   flex-shrink: 0;
 }
@@ -2724,7 +2724,7 @@ input:focus {
 
 .hub-todo-author {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   flex-shrink: 0;
 }
@@ -2768,7 +2768,7 @@ input:focus {
   border-radius: 8px;
   padding: 0 14px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 /* 일정 서브탭 — 달력 (영역 꽉 채움) */
@@ -2835,7 +2835,7 @@ input:focus {
 .msched-dow {
   text-align: center;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   padding-bottom: 6px;
 }
@@ -2874,7 +2874,7 @@ input:focus {
   justify-content: center;
   border-radius: 50%;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -2917,7 +2917,7 @@ input:focus {
 }
 
 .msched-chip-time {
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -2936,7 +2936,7 @@ input:focus {
 
 .msched-more {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   padding-left: 5px;
 }
@@ -2964,7 +2964,7 @@ input:focus {
   border-radius: 9px;
   padding: 9px 12px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 12px;
 }
 .msched-main-event-text {
@@ -2979,7 +2979,7 @@ input:focus {
   border-radius: 7px;
   padding: 4px 9px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 .msched-occ-del:hover {
@@ -3012,7 +3012,7 @@ input:focus {
 
 .msched-event-time {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
   flex-shrink: 0;
 }
@@ -3028,7 +3028,7 @@ input:focus {
 
 .msched-event-author {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   flex-shrink: 0;
 }
@@ -3071,7 +3071,7 @@ input:focus {
   border-radius: 8px;
   padding: 9px 14px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
   cursor: pointer;
 }
@@ -3148,7 +3148,7 @@ input:focus {
 
 .msched-times-sep {
   color: var(--text-sub);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .msched-add-title:focus,
@@ -3166,7 +3166,7 @@ input:focus {
   border-radius: 8px;
   padding: 9px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .msched-add-btn:disabled {
@@ -3195,7 +3195,7 @@ input:focus {
   border-radius: 8px;
   padding: 7px 10px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   background: var(--surface);
   color: var(--text-sub);
   cursor: pointer;
@@ -3339,13 +3339,13 @@ input:focus {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
 .hub-set-badge {
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 1px 6px;
   border-radius: 5px;
   background: var(--surface-3);
@@ -3423,7 +3423,7 @@ input:focus {
   border-radius: 10px;
   padding: 11px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
@@ -3514,7 +3514,7 @@ input:focus {
 .cm-header-text h2 {
   margin: 0;
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -3558,7 +3558,7 @@ input:focus {
 
 .cm-field-label {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -3754,7 +3754,7 @@ input:focus {
 
 .cm-result-add {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green-dark);
 }
 
@@ -3962,7 +3962,7 @@ input:focus {
   border-radius: 12px;
   padding: 13px;
   font-size: 14.5px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -4006,7 +4006,7 @@ input:focus {
 .cm-done-title {
   margin: 14px 0 0;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -4032,7 +4032,7 @@ input:focus {
 
 .cm-code-val {
   font-size: 28px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 4px;
   color: var(--green-dark);
   font-family: 'Inter', monospace;
@@ -4105,7 +4105,7 @@ input:focus {
 
 .datepick-head span {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -4134,7 +4134,7 @@ input:focus {
 .datepick-dow span {
   text-align: center;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   padding: 4px 0;
 }
@@ -4171,13 +4171,13 @@ input:focus {
 
 .datepick-day.today {
   color: var(--green);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .datepick-day.sel {
   background: var(--green);
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .datepick-clear {
@@ -4208,7 +4208,7 @@ input:focus {
 
 .hub-dday {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 2px 8px;
   border-radius: 6px;
   background: var(--green-soft);
@@ -4254,7 +4254,7 @@ input:focus {
 
 .hub-perm-label {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -4517,7 +4517,7 @@ input:focus {
   border-radius: 7px;
   padding: 5px 10px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   cursor: pointer;
 }
@@ -4657,14 +4657,14 @@ input:focus {
 
 .doc-prose h1 {
   font-size: 1.9em;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.25;
   margin-top: 0.6em;
 }
 
 .doc-prose h2 {
   font-size: 1.45em;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.3;
   margin-top: 0.6em;
 }
@@ -4766,7 +4766,7 @@ input:focus {
 .sheet-cellref {
   min-width: 54px;
   text-align: center;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13px;
   color: var(--text);
   background: var(--surface-2);
@@ -4805,7 +4805,7 @@ input:focus {
   border-radius: 7px;
   padding: 5px 10px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   cursor: pointer;
 }
@@ -4962,7 +4962,7 @@ input:focus {
   border-radius: 6px;
   padding: 6px 11px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -5370,7 +5370,7 @@ input:focus {
   border-radius: 7px;
   padding: 6px 13px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -5402,7 +5402,7 @@ input:focus {
 
 .slide-thumb-num {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   width: 14px;
   flex: none;
@@ -5703,7 +5703,7 @@ input:focus {
   justify-content: space-between;
   padding: 11px 12px 7px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #bdbdbd;
@@ -5882,7 +5882,7 @@ input:focus {
   border-radius: 6px;
   padding: 5px 12px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -5942,7 +5942,7 @@ input:focus {
 .vsc-git-title {
   color: #fff;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 2px;
 }
 
@@ -5978,7 +5978,7 @@ input:focus {
   border-radius: 7px;
   padding: 8px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
   margin-top: 2px;
 }
@@ -6010,7 +6010,7 @@ input:focus {
   justify-content: space-between;
   padding: 5px 12px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #bdbdbd;
@@ -6321,7 +6321,7 @@ input:focus {
 
 .chat-date span {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   background: var(--surface-3);
   padding: 3px 12px;
@@ -6372,7 +6372,7 @@ input:focus {
 
 .chat-name {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   padding-left: 3px;
 }
@@ -6431,7 +6431,7 @@ input:focus {
   border-radius: 11px;
   background: var(--green);
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 15px;
   padding: 0 22px;
 }
@@ -6499,7 +6499,7 @@ input:focus {
 
 .chat-file-name {
   font-size: 13.5px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -6538,7 +6538,7 @@ input:focus {
 
 .hub-chat .chat-empty p {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   margin: 0;
 }
@@ -6578,7 +6578,7 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 26px;
-  font-weight: 700;
+  font-weight: 600;
   flex-shrink: 0;
 }
 
@@ -6614,13 +6614,13 @@ input:focus {
   width: 72px;
   flex-shrink: 0;
   color: var(--text-sub);
-  font-weight: 700;
+  font-weight: 600;
   font-size: 13px;
 }
 
 .hub-code {
   font-family: 'Inter', monospace;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 2px;
   background: var(--green-soft);
   border: 1px dashed var(--green);
@@ -6631,7 +6631,7 @@ input:focus {
 
 .hub-live {
   color: var(--green);
-  font-weight: 700;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -6668,7 +6668,7 @@ input:focus {
 
 .hub-person.online {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .hub-person.online .presence-dot {
@@ -6682,7 +6682,7 @@ input:focus {
 
 .hub-roster-head {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   margin-bottom: 10px;
 }
@@ -6692,7 +6692,7 @@ input:focus {
 }
 
 .hub-roster-org {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
 }
 
@@ -6702,7 +6702,7 @@ input:focus {
 
 .hub-dept-name {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   margin: 0 0 6px 2px;
   padding-left: 8px;
@@ -6752,20 +6752,20 @@ input:focus {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   white-space: nowrap;
 }
 
 .hub-pcard-pos {
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
 }
 
 .hub-pcard-badge {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 1px 6px;
   border-radius: 5px;
   background: var(--green-soft);
@@ -6787,7 +6787,7 @@ input:focus {
 
 .hub-pcard-host {
   color: var(--green);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .hub-pcard .presence-dot {
@@ -6862,7 +6862,7 @@ input:focus {
 }
 
 .org-member-pos {
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
 }
 
@@ -6877,7 +6877,7 @@ input:focus {
   background: var(--green);
   color: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 15px;
 }
 
@@ -6895,7 +6895,7 @@ input:focus {
   justify-content: space-between;
   align-items: center;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
   margin-bottom: 8px;
 }
@@ -6967,7 +6967,7 @@ input:focus {
   background: #ff5b5b;
   color: #fff;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 16px;
   text-align: center;
 }
@@ -7038,7 +7038,7 @@ input:focus {
   place-items: center;
   color: #fff;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .notif-thumb.bell {
@@ -7064,7 +7064,7 @@ input:focus {
 
 .notif-from {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
 }
 
@@ -7096,7 +7096,7 @@ input:focus {
   padding: 8px;
   border-radius: 8px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
 }
 
@@ -7126,7 +7126,7 @@ input:focus {
   border-radius: 12px;
   background: var(--surface);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   box-shadow: var(--shadow-sm);
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -7166,7 +7166,7 @@ input:focus {
   background: #ff5b5b;
   color: #fff;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -7211,7 +7211,7 @@ input:focus {
   background: none;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   text-align: left;
   width: 100%;
@@ -7248,7 +7248,7 @@ input:focus {
 .org-menu-item > .org-check {
   margin-left: auto;
   color: var(--green);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .org-menu-manage {
@@ -7284,7 +7284,7 @@ input:focus {
 
 .org-joincode-label {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
 }
 
@@ -7294,7 +7294,7 @@ input:focus {
   background: var(--green-soft);
   border-radius: 8px;
   padding: 9px 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 1px;
   color: var(--green);
   text-align: left;
@@ -7306,7 +7306,7 @@ input:focus {
 
 .org-section-title {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   margin-bottom: 8px;
 }
@@ -7329,7 +7329,7 @@ input:focus {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .org-avatar {
@@ -7338,7 +7338,7 @@ input:focus {
 
 .org-role {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 2px 7px;
   border-radius: 6px;
   background: var(--surface-2);
@@ -7367,7 +7367,7 @@ input:focus {
   border-radius: 7px;
   padding: 5px 11px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -7411,7 +7411,7 @@ input:focus {
   border: none;
   background: none;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   flex: 1;
   text-align: left;
@@ -7507,7 +7507,7 @@ input:focus {
   border-radius: 9px;
   padding: 10px 16px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .orgchart-manage:hover {
@@ -7552,7 +7552,7 @@ input:focus {
   background: var(--green-soft);
   color: var(--green);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .orgchart-members {
@@ -7588,13 +7588,13 @@ input:focus {
   align-items: center;
   gap: 6px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
 }
 
 .orgchart-pos {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--green);
   margin-top: 1px;
 }
@@ -7611,7 +7611,7 @@ input:focus {
 
 .orgchart-pending-head {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   margin-bottom: 12px;
 }
@@ -7633,7 +7633,7 @@ input:focus {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   min-width: 130px;
 }
 
@@ -7704,7 +7704,7 @@ input:focus {
   background: var(--green);
   color: #fff;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -7846,7 +7846,7 @@ input:focus {
 .hub-pip-grip {
   color: #fff;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   user-select: none;
 }
@@ -7989,7 +7989,7 @@ input:focus {
   background: #d33;
   color: #fff;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   min-width: 17px;
   height: 17px;
   border-radius: 9px;
@@ -8038,7 +8038,7 @@ input:focus {
 /* 비활성 탭의 조직 배지는 회색, 활성 탭만 녹색 */
 .ws-tab-org {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-sub);
   letter-spacing: 0.2px;
 }
@@ -8086,7 +8086,7 @@ input:focus {
 }
 
 .meeting-title {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 16px;
 }
 
@@ -8106,7 +8106,7 @@ input:focus {
   background: #20242c;
   color: #ddd;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 8px 14px;
 }
 
@@ -8123,7 +8123,7 @@ input:focus {
   background: rgba(221, 51, 51, 0.85);
   color: #fff;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 6px 10px;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -8262,7 +8262,7 @@ input:focus {
   display: grid;
   place-items: center;
   font-size: 30px;
-  font-weight: 700;
+  font-weight: 600;
   color: #fff;
 }
 
@@ -8300,7 +8300,7 @@ input:focus {
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  font-weight: 700;
+  font-weight: 600;
   font-size: 15px;
   border-bottom: 1px solid #262a33;
 }
@@ -8388,7 +8388,7 @@ input:focus {
   border-radius: 8px;
   background: var(--green);
   color: #fff;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0 16px;
 }
 
@@ -8446,7 +8446,7 @@ input:focus {
   background: #d33;
   color: #fff;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   min-width: 18px;
   height: 18px;
   border-radius: 9px;
@@ -8461,7 +8461,7 @@ input:focus {
   padding: 0 24px;
   background: #d33;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .meeting-controls .leave:hover {
@@ -8515,7 +8515,7 @@ input:focus {
 }
 
 .toast-from {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 14px;
 }
 
@@ -8637,7 +8637,7 @@ input:focus {
   color: #fff;
   padding: 12px;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .login-form .submit:hover {
@@ -8720,7 +8720,7 @@ input:focus {
 .recovery-box {
   font-family: 'Inter', monospace;
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 1px;
   background: var(--green-soft);
   border: 1.5px dashed var(--green);
@@ -8735,7 +8735,7 @@ input:focus {
   background: var(--surface);
   padding: 10px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .recovery-copy:hover {
