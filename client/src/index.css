@@ -898,6 +898,11 @@ input:focus {
 /* 회의 썸네일 공통 — 사진이면 크롭 */
 .mthumb {
   overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .mthumb-img {
