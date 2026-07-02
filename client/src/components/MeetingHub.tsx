@@ -26,7 +26,7 @@ import {
   UsersIcon,
   GearIcon,
   CopyIcon,
-  CheckIcon,
+  ListIcon,
   CheckMarkIcon,
   PinIcon,
 } from './Icons';
@@ -806,7 +806,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                     {/* 할 일 (사이드로 이동) */}
                     <section className="hub-section">
                       <div className="hub-section-title">
-                        <CheckIcon size={15} /> 할 일
+                        <ListIcon size={15} /> 할 일
                         {todos.length > 0 && (
                           <span className="hub-todo-count">
                             {todos.filter((t) => t.done).length}/{todos.length}

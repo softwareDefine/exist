@@ -74,6 +74,14 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- 통합 메시지함: 유저별·그룹별 마지막 읽은 채팅 메시지 id (안읽음 = messages.id > last_read)
+  CREATE TABLE IF NOT EXISTS chat_reads (
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id),
+    last_read  INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (user_id, meeting_id)
+  );
+
   CREATE TABLE IF NOT EXISTS todos (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL REFERENCES users(id),

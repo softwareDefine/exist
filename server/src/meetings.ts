@@ -247,6 +247,59 @@ router.get('/recent', (req: AuthedRequest, res) => {
   res.json(rows);
 });
 
+/** 통합 메시지함 — 스코프(조직/개인) 내 내가 참여한 그룹들의 채팅 최근·안읽음 */
+router.get('/inbox', (req: AuthedRequest, res) => {
+  const me = req.userId!;
+  const orgParam = req.query.org;
+  let orgFilter = '';
+  const orgArgs: number[] = [];
+  if (orgParam === 'personal') {
+    orgFilter = ' AND m.org_id IS NULL';
+  } else if (orgParam != null && orgParam !== '') {
+    const orgId = Number(orgParam);
+    if (!Number.isInteger(orgId)) return res.status(400).json({ error: '잘못된 조직입니다' });
+    if (!isMember(orgId, me)) return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
+    orgFilter = ' AND m.org_id = ?';
+    orgArgs.push(orgId);
+  }
+  const rows = db
+    .prepare(
+      `SELECT m.id, m.code, m.title, m.thumbnail,
+         lm.text AS lastText, lm.created_at AS lastTs,
+         (SELECT COUNT(*) FROM messages msg
+            WHERE msg.meeting_id = m.id
+              AND msg.id > COALESCE((SELECT last_read FROM chat_reads WHERE user_id = ? AND meeting_id = m.id), 0)
+         ) AS unread
+       FROM meetings m
+       JOIN meeting_participants mp ON mp.meeting_id = m.id AND mp.user_id = ?
+       LEFT JOIN (
+         SELECT meeting_id, text, created_at FROM messages
+         WHERE id IN (SELECT MAX(id) FROM messages GROUP BY meeting_id)
+       ) lm ON lm.meeting_id = m.id
+       WHERE 1 = 1 ${orgFilter}
+       ORDER BY COALESCE(lm.created_at, '') DESC, m.id DESC`,
+    )
+    .all(me, me, ...orgArgs);
+  res.json(rows);
+});
+
+/** 그룹 채팅 읽음 처리 — last_read = 그룹 최신 메시지 id */
+router.post('/:code/messages/read', (req: AuthedRequest, res) => {
+  const me = req.userId!;
+  const meeting = db
+    .prepare('SELECT id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as { id: number } | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 그룹이에요' });
+  const last = db
+    .prepare('SELECT MAX(id) AS mx FROM messages WHERE meeting_id = ?')
+    .get(meeting.id) as { mx: number | null };
+  db.prepare(
+    `INSERT INTO chat_reads (user_id, meeting_id, last_read) VALUES (?, ?, ?)
+     ON CONFLICT(user_id, meeting_id) DO UPDATE SET last_read = excluded.last_read`,
+  ).run(me, meeting.id, last.mx ?? 0);
+  res.json({ ok: true });
+});
+
 /** 일정용 — 예정/반복 회의를 occurrence 단위로 펼쳐 반환 (달력·nowbar용)
  *  ?org=<id>|personal 로 필터 (recent와 동일 규칙) */
 router.get('/schedule', (req: AuthedRequest, res) => {

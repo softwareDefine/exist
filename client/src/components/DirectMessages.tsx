@@ -364,10 +364,6 @@ export default function DirectMessages({ scope }: { scope: DmScope }) {
 
   return (
     <>
-      <div className="section-title">
-        <ChatIcon size={20} /> 다이렉트 메시지
-      </div>
-
       {/* 개인 스코프: 이름으로 검색해 새 대화 시작 */}
       {personal && (
         <div className="dm-search">

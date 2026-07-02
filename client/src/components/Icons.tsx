@@ -103,8 +103,11 @@ export function LogOutIcon({ size }: IconProps) {
 export function PinIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
-      <circle cx="15" cy="9" r="4.8" fill="currentColor" />
-      <path d="M12 12 4.5 19.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M8 3.3h8l-.8 1.5v5.4c2 .7 3.4 1.9 3.4 3H5.4c0-1.1 1.4-2.3 3.4-3V4.8z"
+        fill="currentColor"
+      />
+      <path d="M12 13.2v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -470,6 +473,27 @@ export function SlashIcon({ size }: IconProps) {
   return (
     <Svg size={size}>
       <path d="M4 4l16 16" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ChartIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="4" y="11" width="4.2" height="8" rx="1.2" fill="currentColor" />
+      <rect x="9.9" y="6" width="4.2" height="13" rx="1.2" fill="currentColor" />
+      <rect x="15.8" y="9" width="4.2" height="10" rx="1.2" fill="currentColor" />
+    </Svg>
+  );
+}
+
+export function ListIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <circle cx="5" cy="7" r="1.4" fill="currentColor" />
+      <circle cx="5" cy="12" r="1.4" fill="currentColor" />
+      <circle cx="5" cy="17" r="1.4" fill="currentColor" />
+      <path d="M10 7h10M10 12h10M10 17h10" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
     </Svg>
   );
 }

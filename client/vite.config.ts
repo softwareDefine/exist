@@ -5,8 +5,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://localhost:4000',
-      '/socket.io': { target: 'http://localhost:4000', ws: true },
+      '/api': { target: 'http://localhost:4000', changeOrigin: true },
+      '/socket.io': { target: 'http://localhost:4000', changeOrigin: true, ws: true },
       '/sync': { target: 'http://localhost:4000', ws: true },
       '/yjs': { target: 'http://localhost:4000', ws: true },
     },
