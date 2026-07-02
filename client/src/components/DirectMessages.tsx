@@ -13,7 +13,7 @@ import { ChatIcon, CloseIcon } from './Icons';
 
 export type DmScope = number | 'personal';
 
-interface Thread {
+export interface Thread {
   userId: number;
   username: string;
   avatar: string | null;
@@ -66,7 +66,7 @@ function chatDateLabel(ts: number): string {
   if (d.toDateString() === yest.toDateString()) return '어제';
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
-function relTime(ts: number): string {
+export function relTime(ts: number): string {
   const m = Math.floor((Date.now() - ts) / 60_000);
   if (m < 1) return '방금';
   if (m < 60) return `${m}분`;
@@ -76,7 +76,7 @@ function relTime(ts: number): string {
 }
 
 /** 우하단 플로팅 대화창 */
-function DmWindow({
+export function DmWindow({
   scope,
   peer,
   onClose,
@@ -255,7 +255,7 @@ function DmWindow({
 }
 
 /** 이름 검색 결과 (새 대화 시작용) */
-interface SearchHit {
+export interface SearchHit {
   userId: number;
   username: string;
   avatar: string | null;

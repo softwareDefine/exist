@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { useOrgStore } from '../orgStore';
-import DirectMessages from './DirectMessages';
 import InsightsPanel from './InsightsPanel';
 import { type Todo, type Meeting } from './NowBar';
-import InboxPanel from './InboxPanel';
+import UnifiedInbox from './UnifiedInbox';
 import ScheduleWidget from './ScheduleWidget';
 import { ListIcon, SparklesIcon, CalendarIcon, ChatIcon, UsersIcon, CheckMarkIcon, ChartIcon } from './Icons';
 
@@ -121,8 +120,7 @@ export default function ProfileDashboard() {
 
         <div style={{ ...section, maxWidth: '50%', minHeight: 420 }}>
           <div style={sectionHead}><span style={headIcon}><ChatIcon size={16} /></span> 통합 메시지</div>
-          <InboxPanel scope={org} />
-          <DirectMessages scope={org} />
+          <UnifiedInbox scope={org} />
         </div>
       </div>
     );
@@ -245,8 +243,7 @@ export default function ProfileDashboard() {
 
         <div style={cellCard}>
           <div style={sectionHead}><span style={headIcon}><ChatIcon size={16} /></span> 통합 메시지</div>
-          <InboxPanel scope={org} />
-          <DirectMessages scope={org} />
+          <UnifiedInbox scope={org} />
         </div>
       </div>
 
