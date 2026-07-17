@@ -207,4 +207,40 @@ describe('runRecapForMeeting — 파이프라인 (통합)', () => {
     ).id;
     return { host, code: m.body.code as string, meetingId };
   }
+
+  it('recap·chat_reads가 있어도 회의 삭제가 된다 (FK 강제 환경 회귀 — 라이브 QA 발견 버그)', async () => {
+    db.pragma('foreign_keys = ON'); // 라이브 DB가 FK를 강제하는 상황 재현
+    try {
+      const host = await registerUser('recap_del');
+      const m = await request(app)
+        .post('/api/meetings')
+        .set('Authorization', `Bearer ${host.token}`)
+        .send({ title: '삭제될 회의' });
+      const mid = (
+        db.prepare('SELECT id FROM meetings WHERE code = ?').get(m.body.code) as { id: number }
+      ).id;
+      db.prepare('INSERT INTO messages (meeting_id, user_id, text) VALUES (?, ?, ?)').run(
+        mid,
+        userId('recap_del'),
+        'A안으로 확정합니다',
+      );
+      db.prepare('INSERT INTO messages (meeting_id, user_id, text) VALUES (?, ?, ?)').run(
+        mid,
+        userId('recap_del'),
+        '정리 부탁해요',
+      );
+      await runRecapForMeeting(m.body.code, [userId('recap_del')]);
+      db.prepare(
+        'INSERT INTO chat_reads (user_id, meeting_id, last_read) VALUES (?, ?, 0)',
+      ).run(userId('recap_del'), mid);
+
+      const del = await request(app)
+        .delete(`/api/meetings/${m.body.code}`)
+        .set('Authorization', `Bearer ${host.token}`);
+      expect(del.status).toBe(200);
+      expect(db.prepare('SELECT COUNT(*) AS n FROM meeting_recaps WHERE meeting_id = ?').get(mid)).toEqual({ n: 0 });
+    } finally {
+      db.pragma('foreign_keys = OFF');
+    }
+  });
 });

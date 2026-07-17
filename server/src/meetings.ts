@@ -670,6 +670,8 @@ router.delete('/:code', (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM messages WHERE meeting_id = ?').run(meeting.id);
   db.prepare('DELETE FROM meeting_participants WHERE meeting_id = ?').run(meeting.id);
   db.prepare('DELETE FROM meeting_events WHERE meeting_id = ?').run(meeting.id);
+  db.prepare('DELETE FROM meeting_recaps WHERE meeting_id = ?').run(meeting.id);
+  db.prepare('DELETE FROM chat_reads WHERE meeting_id = ?').run(meeting.id);
   try {
     db.prepare('DELETE FROM todos WHERE meeting_id = ?').run(meeting.id);
   } catch {
