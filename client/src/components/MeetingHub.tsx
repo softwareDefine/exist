@@ -4,7 +4,6 @@ import { getSocket, request } from '../lib/socket';
 import { usePresence } from '../lib/usePresence';
 import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
-import CanvasBoard from './CanvasBoard';
 import CollabFiles from './CollabFiles';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
@@ -16,7 +15,6 @@ import {
   CalendarIcon,
   ChatIcon,
   GridIcon,
-  PenIcon,
   FolderIcon,
   UsersIcon,
   GearIcon,
@@ -158,7 +156,7 @@ function chatDateLabel(ts: number): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'files' | 'schedule' | 'settings';
+type SubTab = 'dash' | 'call' | 'chat' | 'files' | 'schedule' | 'settings';
 
 interface Props {
   code: string;
@@ -193,8 +191,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [newChannelName, setNewChannelName] = useState('');
   const activeChannelRef = useRef<number | null>(null);
   activeChannelRef.current = activeChannel;
-  const [canvasMounted, setCanvasMounted] = useState(false); // 한 번 열면 유지 (재연결·카메라 초기화 방지)
-  const [filesMounted, setFilesMounted] = useState(false); // 공동편집(파일시스템)도 한 번 열면 유지
+  const [filesMounted, setFilesMounted] = useState(false); // 공동편집(파일시스템)은 한 번 열면 마운트 유지
   const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null); // 무빙 통화창 위치
   const [pipW, setPipW] = useState<number>(() => {
     const s = Number(localStorage.getItem('exist:pipW'));
@@ -265,7 +262,6 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   }
 
   useEffect(() => {
-    if (subtab === 'canvas') setCanvasMounted(true);
     if (subtab === 'files') setFilesMounted(true);
   }, [subtab]);
 
@@ -667,12 +663,6 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
           <ChatIcon size={13} /> 채팅
         </button>
         <button
-          className={`hub-tab${subtab === 'canvas' ? ' active' : ''}`}
-          onClick={() => setSubtab('canvas')}
-        >
-          <PenIcon size={13} /> 캔버스
-        </button>
-        <button
           className={`hub-tab${subtab === 'files' ? ' active' : ''}`}
           onClick={() => setSubtab('files')}
         >
@@ -762,12 +752,6 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                         <GridIcon size={15} /> 협업 공간
                       </div>
                       <div className="hub-apps">
-                        <button className="hub-app" onClick={() => setSubtab('canvas')}>
-                          <span className="hub-app-ic canvas">
-                            <PenIcon size={20} />
-                          </span>
-                          캔버스
-                        </button>
                         <button className="hub-app" onClick={() => setSubtab('files')}>
                           <span className="hub-app-ic doc">
                             <FolderIcon size={20} />
@@ -1190,17 +1174,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
           </div>
         )}
 
-        {/* 캔버스 — 회의마다 자동으로 생기는 공동편집 보드 (한 번 열면 마운트 유지) */}
-        {canvasMounted && (
-          <div
-            className="hub-canvas"
-            style={{ display: subtab === 'canvas' ? 'block' : 'none' }}
-          >
-            <CanvasBoard roomId={`mt-${code.toUpperCase()}`} />
-          </div>
-        )}
-
-        {/* 공동편집 — 파일시스템 (코드/문서/시트/발표 파일 여러 개, 한 번 열면 마운트 유지) */}
+        {/* 공동편집 — 파일시스템 (코드/문서/시트/발표/캔버스 파일 여러 개, 한 번 열면 마운트 유지) */}
         {filesMounted && (
           <div
             className="hub-editor-pane"

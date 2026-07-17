@@ -5,14 +5,25 @@ import CodeDocEditor from './CodeDocEditor';
 import DocEditor from './DocEditor';
 import SheetEditor from './SheetEditor';
 import SlideEditor from './SlideEditor';
-import { FolderIcon, CodeIcon, DocIcon, SheetIcon, SlideIcon, ChevronIcon, PlusIcon } from './Icons';
+import CanvasBoard from './CanvasBoard';
+import {
+  FolderIcon,
+  CodeIcon,
+  DocIcon,
+  SheetIcon,
+  SlideIcon,
+  PenIcon,
+  ChevronIcon,
+  PlusIcon,
+} from './Icons';
 
 /*
- * 공동편집 파일시스템 — 코드/문서/시트/발표를 파일 단위로 여러 개, 폴더로 정리.
- * 좌측 파일 트리 + 우측 에디터(파일별 Yjs 룸). 한 번 연 파일은 마운트 유지(재연결 방지).
+ * 공동편집 파일시스템 — 코드/문서/시트/발표/캔버스를 파일 단위로 여러 개, 폴더로 정리.
+ * 탐색기(파일 트리 전체 화면) ↔ 에디터(전체 화면, ← 로 복귀) 두 뷰로 전환.
+ * 한 번 연 파일은 마운트 유지(재연결 방지).
  */
 
-type FileType = 'folder' | 'code' | 'doc' | 'sheet' | 'slide';
+type FileType = 'folder' | 'code' | 'doc' | 'sheet' | 'slide' | 'canvas';
 
 interface CollabFile {
   id: number;
@@ -28,6 +39,7 @@ const TYPE_LABEL: Record<Exclude<FileType, 'folder'>, string> = {
   doc: '문서',
   sheet: '시트',
   slide: '발표',
+  canvas: '캔버스',
 };
 
 function TypeIcon({ type, size = 15 }: { type: FileType; size?: number }) {
@@ -35,6 +47,7 @@ function TypeIcon({ type, size = 15 }: { type: FileType; size?: number }) {
   if (type === 'code') return <CodeIcon size={size} />;
   if (type === 'doc') return <DocIcon size={size} />;
   if (type === 'sheet') return <SheetIcon size={size} />;
+  if (type === 'canvas') return <PenIcon size={size} />;
   return <SlideIcon size={size} />;
 }
 
@@ -138,7 +151,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
   function TypeMenu({ parentId }: { parentId: number | null }) {
     return (
       <div className="cf-type-menu">
-        {(['folder', 'code', 'doc', 'sheet', 'slide'] as FileType[]).map((t) => (
+        {(['folder', 'code', 'doc', 'sheet', 'slide', 'canvas'] as FileType[]).map((t) => (
           <button
             key={t}
             onClick={() => {
@@ -242,8 +255,9 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
   }
 
   return (
-    <div className="cf-wrap">
-      <aside className="cf-side">
+    <div className={`cf-wrap${active ? ' editing' : ''}`}>
+      {/* 탐색기 — 파일을 열기 전엔 전체 화면, 열면 숨김 */}
+      <aside className="cf-side" style={{ display: active ? 'none' : undefined }}>
         <div className="cf-head">
           <span>파일</span>
           <button className="cf-add" title="새 파일/폴더" onClick={() => setTypeMenuFor('root')}>
@@ -273,7 +287,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
           {files.length === 0 && !creating ? (
             <div className="cf-empty">
               아직 파일이 없어요.
-              <br />＋ 로 코드·문서·시트·발표 파일을 만들어보세요.
+              <br />＋ 로 코드·문서·시트·발표·캔버스 파일을 만들어보세요.
             </div>
           ) : (
             renderTree(null, 0)
@@ -281,12 +295,17 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
         </div>
       </aside>
 
-      <div className="cf-editor">
-        {!active && (
-          <div className="cf-editor-empty">
-            <FolderIcon size={40} />
-            <p>파일을 선택하세요</p>
-            <span>왼쪽 트리에서 파일을 열면 여기서 함께 편집할 수 있어요</span>
+      {/* 에디터 — 파일을 열면 전체 화면, ← 로 탐색기 복귀 */}
+      <div className="cf-editor" style={{ display: active ? undefined : 'none' }}>
+        {active && (
+          <div className="cf-editor-bar">
+            <button className="cf-back" onClick={() => setActiveId(null)}>
+              <ChevronIcon size={13} /> 파일 목록
+            </button>
+            <span className={`cf-icon ${active.type}`}>
+              <TypeIcon type={active.type} />
+            </span>
+            <span className="cf-editor-name">{active.name}</span>
           </div>
         )}
         {openedFiles.map((f) => (
@@ -299,6 +318,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
             {f.type === 'doc' && <DocEditor roomId={f.room!} />}
             {f.type === 'sheet' && <SheetEditor roomId={f.room!} />}
             {f.type === 'slide' && <SlideEditor roomId={f.room!} />}
+            {f.type === 'canvas' && <CanvasBoard roomId={f.room!} />}
           </div>
         ))}
       </div>

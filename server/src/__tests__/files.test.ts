@@ -32,28 +32,32 @@ async function setup(prefix: string) {
 }
 
 describe('공동편집 파일시스템', () => {
-  it('레거시 문서(.bin 존재)를 첫 조회 때 파일로 흡수한다', async () => {
+  it('레거시 문서(.bin 존재)를 첫 조회 때 파일로 흡수한다 (캔버스 mt- 포함)', async () => {
     const { host, code } = await setup('cf1');
     fs.mkdirSync(YDOCS_DIR, { recursive: true });
     fs.writeFileSync(path.join(YDOCS_DIR, `code-${code}.bin`), Buffer.alloc(0));
     fs.writeFileSync(path.join(YDOCS_DIR, `doc-${code}.bin`), Buffer.alloc(0));
+    fs.writeFileSync(path.join(YDOCS_DIR, `mt-${code}.bin`), Buffer.alloc(0));
 
     const r = await request(app)
       .get(`/api/meetings/${code}/files`)
       .set('Authorization', `Bearer ${host.token}`);
     expect(r.status).toBe(200);
-    expect(r.body).toHaveLength(2);
+    expect(r.body).toHaveLength(3);
     const names = r.body.map((f: { name: string }) => f.name).sort();
-    expect(names).toEqual(['문서', '코드']);
+    expect(names).toEqual(['문서', '캔버스', '코드']);
     expect(r.body.find((f: { type: string }) => f.type === 'code').room).toBe(`code-${code}`);
+    expect(r.body.find((f: { type: string }) => f.type === 'canvas').room).toBe(`mt-${code}`);
   });
 
-  it('레거시 없는 새 그룹은 빈 목록으로 시작', async () => {
+  it('레거시 없는 새 그룹은 기본 빈 폴더 하나로 시작', async () => {
     const { host, code } = await setup('cf2');
     const r = await request(app)
       .get(`/api/meetings/${code}/files`)
       .set('Authorization', `Bearer ${host.token}`);
-    expect(r.body).toHaveLength(0);
+    expect(r.body).toHaveLength(1);
+    expect(r.body[0].type).toBe('folder');
+    expect(r.body[0].name).toBe('새 폴더');
   });
 
   it('폴더 + 폴더 안 파일 생성, room은 file-{id}', async () => {
@@ -160,7 +164,9 @@ describe('공동편집 파일시스템', () => {
     const list = await request(app)
       .get(`/api/meetings/${code}/files`)
       .set('Authorization', `Bearer ${host.token}`);
-    expect(list.body).toHaveLength(0);
+    // 기본 "새 폴더"만 남는다
+    expect(list.body).toHaveLength(1);
+    expect(list.body[0].name).toBe('새 폴더');
   });
 
   it('비참가자 403', async () => {

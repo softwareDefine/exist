@@ -10,8 +10,8 @@ import { ydocExists, deleteYdoc } from './ydoc.js';
  * meetings 라우터에 /:code/files 로 마운트 (mergeParams).
  */
 
-export type FileType = 'folder' | 'code' | 'doc' | 'sheet' | 'slide';
-const FILE_TYPES: FileType[] = ['folder', 'code', 'doc', 'sheet', 'slide'];
+export type FileType = 'folder' | 'code' | 'doc' | 'sheet' | 'slide' | 'canvas';
+const FILE_TYPES: FileType[] = ['folder', 'code', 'doc', 'sheet', 'slide', 'canvas'];
 const MAX_FILES = 100;
 const MAX_DEPTH = 5;
 
@@ -30,6 +30,7 @@ const LEGACY: { name: string; type: FileType; prefix: string }[] = [
   { name: '문서', type: 'doc', prefix: 'doc-' },
   { name: '시트', type: 'sheet', prefix: 'sheet-' },
   { name: '발표', type: 'slide', prefix: 'slide-' },
+  { name: '캔버스', type: 'canvas', prefix: 'mt-' },
 ];
 
 export function ensureLegacyFiles(meetingId: number, meetingCode: string, userId: number) {
@@ -37,12 +38,20 @@ export function ensureLegacyFiles(meetingId: number, meetingCode: string, userId
     .prepare('SELECT 1 FROM collab_files WHERE meeting_id = ? LIMIT 1')
     .get(meetingId);
   if (has) return;
+  let created = 0;
   for (const l of LEGACY) {
     const room = `${l.prefix}${meetingCode.toUpperCase()}`;
     if (!ydocExists(room)) continue;
     db.prepare(
       'INSERT INTO collab_files (meeting_id, parent_id, name, type, room, created_by) VALUES (?, NULL, ?, ?, ?, ?)',
     ).run(meetingId, l.name, l.type, room, userId);
+    created++;
+  }
+  // 레거시가 없는 새 그룹은 빈 폴더 하나로 시작
+  if (created === 0) {
+    db.prepare(
+      'INSERT INTO collab_files (meeting_id, parent_id, name, type, created_by) VALUES (?, NULL, ?, ?, ?)',
+    ).run(meetingId, '새 폴더', 'folder', userId);
   }
 }
 
