@@ -137,6 +137,16 @@
 | CHN-05 | 정합 | 채널 있는 회의 삭제(FK), recap은 전 채널 취합 | I | P1 | ✅ |
 | CHN-06 | UI | 채널 바 전환·생성·세션 안읽음 점, 통화 패널은 기본 채널 고정 | F | P1 | 🔲 (배포 후 육안) |
 
+## 5-1. 공동편집 파일시스템 · 2026-07-17 구현
+| ID | 시나리오 | 기대 결과 | 종류 | P | 상태 |
+|---|---|---|---|---|---|
+| CFS-01 | 레거시 흡수 | 기존 그룹당 1개 문서(.bin)를 첫 조회 때 파일로 등록, 내용 보존 | I | **P0** | ✅ |
+| CFS-02 | 트리 CRUD | 폴더/파일 생성(중복 409·부모 검증·깊이 5·개수 100), 이름변경·삭제 권한 | I | P0 | ✅ |
+| CFS-03 | 재귀 삭제 | 폴더 삭제 시 하위 전체 + Yjs .bin 정리 | I | P1 | ✅ |
+| CFS-04 | 회의 삭제 정합 | collab_files + 전 룸 .bin 정리 (FK 강제 환경) | I | P1 | ✅ |
+| CFS-05 | UI | 파일 트리→타입별 에디터 열림, 파일 전환·내용 유지·새로고침 영속 | F | **P0** | ✅ (로컬 브라우저 검증 2026-07-17) |
+| CFS-06 | 라이브 확인 | 기존 그룹의 레거시 문서가 파일로 보이는지 + 2인 동시편집 | F | P0 | 🔲 (배포 후) |
+
 ## 10-2. P2 — 놓친 것 브리핑 (catchup) · 2026-07-17 구현
 | ID | 시나리오 | 기대 결과 | 종류 | P | 상태 |
 |---|---|---|---|---|---|
@@ -213,7 +223,7 @@
 `.github/workflows/ci.yml` · push/PR마다 자동 — **server build+test · client build · runner syntax 전부 green**
 
 ### 테스트 점수
-- **전체 56 tests passing** (2026-07-17: 알림 7 + recap 8 + catchup 3 + 채널 7 추가), tsc 빌드 통과, CI success
+- **전체 64 tests passing** (2026-07-17: 알림 7 + recap 8 + catchup 3 + 채널 7 + 파일 8 추가), tsc 빌드 통과, CI success
 - (기존 31 = 단위 20 + 통합 11)
 - 리팩토링: 순수함수 export 추출(hashPassword·esgFromCommutes·ruleBasedInsights), app 생성을 app.ts로 분리(supertest용)
 

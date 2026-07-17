@@ -5,10 +5,7 @@ import { usePresence } from '../lib/usePresence';
 import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
 import CanvasBoard from './CanvasBoard';
-import CodeDocEditor from './CodeDocEditor';
-import DocEditor from './DocEditor';
-import SheetEditor from './SheetEditor';
-import SlideEditor from './SlideEditor';
+import CollabFiles from './CollabFiles';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import MeetingSchedule from './MeetingSchedule';
@@ -20,10 +17,7 @@ import {
   ChatIcon,
   GridIcon,
   PenIcon,
-  CodeIcon,
-  DocIcon,
-  SheetIcon,
-  SlideIcon,
+  FolderIcon,
   UsersIcon,
   GearIcon,
   CopyIcon,
@@ -164,17 +158,7 @@ function chatDateLabel(ts: number): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-type SubTab =
-  | 'dash'
-  | 'call'
-  | 'chat'
-  | 'canvas'
-  | 'code'
-  | 'doc'
-  | 'sheet'
-  | 'slide'
-  | 'schedule'
-  | 'settings';
+type SubTab = 'dash' | 'call' | 'chat' | 'canvas' | 'files' | 'schedule' | 'settings';
 
 interface Props {
   code: string;
@@ -210,10 +194,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const activeChannelRef = useRef<number | null>(null);
   activeChannelRef.current = activeChannel;
   const [canvasMounted, setCanvasMounted] = useState(false); // 한 번 열면 유지 (재연결·카메라 초기화 방지)
-  const [codeMounted, setCodeMounted] = useState(false); // 코드 편집기도 한 번 열면 유지
-  const [docMounted, setDocMounted] = useState(false); // 문서 편집기도 한 번 열면 유지
-  const [sheetMounted, setSheetMounted] = useState(false); // 시트 편집기도 한 번 열면 유지
-  const [slideMounted, setSlideMounted] = useState(false); // 슬라이드도 한 번 열면 유지
+  const [filesMounted, setFilesMounted] = useState(false); // 공동편집(파일시스템)도 한 번 열면 유지
   const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null); // 무빙 통화창 위치
   const [pipW, setPipW] = useState<number>(() => {
     const s = Number(localStorage.getItem('exist:pipW'));
@@ -285,10 +266,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
 
   useEffect(() => {
     if (subtab === 'canvas') setCanvasMounted(true);
-    if (subtab === 'code') setCodeMounted(true);
-    if (subtab === 'doc') setDocMounted(true);
-    if (subtab === 'sheet') setSheetMounted(true);
-    if (subtab === 'slide') setSlideMounted(true);
+    if (subtab === 'files') setFilesMounted(true);
   }, [subtab]);
 
   // 최근회의 버튼 등에서 세부 탭 지정 → 해당 탭으로 이동
@@ -695,28 +673,10 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
           <PenIcon size={13} /> 캔버스
         </button>
         <button
-          className={`hub-tab${subtab === 'code' ? ' active' : ''}`}
-          onClick={() => setSubtab('code')}
+          className={`hub-tab${subtab === 'files' ? ' active' : ''}`}
+          onClick={() => setSubtab('files')}
         >
-          <CodeIcon size={14} /> 코드
-        </button>
-        <button
-          className={`hub-tab${subtab === 'doc' ? ' active' : ''}`}
-          onClick={() => setSubtab('doc')}
-        >
-          <DocIcon size={14} /> 문서
-        </button>
-        <button
-          className={`hub-tab${subtab === 'sheet' ? ' active' : ''}`}
-          onClick={() => setSubtab('sheet')}
-        >
-          <SheetIcon size={14} /> 시트
-        </button>
-        <button
-          className={`hub-tab${subtab === 'slide' ? ' active' : ''}`}
-          onClick={() => setSubtab('slide')}
-        >
-          <SlideIcon size={14} /> 발표
+          <FolderIcon size={14} /> 공동편집
         </button>
         <button
           className={`hub-tab${subtab === 'settings' ? ' active' : ''}`}
@@ -808,29 +768,11 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                           </span>
                           캔버스
                         </button>
-                        <button className="hub-app" onClick={() => setSubtab('code')}>
-                          <span className="hub-app-ic code">
-                            <CodeIcon size={20} />
-                          </span>
-                          코드
-                        </button>
-                        <button className="hub-app" onClick={() => setSubtab('doc')}>
+                        <button className="hub-app" onClick={() => setSubtab('files')}>
                           <span className="hub-app-ic doc">
-                            <DocIcon size={20} />
+                            <FolderIcon size={20} />
                           </span>
-                          문서
-                        </button>
-                        <button className="hub-app" onClick={() => setSubtab('sheet')}>
-                          <span className="hub-app-ic sheet">
-                            <SheetIcon size={20} />
-                          </span>
-                          시트
-                        </button>
-                        <button className="hub-app" onClick={() => setSubtab('slide')}>
-                          <span className="hub-app-ic slide">
-                            <SlideIcon size={20} />
-                          </span>
-                          발표
+                          공동편집
                         </button>
                       </div>
                     </section>
@@ -1258,43 +1200,13 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
           </div>
         )}
 
-        {/* 코드 공동편집 — Yjs 실시간 (한 번 열면 마운트 유지) */}
-        {codeMounted && (
+        {/* 공동편집 — 파일시스템 (코드/문서/시트/발표 파일 여러 개, 한 번 열면 마운트 유지) */}
+        {filesMounted && (
           <div
             className="hub-editor-pane"
-            style={{ display: subtab === 'code' ? 'block' : 'none' }}
+            style={{ display: subtab === 'files' ? 'block' : 'none' }}
           >
-            <CodeDocEditor roomId={`code-${code.toUpperCase()}`} />
-          </div>
-        )}
-
-        {/* 문서 공동편집 — 리치텍스트(Word형), Yjs 실시간 */}
-        {docMounted && (
-          <div
-            className="hub-editor-pane"
-            style={{ display: subtab === 'doc' ? 'block' : 'none' }}
-          >
-            <DocEditor roomId={`doc-${code.toUpperCase()}`} />
-          </div>
-        )}
-
-        {/* 시트 공동편집 — 협업 스프레드시트, Yjs 실시간 */}
-        {sheetMounted && (
-          <div
-            className="hub-editor-pane"
-            style={{ display: subtab === 'sheet' ? 'block' : 'none' }}
-          >
-            <SheetEditor roomId={`sheet-${code.toUpperCase()}`} />
-          </div>
-        )}
-
-        {/* 발표(슬라이드) 공동편집 — Yjs 실시간 */}
-        {slideMounted && (
-          <div
-            className="hub-editor-pane"
-            style={{ display: subtab === 'slide' ? 'block' : 'none' }}
-          >
-            <SlideEditor roomId={`slide-${code.toUpperCase()}`} />
+            <CollabFiles code={code} isHost={!!detail?.isHost} />
           </div>
         )}
 

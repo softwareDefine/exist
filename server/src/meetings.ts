@@ -12,6 +12,7 @@ import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
 import { listRecaps } from './recap.js';
 import { listChannels, ensureDefaultChannel, resolveChannel, cleanChannelName } from './channels.js';
+import filesRouter, { deleteMeetingFiles } from './files.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'uploads');
@@ -20,6 +21,8 @@ const MAX_THUMB = 5 * 1024 * 1024;
 
 const router = Router();
 router.use(requireAuth);
+// 공동편집 파일시스템 — /:code/files (files.ts, mergeParams)
+router.use('/:code/files', filesRouter);
 
 // 모든 변경 요청 후 AI 브리핑 캐시 무효화
 router.use((req: AuthedRequest, _res, next) => {
@@ -674,6 +677,7 @@ router.delete('/:code', (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM meeting_recaps WHERE meeting_id = ?').run(meeting.id);
   db.prepare('DELETE FROM chat_reads WHERE meeting_id = ?').run(meeting.id);
   db.prepare('DELETE FROM chat_channels WHERE meeting_id = ?').run(meeting.id);
+  deleteMeetingFiles(meeting.id, String(req.params.code).toUpperCase());
   try {
     db.prepare('DELETE FROM todos WHERE meeting_id = ?').run(meeting.id);
   } catch {

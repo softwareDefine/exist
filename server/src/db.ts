@@ -276,6 +276,22 @@ try {
   /* 이미 존재 */
 }
 
+/* 공동편집 파일시스템 — 그룹 안에서 코드/문서/시트/발표 파일을 여러 개, 폴더로 정리.
+ * room = Yjs 룸 이름 (새 파일은 file-{id}, 레거시 문서는 code-CODE 등을 그대로 흡수). */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS collab_files (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id),
+    parent_id  INTEGER REFERENCES collab_files(id),
+    name       TEXT NOT NULL,
+    type       TEXT NOT NULL,
+    room       TEXT,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_cfiles_meeting ON collab_files(meeting_id, parent_id);
+`);
+
 /* P1 — 회의 통화가 끝나면 AI가 채팅에서 결정·할 일을 추출해 저장하고
  * 참석자/불참자에게 라우팅한다. decisions/actions/attendees는 JSON 텍스트. */
 db.exec(`

@@ -97,6 +97,27 @@ function getYDoc(name: string): SharedDoc {
   return doc;
 }
 
+/** 룸의 영속 상태(.bin)가 있는지 — 레거시 문서를 파일시스템으로 흡수할 때 사용 */
+export function ydocExists(name: string): boolean {
+  return docs.has(name) || fs.existsSync(filePath(name));
+}
+
+/** 룸 완전 삭제 — 접속 종료 + 메모리 해제 + .bin 제거 (파일 삭제 시) */
+export function deleteYdoc(name: string) {
+  const doc = docs.get(name);
+  if (doc) {
+    if (doc.saveTimer) clearTimeout(doc.saveTimer);
+    for (const conn of doc.conns.keys()) closeConn(doc, conn);
+    doc.destroy();
+    docs.delete(name);
+  }
+  try {
+    fs.unlinkSync(filePath(name));
+  } catch {
+    /* 없으면 무시 */
+  }
+}
+
 function send(doc: SharedDoc, conn: WebSocket, message: Uint8Array) {
   if (conn.readyState !== 1) {
     closeConn(doc, conn);

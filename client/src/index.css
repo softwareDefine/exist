@@ -6568,6 +6568,249 @@ input:focus {
   box-sizing: border-box;
 }
 
+/* ── 공동편집 파일시스템 ── */
+.cf-wrap {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: var(--surface);
+}
+
+.cf-side {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+  padding: 14px 14px 8px;
+}
+
+.cf-add {
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  display: inline-flex;
+}
+
+.cf-add:hover {
+  background: var(--surface);
+  color: var(--green);
+}
+
+.cf-type-menu {
+  display: flex;
+  flex-direction: column;
+  margin: 0 10px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.cf-type-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cf-type-menu button:hover {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.cf-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2px 6px 12px;
+}
+
+.cf-empty {
+  font-size: 12.5px;
+  color: var(--text-sub);
+  padding: 14px 10px;
+  line-height: 1.7;
+}
+
+.cf-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  color: var(--text-sub);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cf-item:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.cf-item.active {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.cf-chevron {
+  display: inline-flex;
+  transition: transform 0.12s;
+  transform: rotate(-90deg);
+  flex-shrink: 0;
+}
+
+.cf-chevron.open {
+  transform: rotate(0deg);
+}
+
+.cf-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.cf-icon.code { color: #7c66dc; }
+.cf-icon.doc { color: #4f7df9; }
+.cf-icon.sheet { color: #1f9e59; }
+.cf-icon.slide { color: #e5484d; }
+.cf-icon.folder { color: #e0a13f; }
+
+.cf-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-name-input {
+  width: 100%;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 8px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.cf-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.cf-item:hover .cf-actions {
+  display: inline-flex;
+}
+
+.cf-actions button {
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
+.cf-actions button:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.cf-actions button.danger:hover {
+  color: #e5484d;
+}
+
+.cf-new {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+}
+
+.cf-editor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-editor-host {
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  /* 에디터 루트(.doc-editor 등)가 absolute로 채우므로 여기에 가둔다 */
+  position: relative;
+}
+
+.cf-editor-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-sub);
+}
+
+.cf-editor-empty svg {
+  opacity: 0.4;
+}
+
+.cf-editor-empty p {
+  margin: 8px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.cf-editor-empty span {
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .cf-wrap {
+    flex-direction: column;
+  }
+
+  .cf-side {
+    width: 100%;
+    max-height: 40%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
 /* 채팅 본문 (사이드바 우측) */
 .hub-chat-main {
   flex: 1;
