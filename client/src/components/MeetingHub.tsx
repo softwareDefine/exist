@@ -1301,53 +1301,63 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
         {/* 채팅 */}
         {subtab === 'chat' && (
           <div className="hub-chat">
-            {/* 채널 바 — 그룹 안 채널 전환/생성 */}
-            <div className="hub-channels">
-              {channels.map((ch) => (
+            {/* 채널 사이드바 — 그룹 안 채널 전환/생성 */}
+            <aside className="hub-channels-side">
+              <div className="hub-channels-head">
+                <span>채널</span>
                 <button
-                  key={ch.id}
-                  className={`hub-channel${ch.id === activeChannel ? ' active' : ''}`}
-                  onClick={() => setActiveChannel(ch.id)}
-                >
-                  <span className="hub-channel-hash">#</span>
-                  {ch.name}
-                  {(channelUnread[ch.id] ?? 0) > 0 && <i className="hub-channel-dot" />}
-                  {detail?.isHost && !ch.isDefault && (
-                    <span
-                      className="hub-channel-del"
-                      title="채널 삭제"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void deleteChannel(ch);
-                      }}
-                    >
-                      ×
-                    </span>
-                  )}
-                </button>
-              ))}
-              {newChannelOpen ? (
-                <form className="hub-channel-new" onSubmit={createChannel}>
-                  <input
-                    autoFocus
-                    value={newChannelName}
-                    onChange={(e) => setNewChannelName(e.target.value)}
-                    onBlur={() => {
-                      if (!newChannelName.trim()) setNewChannelOpen(false);
-                    }}
-                    placeholder="채널 이름"
-                    maxLength={24}
-                  />
-                </form>
-              ) : (
-                <button
-                  className="hub-channel add"
+                  className="hub-channels-add"
                   title="채널 추가"
                   onClick={() => setNewChannelOpen(true)}
                 >
                   ＋
                 </button>
-              )}
+              </div>
+              <div className="hub-channels-list">
+                {channels.map((ch) => (
+                  <button
+                    key={ch.id}
+                    className={`hub-channel-item${ch.id === activeChannel ? ' active' : ''}`}
+                    onClick={() => setActiveChannel(ch.id)}
+                  >
+                    <span className="hub-channel-hash">#</span>
+                    <span className="hub-channel-name">{ch.name}</span>
+                    {(channelUnread[ch.id] ?? 0) > 0 && <i className="hub-channel-dot" />}
+                    {detail?.isHost && !ch.isDefault && (
+                      <span
+                        className="hub-channel-del"
+                        title="채널 삭제"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void deleteChannel(ch);
+                        }}
+                      >
+                        ×
+                      </span>
+                    )}
+                  </button>
+                ))}
+                {newChannelOpen && (
+                  <form className="hub-channel-new" onSubmit={createChannel}>
+                    <input
+                      autoFocus
+                      value={newChannelName}
+                      onChange={(e) => setNewChannelName(e.target.value)}
+                      onBlur={() => {
+                        if (!newChannelName.trim()) setNewChannelOpen(false);
+                      }}
+                      placeholder="채널 이름"
+                      maxLength={24}
+                    />
+                  </form>
+                )}
+              </div>
+            </aside>
+
+            <div className="hub-chat-main">
+            <div className="hub-chat-chhead">
+              <span className="hub-channel-hash">#</span>
+              {channels.find((c) => c.id === activeChannel)?.name ?? '일반'}
             </div>
             <div className="hub-chat-messages">
               {messages.length === 0 && (
@@ -1440,10 +1450,11 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               <input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="메시지 입력"
+                placeholder={`#${channels.find((c) => c.id === activeChannel)?.name ?? '일반'}에 메시지 입력`}
               />
               <button type="submit">전송</button>
             </form>
+            </div>
           </div>
         )}
       </div>

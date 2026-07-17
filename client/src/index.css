@@ -6436,53 +6436,95 @@ input:focus {
 .hub-chat {
   flex: 1;
   display: flex;
-  flex-direction: column;
   background: var(--surface);
   overflow: hidden;
   min-height: 0;
 }
 
-/* 채팅 채널 바 — 그룹 안 채널 전환/생성 */
-.hub-channels {
+/* 채널 사이드바 (Slack식 좌측 목록) */
+.hub-channels-side {
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hub-channels-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px max(24px, calc((100% - 920px) / 2)) 8px;
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  flex-shrink: 0;
-}
-
-.hub-channel {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 700;
   color: var(--text-sub);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 5px 12px;
+  padding: 14px 14px 8px;
+}
+
+.hub-channels-add {
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 15px;
+  line-height: 1;
   cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  padding: 2px 6px;
+  border-radius: 6px;
 }
 
-.hub-channel:hover {
-  border-color: var(--green);
-  color: var(--text);
-}
-
-.hub-channel.active {
-  background: var(--green-soft);
-  border-color: var(--green);
+.hub-channels-add:hover {
+  background: var(--surface);
   color: var(--green);
 }
 
+.hub-channels-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hub-channel-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-sub);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+
+.hub-channel-item:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.hub-channel-item.active {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.hub-channel-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .hub-channel-hash {
-  opacity: 0.6;
+  opacity: 0.55;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .hub-channel-dot {
@@ -6490,37 +6532,106 @@ input:focus {
   height: 7px;
   border-radius: 50%;
   background: var(--green);
-  margin-left: 3px;
+  flex-shrink: 0;
 }
 
 .hub-channel-del {
-  margin-left: 3px;
-  opacity: 0.45;
+  opacity: 0;
   font-weight: 700;
-  padding: 0 2px;
+  padding: 0 3px;
+  flex-shrink: 0;
+}
+
+.hub-channel-item:hover .hub-channel-del {
+  opacity: 0.5;
 }
 
 .hub-channel-del:hover {
-  opacity: 1;
+  opacity: 1 !important;
   color: #e5484d;
 }
 
-.hub-channel.add {
-  padding: 5px 11px;
-  font-size: 14px;
-  line-height: 1;
+.hub-channel-new {
+  padding: 2px;
 }
 
 .hub-channel-new input {
+  width: 100%;
   border: 1px solid var(--green);
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--surface);
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
-  padding: 5px 12px;
-  width: 120px;
+  padding: 6px 10px;
   outline: none;
+  box-sizing: border-box;
+}
+
+/* 채팅 본문 (사이드바 우측) */
+.hub-chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+}
+
+.hub-chat-chhead {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* 좁은 화면 — 사이드바를 가로 스크롤 바로 전환 */
+@media (max-width: 720px) {
+  .hub-chat {
+    flex-direction: column;
+  }
+
+  .hub-channels-side {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .hub-channels-head {
+    padding: 8px 6px 8px 12px;
+  }
+
+  .hub-channels-head > span {
+    display: none;
+  }
+
+  .hub-channels-list {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 8px;
+  }
+
+  .hub-channel-item {
+    width: auto;
+    white-space: nowrap;
+  }
+
+  .hub-channel-new input {
+    width: 120px;
+  }
+
+  .hub-chat-chhead {
+    display: none;
+  }
 }
 
 .hub-chat-messages {
