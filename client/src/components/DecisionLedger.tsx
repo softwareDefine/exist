@@ -1,0 +1,111 @@
+import { useCallback, useEffect, useState } from 'react';
+import { api } from '../api';
+import { getSocket } from '../lib/socket';
+import { CheckMarkIcon, SparklesIcon } from './Icons';
+
+/*
+ * 결정 원장 — 이 그룹의 모든 통화 결정이 시간순으로 쌓이는 타임라인.
+ * "결정이 사람이 아니라 조직에 남는다." 새 recap이 생기면 실시간 갱신.
+ */
+
+interface LedgerEntry {
+  recapId: number;
+  decision: string;
+  attendees: string[];
+  ts: number;
+}
+
+function dateLabel(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+export default function DecisionLedger({ code }: { code: string }) {
+  const [entries, setEntries] = useState<LedgerEntry[]>([]);
+  const [query, setQuery] = useState('');
+
+  const load = useCallback(() => {
+    void api<LedgerEntry[]>(`/api/meetings/${code}/decisions`)
+      .then(setEntries)
+      .catch(() => {});
+  }, [code]);
+
+  useEffect(load, [load]);
+
+  // 통화가 끝나고 새 recap이 생기면 원장도 즉시 갱신
+  useEffect(() => {
+    const socket = getSocket();
+    function onNotify(n: { kind?: string; meeting?: { code?: string | null } }) {
+      if (n.kind === 'recap' && n.meeting?.code === code) load();
+    }
+    socket.on('agent:notify', onNotify);
+    return () => {
+      socket.off('agent:notify', onNotify);
+    };
+  }, [code, load]);
+
+  const q = query.trim();
+  const shown = q ? entries.filter((e) => e.decision.includes(q)) : entries;
+
+  // 날짜별 그룹핑 (최신 먼저 — 서버가 최신순으로 줌)
+  const groups: { label: string; items: LedgerEntry[] }[] = [];
+  for (const e of shown) {
+    const label = dateLabel(e.ts);
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) last.items.push(e);
+    else groups.push({ label, items: [e] });
+  }
+
+  return (
+    <div className="ledger">
+      <div className="ledger-head">
+        <div className="ledger-title">
+          <CheckMarkIcon size={16} /> 결정 원장
+          <span className="ledger-count">{entries.length}</span>
+        </div>
+        <input
+          className="ledger-search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="결정 검색"
+        />
+      </div>
+
+      {entries.length === 0 ? (
+        <div className="ledger-empty">
+          <SparklesIcon size={36} />
+          <p>아직 기록된 결정이 없어요</p>
+          <span>
+            통화가 끝나면 AI가 채팅에서 결정을 뽑아 여기에 쌓아요 — 누가 언제 합류해도 팀의 결정
+            역사를 볼 수 있어요. 채팅에서 <b>@AI</b>를 불러 물어볼 수도 있어요.
+          </span>
+        </div>
+      ) : shown.length === 0 ? (
+        <div className="ledger-empty">
+          <p>"{q}" 검색 결과가 없어요</p>
+        </div>
+      ) : (
+        <div className="ledger-list">
+          {groups.map((g) => (
+            <div key={g.label} className="ledger-group">
+              <div className="ledger-date">{g.label}</div>
+              {g.items.map((e, i) => (
+                <div key={`${e.recapId}-${i}`} className="ledger-item">
+                  <span className="ledger-check">
+                    <CheckMarkIcon size={14} />
+                  </span>
+                  <div className="ledger-body">
+                    <div className="ledger-decision">{e.decision}</div>
+                    <div className="ledger-meta">
+                      참석 {e.attendees.length ? e.attendees.join(', ') : '기록 없음'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

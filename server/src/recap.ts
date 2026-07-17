@@ -273,6 +273,34 @@ export async function runRecapForMeeting(
   return recapId;
 }
 
+export interface LedgerEntry {
+  recapId: number;
+  decision: string;
+  attendees: string[];
+  ts: number;
+}
+
+/** 결정 원장 — 이 그룹의 모든 recap 결정을 시간순(최신 먼저)으로 편다.
+ *  "결정이 사람이 아니라 조직에 남는다"의 데이터 뷰. AI 질의응답의 근거로도 사용. */
+export function listDecisions(meetingId: number, limit = 100): LedgerEntry[] {
+  const rows = db
+    .prepare(
+      `SELECT id, decisions, attendees, created_at FROM meeting_recaps
+       WHERE meeting_id = ? ORDER BY id DESC LIMIT 50`,
+    )
+    .all(meetingId) as { id: number; decisions: string; attendees: string; created_at: string }[];
+  const out: LedgerEntry[] = [];
+  for (const r of rows) {
+    const ts = new Date(r.created_at + 'Z').getTime();
+    const attendees = JSON.parse(r.attendees) as string[];
+    for (const d of JSON.parse(r.decisions) as string[]) {
+      out.push({ recapId: r.id, decision: d, attendees, ts });
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
+
 // ── 통화 종료 유예 스케줄러 — 방이 비워지면 GRACE_MS 후 실행, 재입장 시 취소 ──
 const pending = new Map<string, ReturnType<typeof setTimeout>>();
 

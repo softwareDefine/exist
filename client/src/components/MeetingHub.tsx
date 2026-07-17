@@ -5,6 +5,7 @@ import { usePresence } from '../lib/usePresence';
 import { useAuthStore } from '../store';
 import MeetingView, { type ChatMessage } from './MeetingView';
 import CollabFiles from './CollabFiles';
+import DecisionLedger from './DecisionLedger';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import MeetingSchedule from './MeetingSchedule';
@@ -156,7 +157,7 @@ function chatDateLabel(ts: number): string {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-type SubTab = 'dash' | 'call' | 'chat' | 'files' | 'schedule' | 'settings';
+type SubTab = 'dash' | 'call' | 'chat' | 'files' | 'decisions' | 'schedule' | 'settings';
 
 interface Props {
   code: string;
@@ -669,6 +670,12 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
           <FolderIcon size={14} /> 공동편집
         </button>
         <button
+          className={`hub-tab${subtab === 'decisions' ? ' active' : ''}`}
+          onClick={() => setSubtab('decisions')}
+        >
+          <CheckMarkIcon size={13} /> 결정
+        </button>
+        <button
           className={`hub-tab${subtab === 'settings' ? ' active' : ''}`}
           onClick={() => setSubtab('settings')}
         >
@@ -1173,6 +1180,9 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
             />
           </div>
         )}
+
+        {/* 결정 원장 — 그룹의 모든 통화 결정 타임라인 */}
+        {subtab === 'decisions' && <DecisionLedger code={code} />}
 
         {/* 공동편집 — 파일시스템 (코드/문서/시트/발표/캔버스 파일 여러 개, 한 번 열면 마운트 유지) */}
         {filesMounted && (

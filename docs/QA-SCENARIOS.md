@@ -147,6 +147,15 @@
 | CFS-05 | UI | 파일 트리→타입별 에디터 열림, 파일 전환·내용 유지·새로고침 영속 | F | **P0** | ✅ (로컬 브라우저 검증 2026-07-17) |
 | CFS-06 | 라이브 확인 | 기존 그룹의 레거시 문서가 파일로 보이는지 + 2인 동시편집 | F | P0 | 🔲 (배포 후) |
 
+## 10-1-1. AI 총무 — 결정 원장 + @AI 질의응답 · 2026-07-17 구현
+| ID | 시나리오 | 기대 결과 | 종류 | P | 상태 |
+|---|---|---|---|---|---|
+| STW-01 | 결정 원장 | recap 결정들이 시간순 원장으로, 참가자만 조회 | I | P0 | ✅ |
+| STW-02 | 멘션 감지 | @AI/@총무 독립 토큰만 (이메일 오탐 방지) | U | P1 | ✅ |
+| STW-03 | 질의응답 | @AI → 그룹 기록 기반 답변 게시+브로드캐스트+영속 | I·E2E | **P0** | ✅ (e2e-steward.mjs) |
+| STW-04 | 환각 방어 | 기록 없으면 "근거가 없어요" (지어내지 않음) | I | P0 | ✅ |
+| STW-05 | AI 경로 | 라이브(OPENAI 키)에서 답변 품질 | F | P1 | 🔲 (배포 후) |
+
 ## 10-2. P2 — 놓친 것 브리핑 (catchup) · 2026-07-17 구현
 | ID | 시나리오 | 기대 결과 | 종류 | P | 상태 |
 |---|---|---|---|---|---|
@@ -223,7 +232,7 @@
 `.github/workflows/ci.yml` · push/PR마다 자동 — **server build+test · client build · runner syntax 전부 green**
 
 ### 테스트 점수
-- **전체 64 tests passing** (2026-07-17: 알림 7 + recap 8 + catchup 3 + 채널 7 + 파일 8 추가), tsc 빌드 통과, CI success
+- **전체 69 tests passing** (2026-07-17: 알림 7 + recap 8 + catchup 3 + 채널 7 + 파일 8 + 총무 5 추가), tsc 빌드 통과, CI success
 - (기존 31 = 단위 20 + 통합 11)
 - 리팩토링: 순수함수 export 추출(hashPassword·esgFromCommutes·ruleBasedInsights), app 생성을 app.ts로 분리(supertest용)
 

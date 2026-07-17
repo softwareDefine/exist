@@ -16,6 +16,7 @@ import type {
 import db from './db.js';
 import { scheduleRecap, cancelScheduledRecap } from './recap.js';
 import { resolveChannel } from './channels.js';
+import { AGENT_MENTION, handleAgentQuery } from './steward.js';
 
 /*
  * exist SFU — mediasoup 기반 직접 구현.
@@ -395,6 +396,17 @@ export function attachSfu(io: Server) {
           channelId: channel,
           ts: Date.now(),
         });
+
+        // @AI/@총무 멘션 — AI 총무가 그룹 기록을 근거로 답변 (비동기, 실패해도 채팅엔 영향 없음)
+        if (AGENT_MENTION.test(trimmed)) {
+          void handleAgentQuery(io, {
+            meetingId: meeting.id,
+            code: upper,
+            channelId: channel,
+            asker: socket.data.username as string,
+            text: trimmed,
+          }).catch((err) => console.error('[steward] 답변 실패:', err));
+        }
       },
     );
 

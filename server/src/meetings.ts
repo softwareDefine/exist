@@ -10,7 +10,7 @@ import { emitToUser, notifyUser } from './notify.js';
 import { getRoomSize, getRoomPeers } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
-import { listRecaps } from './recap.js';
+import { listRecaps, listDecisions } from './recap.js';
 import { listChannels, ensureDefaultChannel, resolveChannel, cleanChannelName } from './channels.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
 
@@ -841,6 +841,13 @@ router.get('/:code/recaps', (req: AuthedRequest, res) => {
     .get(meeting.id, req.userId);
   if (!isParticipant) return res.status(403).json({ error: '회의 참가자만 볼 수 있어요' });
   res.json(listRecaps(meeting.id));
+});
+
+/** 결정 원장 — 이 그룹의 모든 recap 결정 시간순 (참가자만) */
+router.get('/:code/decisions', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  res.json(listDecisions(r.meeting.id));
 });
 
 /** 회의 채팅 히스토리 (채널당 최근 100개) — ?channel=ID, 없으면 기본 채널 */
