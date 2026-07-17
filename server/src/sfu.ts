@@ -15,6 +15,7 @@ import type {
 } from 'mediasoup/types';
 import db from './db.js';
 import { scheduleRecap, cancelScheduledRecap } from './recap.js';
+import { resolveChannel } from './channels.js';
 
 /*
  * exist SFU — mediasoup 기반 직접 구현.
@@ -346,17 +347,19 @@ export function attachSfu(io: Server) {
       ack?.({ ok: true });
     });
 
-    /** 회의 채팅 — DB 저장 + 채팅 룸 브로드캐스트 (허브/통화 공용) */
+    /** 회의 채팅 — DB 저장 + 채팅 룸 브로드캐스트 (허브/통화 공용). channelId 없으면 기본 채널 */
     socket.on(
       'chat:send',
       ({
         code,
         text,
         file,
+        channelId,
       }: {
         code: string;
         text: string;
         file?: { name: string; url: string; size: number };
+        channelId?: number;
       }) => {
         if (!code) return;
         if (!text?.trim() && !file) return;
@@ -365,6 +368,8 @@ export function attachSfu(io: Server) {
           | { id: number }
           | undefined;
         if (!meeting) return;
+        const channel = resolveChannel(meeting.id, channelId, socket.data.userId as number);
+        if (channel == null) return; // 이 회의 소속이 아닌 채널이면 무시
         const trimmed = (text ?? '').slice(0, 2000);
         // 파일 정보 정제 (서버 업로드 URL만 허용)
         let fileJson: string | null = null;
@@ -375,12 +380,9 @@ export function attachSfu(io: Server) {
             size: Number(file.size) || 0,
           });
         }
-        db.prepare('INSERT INTO messages (meeting_id, user_id, text, file) VALUES (?, ?, ?, ?)').run(
-          meeting.id,
-          socket.data.userId,
-          trimmed,
-          fileJson,
-        );
+        db.prepare(
+          'INSERT INTO messages (meeting_id, user_id, text, file, channel_id) VALUES (?, ?, ?, ?, ?)',
+        ).run(meeting.id, socket.data.userId, trimmed, fileJson, channel);
         const u = db.prepare('SELECT avatar FROM users WHERE id = ?').get(socket.data.userId) as
           | { avatar: string | null }
           | undefined;
@@ -390,6 +392,7 @@ export function attachSfu(io: Server) {
           avatar: u?.avatar ?? null,
           text: trimmed,
           file: fileJson ? JSON.parse(fileJson) : undefined,
+          channelId: channel,
           ts: Date.now(),
         });
       },

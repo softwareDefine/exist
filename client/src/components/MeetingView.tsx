@@ -35,6 +35,8 @@ export interface ChatMessage {
   avatar?: string | null;
   text: string;
   file?: ChatFile;
+  /** 소속 채팅 채널 (없으면 기본 채널) */
+  channelId?: number | null;
   ts: number;
 }
 
@@ -168,6 +170,7 @@ export default function MeetingView({
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatOpenRef = useRef(chatOpen);
   chatOpenRef.current = chatOpen;
+  const defaultChannelRef = useRef<number | null>(null); // 통화 패널이 고정될 기본 채널
   const onLeaveRef = useRef(onLeave);
   onLeaveRef.current = onLeave;
 
@@ -255,6 +258,12 @@ export default function MeetingView({
       setTitle(meeting.title);
 
       // 채팅: 히스토리 로드 + 채팅 룸 구독 (허브와 공용 스트림)
+      // 통화 중 패널은 기본 채널("일반")에 고정 — 다른 채널은 허브 채팅 탭에서
+      void api<{ id: number; isDefault: boolean }[]>(`/api/meetings/${code}/channels`)
+        .then((chs) => {
+          if (!closed) defaultChannelRef.current = chs.find((c) => c.isDefault)?.id ?? null;
+        })
+        .catch(() => {});
       void api<ChatMessage[]>(`/api/meetings/${code}/messages`).then((history) => {
         if (!closed) setMessages(history);
       });
@@ -405,6 +414,13 @@ export default function MeetingView({
       });
       socket.on('chat:message', (msg: ChatMessage) => {
         if (msg.code && msg.code !== code.toUpperCase()) return; // 다른 회의 채팅 무시
+        // 통화 패널은 기본 채널 고정 — 다른 채널 메시지는 허브 채팅 탭에서
+        if (
+          msg.channelId != null &&
+          defaultChannelRef.current != null &&
+          msg.channelId !== defaultChannelRef.current
+        )
+          return;
         setMessages((prev) => [...prev, msg]);
         if (!chatOpenRef.current) setUnread((n) => n + 1);
       });

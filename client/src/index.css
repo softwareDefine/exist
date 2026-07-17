@@ -6442,6 +6442,87 @@ input:focus {
   min-height: 0;
 }
 
+/* 채팅 채널 바 — 그룹 안 채널 전환/생성 */
+.hub-channels {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px max(24px, calc((100% - 920px) / 2)) 8px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.hub-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-sub);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+
+.hub-channel:hover {
+  border-color: var(--green);
+  color: var(--text);
+}
+
+.hub-channel.active {
+  background: var(--green-soft);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.hub-channel-hash {
+  opacity: 0.6;
+  font-weight: 700;
+}
+
+.hub-channel-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-left: 3px;
+}
+
+.hub-channel-del {
+  margin-left: 3px;
+  opacity: 0.45;
+  font-weight: 700;
+  padding: 0 2px;
+}
+
+.hub-channel-del:hover {
+  opacity: 1;
+  color: #e5484d;
+}
+
+.hub-channel.add {
+  padding: 5px 11px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.hub-channel-new input {
+  border: 1px solid var(--green);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 12px;
+  width: 120px;
+  outline: none;
+}
+
 .hub-chat-messages {
   flex: 1;
   overflow-y: auto;

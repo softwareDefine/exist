@@ -257,6 +257,25 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_dm_inbox ON dm_messages(org_id, to_id, read);
 `);
 
+/* 채팅 채널 — 그룹(회의) 안에 채널 여러 개. 기본 채널 "일반"은 첫 접근 시 자동 생성. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS chat_channels (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id),
+    name       TEXT NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_channels_meeting ON chat_channels(meeting_id, id);
+`);
+
+// 마이그레이션: 메시지의 소속 채널 (null = 레거시, 기본 채널 생성 시 백필됨)
+try {
+  db.exec(`ALTER TABLE messages ADD COLUMN channel_id INTEGER REFERENCES chat_channels(id)`);
+} catch {
+  /* 이미 존재 */
+}
+
 /* P1 — 회의 통화가 끝나면 AI가 채팅에서 결정·할 일을 추출해 저장하고
  * 참석자/불참자에게 라우팅한다. decisions/actions/attendees는 JSON 텍스트. */
 db.exec(`

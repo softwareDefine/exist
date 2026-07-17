@@ -123,8 +123,19 @@
 | RCP-03 | 스킵 가드 | 메시지 <2건 스킵, 창 분리(같은 메시지 재요약 안 함) | I | P1 | ✅ |
 | RCP-04 | 권한 | recap API 참가자만 (403) | I | P1 | ✅ |
 | RCP-05 | 실소켓 E2E | room:join→chat:send→disconnect→유예→배달 (로컬 서버) | F·E2E | P0 | ✅ (e2e-recap.mjs, 2026-07-17) |
-| RCP-06 | 라이브 2브라우저 | 본사 통화 종료 → 지사 계정 화면에 알림+recap 카드 | F | **P0** | 🔲 (배포 후 필수) |
-| RCP-07 | AI 경로 | OPENAI_API_KEY 있는 환경에서 source=ai 추출 품질 | F | P1 | 🔲 (배포 후) |
+| RCP-06 | 라이브 E2E | 라이브에서 소켓 통화→종료→불참자 배달 전체 플로우 | E2E | **P0** | ✅ (qa-live.mjs 21/22→22/22, 2026-07-17. UI 육안 확인만 남음) |
+| RCP-07 | AI 경로 | OPENAI_API_KEY 있는 환경에서 source=ai 추출 품질 | F | P1 | ✅ (라이브: 결정 2건 정확, @멘션 담당자 매칭, 할 일 문장 재구성까지 확인) |
+| RCP-08 | 삭제 정합 | recap·chat_reads 있는 회의 삭제 (FK 강제 환경) | I | P1 | ✅ (라이브 QA 발견 버그 → 수정+회귀 테스트, 9ee795e) |
+
+## 6-1. 채팅 채널 (그룹당 다중 채널) · 2026-07-17 구현
+| ID | 시나리오 | 기대 결과 | 종류 | P | 상태 |
+|---|---|---|---|---|---|
+| CHN-01 | 기본 채널 | 첫 접근 시 "일반" 자동 생성 + 레거시 메시지 백필 | I | P0 | ✅ |
+| CHN-02 | 생성/중복 | 참가자 생성 OK(# 제거·24자·20개 제한), 중복 409, 비참가자 403 | I | P1 | ✅ |
+| CHN-03 | 채널 분리 | 채널별 메시지 조회·소켓 전송 분리, 무효 채널 무시 | I·E2E | P0 | ✅ (e2e-channels.mjs) |
+| CHN-04 | 권한 | 이름변경=호스트/생성자, 삭제=호스트만·기본 채널 불가 | I | P1 | ✅ |
+| CHN-05 | 정합 | 채널 있는 회의 삭제(FK), recap은 전 채널 취합 | I | P1 | ✅ |
+| CHN-06 | UI | 채널 바 전환·생성·세션 안읽음 점, 통화 패널은 기본 채널 고정 | F | P1 | 🔲 (배포 후 육안) |
 
 ## 10-2. P2 — 놓친 것 브리핑 (catchup) · 2026-07-17 구현
 | ID | 시나리오 | 기대 결과 | 종류 | P | 상태 |
@@ -202,7 +213,7 @@
 `.github/workflows/ci.yml` · push/PR마다 자동 — **server build+test · client build · runner syntax 전부 green**
 
 ### 테스트 점수
-- **전체 48 tests passing** (2026-07-17: 알림 7 + recap 7 + catchup 3 추가), tsc 빌드 통과, CI success
+- **전체 56 tests passing** (2026-07-17: 알림 7 + recap 8 + catchup 3 + 채널 7 추가), tsc 빌드 통과, CI success
 - (기존 31 = 단위 20 + 통합 11)
 - 리팩토링: 순수함수 export 추출(hashPassword·esgFromCommutes·ruleBasedInsights), app 생성을 app.ts로 분리(supertest용)
 

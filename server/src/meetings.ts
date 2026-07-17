@@ -11,6 +11,7 @@ import { getRoomSize, getRoomPeers } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
 import { listRecaps } from './recap.js';
+import { listChannels, ensureDefaultChannel, resolveChannel, cleanChannelName } from './channels.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'uploads');
@@ -672,6 +673,7 @@ router.delete('/:code', (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM meeting_events WHERE meeting_id = ?').run(meeting.id);
   db.prepare('DELETE FROM meeting_recaps WHERE meeting_id = ?').run(meeting.id);
   db.prepare('DELETE FROM chat_reads WHERE meeting_id = ?').run(meeting.id);
+  db.prepare('DELETE FROM chat_channels WHERE meeting_id = ?').run(meeting.id);
   try {
     db.prepare('DELETE FROM todos WHERE meeting_id = ?').run(meeting.id);
   } catch {
@@ -837,24 +839,29 @@ router.get('/:code/recaps', (req: AuthedRequest, res) => {
   res.json(listRecaps(meeting.id));
 });
 
-/** 회의 채팅 히스토리 (최근 100개) */
+/** 회의 채팅 히스토리 (채널당 최근 100개) — ?channel=ID, 없으면 기본 채널 */
 router.get('/:code/messages', (req: AuthedRequest, res) => {
   const meeting = db
     .prepare('SELECT id FROM meetings WHERE code = ?')
     .get(String(req.params.code ?? '').toUpperCase()) as { id: number } | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
 
+  const channelId = resolveChannel(meeting.id, req.query.channel, req.userId!);
+  if (channelId == null) return res.status(404).json({ error: '존재하지 않는 채널이에요' });
+
   const rows = db
     .prepare(
-      `SELECT u.username AS "from", u.avatar, m.text, m.file, m.created_at FROM messages m
+      `SELECT u.username AS "from", u.avatar, m.text, m.file, m.channel_id, m.created_at FROM messages m
        JOIN users u ON u.id = m.user_id
-       WHERE m.meeting_id = ? ORDER BY m.id DESC LIMIT 100`,
+       WHERE m.meeting_id = ? AND (m.channel_id = ? OR m.channel_id IS NULL)
+       ORDER BY m.id DESC LIMIT 100`,
     )
-    .all(meeting.id) as {
+    .all(meeting.id, channelId) as {
     from: string;
     avatar: string | null;
     text: string;
     file: string | null;
+    channel_id: number | null;
     created_at: string;
   }[];
 
@@ -864,9 +871,95 @@ router.get('/:code/messages', (req: AuthedRequest, res) => {
       avatar: r.avatar,
       text: r.text,
       file: r.file ? JSON.parse(r.file) : undefined,
+      channelId: r.channel_id ?? channelId,
       ts: new Date(r.created_at + 'Z').getTime(),
     })),
   );
+});
+
+// ── 채팅 채널 — 그룹 안에 여러 채널 (기본 "일반" 자동 생성) ──
+
+/** 참가자 검증 헬퍼 — 채널 라우트 공용 */
+type ParticipantCheck =
+  | { ok: false; status: 403 | 404; error: string }
+  | { ok: true; meeting: { id: number; host_id: number } };
+
+function meetingForParticipant(code: unknown, userId: number): ParticipantCheck {
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(String(code ?? '').toUpperCase()) as { id: number; host_id: number } | undefined;
+  if (!meeting) return { ok: false, status: 404, error: '존재하지 않는 회의입니다' };
+  const isParticipant = db
+    .prepare('SELECT 1 FROM meeting_participants WHERE meeting_id = ? AND user_id = ?')
+    .get(meeting.id, userId);
+  if (!isParticipant) return { ok: false, status: 403, error: '회의 참가자만 쓸 수 있어요' };
+  return { ok: true, meeting };
+}
+
+/** 채널 목록 */
+router.get('/:code/channels', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  res.json(listChannels(r.meeting.id, req.userId!));
+});
+
+/** 채널 생성 — 참가자 누구나 */
+router.post('/:code/channels', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const name = cleanChannelName(req.body?.name);
+  if (!name) return res.status(400).json({ error: '채널 이름을 입력하세요' });
+  ensureDefaultChannel(r.meeting.id, req.userId!);
+  const dup = db
+    .prepare('SELECT 1 FROM chat_channels WHERE meeting_id = ? AND name = ?')
+    .get(r.meeting.id, name);
+  if (dup) return res.status(409).json({ error: '이미 있는 채널 이름이에요' });
+  const count = (
+    db.prepare('SELECT COUNT(*) AS n FROM chat_channels WHERE meeting_id = ?').get(r.meeting.id) as {
+      n: number;
+    }
+  ).n;
+  if (count >= 20) return res.status(400).json({ error: '채널은 그룹당 20개까지예요' });
+  const info = db
+    .prepare('INSERT INTO chat_channels (meeting_id, name, created_by) VALUES (?, ?, ?)')
+    .run(r.meeting.id, name, req.userId!);
+  res.json({ id: info.lastInsertRowid, name, isDefault: false });
+});
+
+/** 채널 이름 변경 — 호스트나 만든 사람 */
+router.patch('/:code/channels/:channelId', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const ch = db
+    .prepare('SELECT id, created_by FROM chat_channels WHERE id = ? AND meeting_id = ?')
+    .get(req.params.channelId, r.meeting.id) as { id: number; created_by: number } | undefined;
+  if (!ch) return res.status(404).json({ error: '존재하지 않는 채널이에요' });
+  if (ch.created_by !== req.userId && r.meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트나 만든 사람만 바꿀 수 있어요' });
+  }
+  const name = cleanChannelName(req.body?.name);
+  if (!name) return res.status(400).json({ error: '채널 이름을 입력하세요' });
+  db.prepare('UPDATE chat_channels SET name = ? WHERE id = ?').run(name, ch.id);
+  res.json({ id: ch.id, name });
+});
+
+/** 채널 삭제 — 호스트만, 기본 채널은 불가. 채널 메시지도 함께 삭제 */
+router.delete('/:code/channels/:channelId', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  if (r.meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트만 채널을 삭제할 수 있어요' });
+  }
+  const defaultId = ensureDefaultChannel(r.meeting.id, req.userId!);
+  const id = Number(req.params.channelId);
+  if (id === defaultId) return res.status(400).json({ error: '기본 채널은 삭제할 수 없어요' });
+  const ch = db
+    .prepare('SELECT id FROM chat_channels WHERE id = ? AND meeting_id = ?')
+    .get(id, r.meeting.id);
+  if (!ch) return res.status(404).json({ error: '존재하지 않는 채널이에요' });
+  db.prepare('DELETE FROM messages WHERE channel_id = ?').run(id);
+  db.prepare('DELETE FROM chat_channels WHERE id = ?').run(id);
+  res.json({ ok: true });
 });
 
 export default router;

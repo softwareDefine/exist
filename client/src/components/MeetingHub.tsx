@@ -47,6 +47,12 @@ interface MeetingSettings {
   muteOnJoin: boolean;
 }
 
+interface ChatChannel {
+  id: number;
+  name: string;
+  isDefault: boolean;
+}
+
 interface MeetingDetail {
   id: number;
   code: string;
@@ -195,6 +201,14 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [chatInput, setChatInput] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
   const chatFileRef = useRef<HTMLInputElement>(null);
+  // 채팅 채널 — 그룹 안에 채널 여러 개, activeChannel의 메시지만 표시
+  const [channels, setChannels] = useState<ChatChannel[]>([]);
+  const [activeChannel, setActiveChannel] = useState<number | null>(null);
+  const [channelUnread, setChannelUnread] = useState<Record<number, number>>({}); // 세션 내 안읽음 점
+  const [newChannelOpen, setNewChannelOpen] = useState(false);
+  const [newChannelName, setNewChannelName] = useState('');
+  const activeChannelRef = useRef<number | null>(null);
+  activeChannelRef.current = activeChannel;
   const [canvasMounted, setCanvasMounted] = useState(false); // 한 번 열면 유지 (재연결·카메라 초기화 방지)
   const [codeMounted, setCodeMounted] = useState(false); // 코드 편집기도 한 번 열면 유지
   const [docMounted, setDocMounted] = useState(false); // 문서 편집기도 한 번 열면 유지
@@ -454,26 +468,53 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     };
   }, [code]);
 
+  // 채널 목록 — 기본 채널("일반")은 서버가 자동 생성
+  useEffect(() => {
+    let alive = true;
+    void api<ChatChannel[]>(`/api/meetings/${code}/channels`)
+      .then((list) => {
+        if (!alive) return;
+        setChannels(list);
+        setActiveChannel((cur) =>
+          cur != null && list.some((c) => c.id === cur) ? cur : (list[0]?.id ?? null),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [code]);
+
   // 회의 채팅 — 통화 여부 무관 구독 (inCall 변동 시 소켓 재생성 대응 위해 재구독)
   useEffect(() => {
+    if (activeChannel == null) return;
     let alive = true;
     const socket = getSocket();
 
     function join() {
-      // 재연결 시 놓친 메시지까지 복구 (히스토리 재로드 + 룸 재가입)
-      void api<ChatMessage[]>(`/api/meetings/${code}/messages`).then((history) => {
-        if (alive) setMessages(history);
-      });
+      // 재연결 시 놓친 메시지까지 복구 (활성 채널 히스토리 재로드 + 룸 재가입)
+      void api<ChatMessage[]>(`/api/meetings/${code}/messages?channel=${activeChannel}`).then(
+        (history) => {
+          if (alive) setMessages(history);
+        },
+      );
       void request(socket, 'chat:join', { code }).catch(() => {});
     }
     join();
+    // 채널로 들어왔으니 이 채널의 세션 안읽음 점은 해제
+    setChannelUnread((prev) => ({ ...prev, [activeChannel]: 0 }));
     // 서버 재시작/네트워크 단절 후 socket.io가 자동 재연결되면 룸 멤버십이
     // 사라지므로 다시 join해야 메시지를 계속 받는다
     socket.on('connect', join);
 
     function onMessage(msg: ChatMessage) {
       if (msg.code && msg.code !== code.toUpperCase()) return;
-      setMessages((prev) => [...prev, msg]);
+      if (msg.channelId == null || msg.channelId === activeChannelRef.current) {
+        setMessages((prev) => [...prev, msg]);
+      } else {
+        // 다른 채널 메시지 — 그 채널 탭에 안읽음 점
+        setChannelUnread((prev) => ({ ...prev, [msg.channelId!]: (prev[msg.channelId!] ?? 0) + 1 }));
+      }
       // 회의 탭 안읽음 배지용 (WorkspacePanel이 수신)
       window.dispatchEvent(new CustomEvent('meeting:message', { detail: { code: code.toUpperCase() } }));
     }
@@ -483,13 +524,45 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       socket.off('connect', join);
       socket.off('chat:message', onMessage);
     };
-  }, [code, inCall]);
+  }, [code, inCall, activeChannel]);
 
   function sendChat(e: React.FormEvent) {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    getSocket().emit('chat:send', { code, text: chatInput });
+    getSocket().emit('chat:send', { code, text: chatInput, channelId: activeChannel ?? undefined });
     setChatInput('');
+  }
+
+  async function createChannel(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newChannelName.trim();
+    if (!name) return;
+    try {
+      const ch = await api<ChatChannel>(`/api/meetings/${code}/channels`, {
+        method: 'POST',
+        body: { name },
+      });
+      setChannels((prev) => [...prev, { ...ch, isDefault: false }]);
+      setActiveChannel(ch.id);
+      setNewChannelName('');
+      setNewChannelOpen(false);
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
+
+  async function deleteChannel(ch: ChatChannel) {
+    if (!confirm(`#${ch.name} 채널을 삭제할까요? 채널의 메시지도 사라져요.`)) return;
+    try {
+      await api(`/api/meetings/${code}/channels/${ch.id}`, { method: 'DELETE' });
+      setChannels((prev) => {
+        const next = prev.filter((c) => c.id !== ch.id);
+        if (activeChannelRef.current === ch.id) setActiveChannel(next[0]?.id ?? null);
+        return next;
+      });
+    } catch {
+      /* 전역 토스트 */
+    }
   }
 
   async function reloadDetail() {
@@ -558,6 +631,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
         code,
         text: '',
         file: { name: file.name, url, size: file.size },
+        channelId: activeChannel ?? undefined,
       });
     } catch {
       window.dispatchEvent(new CustomEvent('app:error', { detail: '파일 업로드 실패' }));
@@ -1227,6 +1301,54 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
         {/* 채팅 */}
         {subtab === 'chat' && (
           <div className="hub-chat">
+            {/* 채널 바 — 그룹 안 채널 전환/생성 */}
+            <div className="hub-channels">
+              {channels.map((ch) => (
+                <button
+                  key={ch.id}
+                  className={`hub-channel${ch.id === activeChannel ? ' active' : ''}`}
+                  onClick={() => setActiveChannel(ch.id)}
+                >
+                  <span className="hub-channel-hash">#</span>
+                  {ch.name}
+                  {(channelUnread[ch.id] ?? 0) > 0 && <i className="hub-channel-dot" />}
+                  {detail?.isHost && !ch.isDefault && (
+                    <span
+                      className="hub-channel-del"
+                      title="채널 삭제"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void deleteChannel(ch);
+                      }}
+                    >
+                      ×
+                    </span>
+                  )}
+                </button>
+              ))}
+              {newChannelOpen ? (
+                <form className="hub-channel-new" onSubmit={createChannel}>
+                  <input
+                    autoFocus
+                    value={newChannelName}
+                    onChange={(e) => setNewChannelName(e.target.value)}
+                    onBlur={() => {
+                      if (!newChannelName.trim()) setNewChannelOpen(false);
+                    }}
+                    placeholder="채널 이름"
+                    maxLength={24}
+                  />
+                </form>
+              ) : (
+                <button
+                  className="hub-channel add"
+                  title="채널 추가"
+                  onClick={() => setNewChannelOpen(true)}
+                >
+                  ＋
+                </button>
+              )}
+            </div>
             <div className="hub-chat-messages">
               {messages.length === 0 && (
                 <div className="chat-empty">
