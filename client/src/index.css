@@ -6631,6 +6631,40 @@ input:focus {
   white-space: nowrap;
 }
 
+/* 반응형 — 작은 화면: 탐색기 꽉 채우고 터치 타겟 키움 */
+@media (max-width: 720px) {
+  .cf-side {
+    max-width: none;
+    padding: 4px 6px 0;
+  }
+
+  .cf-item {
+    padding: 11px 10px; /* 터치 타겟 ≥44px */
+    font-size: 14.5px;
+  }
+
+  .cf-editor-bar {
+    padding: 8px 10px;
+  }
+}
+
+/* 터치 기기 — hover가 없으므로 이름변경/삭제 버튼 항상 노출 */
+@media (hover: none) {
+  .cf-actions {
+    display: inline-flex;
+  }
+
+  .cf-actions button {
+    font-size: 14px;
+    padding: 4px 7px;
+  }
+
+  .cf-channel-del,
+  .hub-channel-del {
+    opacity: 0.5;
+  }
+}
+
 .cf-head {
   display: flex;
   align-items: center;
