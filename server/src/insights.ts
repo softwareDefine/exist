@@ -372,8 +372,10 @@ router.get('/:orgId', async (req: AuthedRequest, res) => {
   if (!isMember(orgId, req.userId!))
     return res.status(403).json({ error: '조직 멤버가 아닙니다' });
 
+  // ?fresh=1 — 캐시 무시하고 즉시 재계산 (데모·시연에서 방금 활동을 바로 반영)
   const cached = cache.get(orgId);
-  if (cached && Date.now() - cached.at < CACHE_MS) return res.json(cached.payload);
+  if (req.query.fresh !== '1' && cached && Date.now() - cached.at < CACHE_MS)
+    return res.json(cached.payload);
 
   const metrics = collectOrgMetrics(orgId);
   if (!metrics) return res.status(404).json({ error: '조직을 찾을 수 없습니다' });

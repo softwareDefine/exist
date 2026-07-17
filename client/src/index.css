@@ -2607,6 +2607,129 @@ input:focus {
   color: var(--text-sub);
 }
 
+/* P1 — AI 회의 정리 카드 */
+.hub-recap-card .hub-recap-more {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+
+.hub-recap-card .hub-recap-more:hover {
+  color: var(--green);
+}
+
+.hub-recap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hub-recap + .hub-recap {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.hub-recap-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.hub-recap-summary {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+
+.hub-recap-time {
+  font-size: 12px;
+  color: var(--text-sub);
+  white-space: nowrap;
+}
+
+.hub-recap-decisions {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hub-recap-decisions li {
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.hub-recap-decisions li svg {
+  color: var(--green);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.hub-recap-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hub-recap-action {
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hub-recap-assignee {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.hub-recap-assignee.none {
+  background: var(--surface-2);
+  color: var(--text-sub);
+  font-weight: 600;
+}
+
+.hub-recap-foot {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hub-recap-src {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-sub);
+}
+
+.hub-recap-src.ai {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
 /* 회의 정보 섹션 */
 .hub-meta {
   display: flex;

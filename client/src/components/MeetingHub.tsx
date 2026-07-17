@@ -12,6 +12,7 @@ import SlideEditor from './SlideEditor';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
 import MeetingSchedule from './MeetingSchedule';
+import RecapPanel from './RecapPanel';
 import { togglePin, isPinned, PINS_EVENT } from '../lib/pins';
 import {
   PhoneIcon,
@@ -718,6 +719,9 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                 {/* 본문: 메인 + 사이드 (Teams식 2단) */}
                 <div className="hub-dash-cols">
                   <div className="hub-dash-main">
+                    {/* P1 — AI 회의 정리 (통화 종료 시 결정·할 일 배달) */}
+                    <RecapPanel code={detail.code} />
+
                     {/* 협업 공간 앱 런처 */}
                     <section className="hub-section hub-apps-card">
                       <div className="hub-section-title">

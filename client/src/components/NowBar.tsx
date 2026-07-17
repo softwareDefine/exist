@@ -42,6 +42,9 @@ export interface Todo {
   title: string;
   done: number;
   due_at: string | null;
+  /** 회의에서 배정된 할 일이면 그 회의 (recap 자동 배정 표시용) */
+  meeting_code?: string | null;
+  meeting_title?: string | null;
 }
 
 export interface Meeting {

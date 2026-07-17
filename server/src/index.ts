@@ -58,7 +58,11 @@ io.on('connection', (socket) => {
     const e = online.get(userId);
     if (!e) return;
     e.count--;
-    if (e.count <= 0) online.delete(userId);
+    if (e.count <= 0) {
+      online.delete(userId);
+      // 마지막 소켓이 끊긴 시각 = "자리를 비운 시점" — P2 놓친 것 브리핑의 기준
+      db.prepare(`UPDATE users SET last_seen_at = datetime('now') WHERE id = ?`).run(userId);
+    }
     broadcastPresence();
   });
 });

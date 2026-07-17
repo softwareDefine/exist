@@ -10,6 +10,7 @@ import { emitToUser, notifyUser } from './notify.js';
 import { getRoomSize, getRoomPeers } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
+import { listRecaps } from './recap.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'uploads');
@@ -819,6 +820,19 @@ router.patch('/:code/events/:eventId', (req: AuthedRequest, res) => {
     'UPDATE meeting_events SET title = ?, date = ?, time = ?, end_time = ?, is_call = ? WHERE id = ?',
   ).run(newTitle, newDate, t, tEnd, t ? isCall : 0, req.params.eventId);
   res.json({ id: Number(req.params.eventId), title: newTitle, date: newDate, time: t, end_time: tEnd, is_call: t ? isCall : 0 });
+});
+
+/** P1 — 통화 종료 후 AI가 뽑은 결정·할 일 목록 (참가자만) */
+router.get('/:code/recaps', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as { id: number } | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  const isParticipant = db
+    .prepare('SELECT 1 FROM meeting_participants WHERE meeting_id = ? AND user_id = ?')
+    .get(meeting.id, req.userId);
+  if (!isParticipant) return res.status(403).json({ error: '회의 참가자만 볼 수 있어요' });
+  res.json(listRecaps(meeting.id));
 });
 
 /** 회의 채팅 히스토리 (최근 100개) */

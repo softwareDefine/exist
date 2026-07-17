@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
-import { BellIcon, PhoneIcon } from './Icons';
+import { BellIcon, PhoneIcon, SparklesIcon } from './Icons';
 import MeetingThumb from './MeetingThumb';
 
 interface Notification {
@@ -176,6 +176,21 @@ export default function NotificationCenter() {
                         }}
                       >
                         <PhoneIcon size={13} /> 지금 들어가기
+                      </button>
+                    )}
+                    {n.kind === 'recap' && n.meeting?.code && (
+                      <button
+                        className="notif-join recap"
+                        onClick={() => {
+                          window.dispatchEvent(
+                            new CustomEvent('exist:open-meeting', {
+                              detail: { code: n.meeting!.code, title: n.meeting!.title, tab: 'dash' },
+                            }),
+                          );
+                          setOpen(false);
+                        }}
+                      >
+                        <SparklesIcon size={13} /> 정리 보기
                       </button>
                     )}
                   </div>

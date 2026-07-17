@@ -14,6 +14,7 @@ import type {
   TransportListenInfo,
 } from 'mediasoup/types';
 import db from './db.js';
+import { scheduleRecap, cancelScheduledRecap } from './recap.js';
 
 /*
  * exist SFU — mediasoup 기반 직접 구현.
@@ -61,6 +62,8 @@ interface Room {
   peers: Map<string, Peer>;
   hostUserId: number | null;
   locked: boolean;
+  /** 이번 통화 세션에 들어왔던 모든 userId — 종료 후 recap의 참석/불참 구분에 사용 */
+  sessionUserIds: Set<number>;
 }
 
 let worker: Worker;
@@ -91,8 +94,10 @@ async function getOrCreateRoom(code: string): Promise<Room> {
       peers: new Map(),
       hostUserId: meeting?.host_id ?? null,
       locked: false,
+      sessionUserIds: new Set(),
     };
     rooms.set(code, room);
+    cancelScheduledRecap(code); // 유예 중 재입장이면 같은 세션으로 이어붙임
     console.log(`[sfu] room created: ${code}`);
   }
   return room;
@@ -103,6 +108,8 @@ function closeRoomIfEmpty(room: Room) {
     room.router.close();
     rooms.delete(room.code);
     console.log(`[sfu] room closed: ${room.code}`);
+    // P1: 통화 종료 훅 — 유예 후 이번 세션 채팅을 요약해 참석/불참자에게 배달
+    scheduleRecap(room.code, [...room.sessionUserIds]);
   }
 }
 
@@ -182,6 +189,7 @@ export function attachSfu(io: Server) {
           consumers: new Map(),
         };
         room.peers.set(socket.id, peer);
+        room.sessionUserIds.add(userId);
         await socket.join(`room:${code}`);
 
         // 기존 참가자의 producer 목록 (신규 입장자가 consume)

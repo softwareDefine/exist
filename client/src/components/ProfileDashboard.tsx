@@ -24,6 +24,25 @@ interface Overview {
   nextMeeting: { title: string; code: string; startsAt: string | null } | null;
 }
 
+/** P2 — 자리 비운 사이 놓친 것 브리핑 */
+interface CatchupItem {
+  type: 'recap' | 'todo' | 'dm' | 'chat';
+  text: string;
+  meeting?: { code: string; title: string };
+}
+
+interface Catchup {
+  headline: string;
+  items: CatchupItem[];
+}
+
+const CATCHUP_BADGE: Record<CatchupItem['type'], string> = {
+  recap: '통화 정리',
+  todo: '할 일',
+  dm: 'DM',
+  chat: '채팅',
+};
+
 function greeting(): string {
   const h = new Date().getHours();
   if (h < 6) return '늦은 시간이네요';
@@ -41,6 +60,7 @@ export default function ProfileDashboard() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [schedule, setSchedule] = useState<Meeting[]>([]);
   const [brief, setBrief] = useState('');
+  const [catchup, setCatchup] = useState<Catchup | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -51,6 +71,10 @@ export default function ProfileDashboard() {
       .catch(() => {});
     api<{ brief: string }>('/api/agent/brief')
       .then((d) => alive && setBrief(d.brief))
+      .catch(() => {});
+    // P2 — 자리 비운 사이 놓친 것 브리핑
+    api<Catchup>('/api/agent/catchup')
+      .then((d) => alive && setCatchup(d))
       .catch(() => {});
     return () => {
       alive = false;
@@ -206,7 +230,39 @@ export default function ProfileDashboard() {
       <div style={quadGrid}>
         <div style={cellCard}>
           <div style={sectionHead}><span style={headIcon}><SparklesIcon size={16} /></span> AI 피드백</div>
-          {brief ? (
+          {catchup && catchup.items.length > 0 ? (
+            <>
+              <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text)', lineHeight: 1.5, marginBottom: 10 }}>
+                {catchup.headline}
+              </div>
+              {catchup.items.slice(0, 5).map((it, i) => (
+                <div
+                  key={i}
+                  style={{ ...listRow, cursor: it.meeting ? 'pointer' : 'default' }}
+                  onClick={() => it.meeting && openMeeting(it.meeting.code, it.meeting.title)}
+                  title={it.meeting ? `"${it.meeting.title}" 열기` : undefined}
+                >
+                  <span
+                    style={{
+                      flexShrink: 0,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      background: it.type === 'recap' ? 'var(--green-soft)' : 'var(--surface-2)',
+                      color: it.type === 'recap' ? 'var(--green)' : 'var(--text-sub)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {CATCHUP_BADGE[it.type]}
+                  </span>
+                  <span style={{ color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {it.text}
+                  </span>
+                </div>
+              ))}
+            </>
+          ) : brief ? (
             <div style={{ fontSize: 14.5, color: 'var(--text)', lineHeight: 1.55 }}>{brief}</div>
           ) : (
             <div style={emptyRow}>분석할 활동이 아직 없어요</div>
@@ -231,6 +287,24 @@ export default function ProfileDashboard() {
                 >
                   {t.title}
                 </span>
+                {t.meeting_title && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      flexShrink: 0,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: 6,
+                      background: 'var(--green-soft)',
+                      color: 'var(--green)',
+                      whiteSpace: 'nowrap',
+                    }}
+                    title={`"${t.meeting_title}" 회의에서 배정됨`}
+                  >
+                    {t.meeting_title}
+                  </span>
+                )}
               </div>
             ))
           )}

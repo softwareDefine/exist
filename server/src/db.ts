@@ -123,6 +123,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 마지막 접속 종료 시각 — P2 "놓친 것" 브리핑의 기준점
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN last_seen_at TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 프로필 아바타 (이모지)
 try {
   db.exec(`ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT '🐧'`);
@@ -248,6 +255,23 @@ db.exec(`
   /* 두 사람의 대화를 시간순으로 뽑기 좋게 */
   CREATE INDEX IF NOT EXISTS idx_dm_pair ON dm_messages(org_id, from_id, to_id, id);
   CREATE INDEX IF NOT EXISTS idx_dm_inbox ON dm_messages(org_id, to_id, read);
+`);
+
+/* P1 — 회의 통화가 끝나면 AI가 채팅에서 결정·할 일을 추출해 저장하고
+ * 참석자/불참자에게 라우팅한다. decisions/actions/attendees는 JSON 텍스트. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS meeting_recaps (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id    INTEGER NOT NULL REFERENCES meetings(id),
+    summary       TEXT NOT NULL,
+    decisions     TEXT NOT NULL DEFAULT '[]',
+    actions       TEXT NOT NULL DEFAULT '[]',
+    attendees     TEXT NOT NULL DEFAULT '[]',
+    source        TEXT NOT NULL DEFAULT 'rule',
+    call_ended_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_recaps_meeting ON meeting_recaps(meeting_id, id);
 `);
 
 // 마이그레이션: 개인 DM 지원 — 기존 테이블 org_id가 NOT NULL이면 NULL 허용으로 재생성

@@ -249,12 +249,173 @@ export function invalidateBrief(userId: number) {
   briefCache.delete(userId);
 }
 
+/*
+ * P2 — "놓친 것" 브리핑 (catch-up).
+ * 마지막 접속 종료(users.last_seen_at) 이후 생긴 것들을 모아 브리핑한다:
+ * 통화 recap(특히 불참한 것)·새로 배정된 할 일·안 읽은 DM·안 읽은 그룹 채팅.
+ * 항목은 전부 DB 사실에서 규칙으로 계산 (AI가 지어낼 수 없음) — AI는 헤드라인 한 줄만.
+ */
+
+export interface CatchupItem {
+  type: 'recap' | 'todo' | 'dm' | 'chat';
+  text: string;
+  meeting?: { code: string; title: string };
+}
+
+export interface Catchup {
+  since: string | null;
+  headline: string;
+  source: 'ai' | 'rule';
+  items: CatchupItem[];
+}
+
+export async function getCatchup(userId: number): Promise<Catchup> {
+  const me = db.prepare('SELECT username, last_seen_at FROM users WHERE id = ?').get(userId) as
+    | { username: string; last_seen_at: string | null }
+    | undefined;
+  if (!me) return { since: null, headline: '', source: 'rule', items: [] };
+
+  // 창: 마지막 접속 종료 이후, 최대 7일 (첫 접속이면 24시간)
+  const floor7d = new Date(Date.now() - 7 * 24 * 3600_000).toISOString().replace('T', ' ').slice(0, 19);
+  const floor24h = new Date(Date.now() - 24 * 3600_000).toISOString().replace('T', ' ').slice(0, 19);
+  const since = me.last_seen_at ? (me.last_seen_at < floor7d ? floor7d : me.last_seen_at) : floor24h;
+
+  const items: CatchupItem[] = [];
+
+  // 1) 내 회의의 통화 recap — 불참한 것 먼저
+  const recaps = db
+    .prepare(
+      `SELECT r.summary, r.attendees, r.decisions, m.code, m.title
+       FROM meeting_recaps r
+       JOIN meetings m ON m.id = r.meeting_id
+       JOIN meeting_participants mp ON mp.meeting_id = r.meeting_id
+       WHERE mp.user_id = ? AND r.created_at > ?
+       ORDER BY r.id DESC LIMIT 5`,
+    )
+    .all(userId, since) as { summary: string; attendees: string; decisions: string; code: string; title: string }[];
+  for (const r of recaps) {
+    const missed = !(JSON.parse(r.attendees) as string[]).includes(me.username);
+    const decisionCount = (JSON.parse(r.decisions) as string[]).length;
+    items.push({
+      type: 'recap',
+      text: missed
+        ? `놓친 통화 정리 — ${r.summary}${decisionCount ? ` (결정 ${decisionCount}건)` : ''}`
+        : `통화 정리 — ${r.summary}`,
+      meeting: { code: r.code, title: r.title },
+    });
+  }
+
+  // 2) 새로 배정된 회의 할 일
+  const newTodos = db
+    .prepare(
+      `SELECT t.title, m.code, m.title AS mtitle FROM todos t
+       JOIN meetings m ON m.id = t.meeting_id
+       WHERE t.user_id = ? AND t.done = 0 AND t.created_at > ?
+       ORDER BY t.id DESC LIMIT 5`,
+    )
+    .all(userId, since) as { title: string; code: string; mtitle: string }[];
+  for (const t of newTodos) {
+    items.push({
+      type: 'todo',
+      text: `새 할 일 — ${t.title}`,
+      meeting: { code: t.code, title: t.mtitle },
+    });
+  }
+
+  // 3) 안 읽은 DM (읽음 상태 기준 — 시점 무관)
+  const dm = db
+    .prepare(
+      `SELECT COUNT(*) AS n, (
+         SELECT u.username FROM dm_messages d2 JOIN users u ON u.id = d2.from_id
+         WHERE d2.to_id = ? AND d2.read = 0 ORDER BY d2.id DESC LIMIT 1
+       ) AS top
+       FROM dm_messages WHERE to_id = ? AND read = 0`,
+    )
+    .get(userId, userId) as { n: number; top: string | null };
+  if (dm.n > 0) {
+    items.push({
+      type: 'dm',
+      text: `안 읽은 DM ${dm.n}개${dm.top ? ` — 최근: ${dm.top}` : ''}`,
+    });
+  }
+
+  // 4) 안 읽은 그룹 채팅 (chat_reads 기준, 상위 3개 회의)
+  const chats = db
+    .prepare(
+      `SELECT m.code, m.title, COUNT(*) AS n FROM messages msg
+       JOIN meetings m ON m.id = msg.meeting_id
+       JOIN meeting_participants mp ON mp.meeting_id = msg.meeting_id AND mp.user_id = ?
+       LEFT JOIN chat_reads cr ON cr.meeting_id = msg.meeting_id AND cr.user_id = ?
+       WHERE msg.user_id != ? AND msg.id > COALESCE(cr.last_read, 0)
+       GROUP BY msg.meeting_id ORDER BY n DESC LIMIT 3`,
+    )
+    .all(userId, userId, userId) as { code: string; title: string; n: number }[];
+  for (const c of chats) {
+    items.push({
+      type: 'chat',
+      text: `안 읽은 메시지 ${c.n}개`,
+      meeting: { code: c.code, title: c.title },
+    });
+  }
+
+  // 헤드라인 — 규칙 요약이 기본, AI가 있으면 자연스러운 한 줄로
+  const missedRecaps = items.filter((i) => i.type === 'recap' && i.text.startsWith('놓친')).length;
+  const parts = [
+    missedRecaps > 0 ? `놓친 통화 ${missedRecaps}건` : null,
+    newTodos.length > 0 ? `새 할 일 ${newTodos.length}개` : null,
+    dm.n > 0 ? `안 읽은 DM ${dm.n}개` : null,
+    chats.length > 0 ? `안 읽은 그룹 채팅 ${chats.length}곳` : null,
+  ].filter(Boolean);
+  let headline =
+    parts.length > 0 ? `자리 비운 사이: ${parts.join(' · ')}` : '자리 비운 사이 놓친 건 없어요';
+  let source: 'ai' | 'rule' = 'rule';
+
+  if (openai && items.length > 0) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: OPENAI_MODEL,
+        temperature: 0.3,
+        max_tokens: 120,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              '너는 분산 근무 플랫폼 exist의 AI 운영자다. 사용자가 자리를 비운 사이 놓친 것들의 목록을 받아 ' +
+              '한 줄 헤드라인(한국어 60자 이내, 가장 중요한 것 하나를 짚어서)으로 요약한다. ' +
+              '목록에 없는 사실은 만들지 않는다. 응답은 JSON: {"headline": string}',
+          },
+          { role: 'user', content: JSON.stringify(items.map((i) => i.text)) },
+        ],
+      });
+      const raw = response.choices[0]?.message?.content ?? '';
+      const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+        headline?: unknown;
+      };
+      const h = String(parsed.headline ?? '').trim();
+      if (h) {
+        headline = h;
+        source = 'ai';
+      }
+    } catch (err) {
+      console.error('[agent] catchup 헤드라인 AI 실패, 규칙 사용:', err);
+    }
+  }
+
+  return { since, headline, source, items };
+}
+
 const router = Router();
 router.use(requireAuth);
 
 router.get('/brief', async (req: AuthedRequest, res) => {
   const brief = await generateBrief(req.userId!);
   res.json(brief);
+});
+
+/** P2 — 자리 비운 사이 놓친 것 브리핑 */
+router.get('/catchup', async (req: AuthedRequest, res) => {
+  res.json(await getCatchup(req.userId!));
 });
 
 /** 개인 대시보드 요약 — 참여 회의·미완료 할 일·다음 일정·라이브 통화 */

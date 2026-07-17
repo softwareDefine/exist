@@ -21,7 +21,8 @@ function meetingIdOf(code: unknown): number | null {
   return m?.id ?? null;
 }
 
-/** 목록 — ?meeting=CODE면 그 회의 공유 할 일, 없으면 개인 할 일 */
+/** 목록 — ?meeting=CODE면 그 회의 공유 할 일, 없으면 내 할 일 전부
+ *  (개인 + 회의에서 나에게 배정된 것 — recap 자동 배정이 홈 목록에 바로 뜨도록) */
 router.get('/', (req: AuthedRequest, res) => {
   if (req.query.meeting) {
     const mid = meetingIdOf(req.query.meeting);
@@ -37,7 +38,9 @@ router.get('/', (req: AuthedRequest, res) => {
   }
   const rows = db
     .prepare(
-      'SELECT id, title, done, due_at FROM todos WHERE user_id = ? AND meeting_id IS NULL ORDER BY created_at',
+      `SELECT t.id, t.title, t.done, t.due_at, m.code AS meeting_code, m.title AS meeting_title
+       FROM todos t LEFT JOIN meetings m ON m.id = t.meeting_id
+       WHERE t.user_id = ? ORDER BY t.created_at`,
     )
     .all(req.userId);
   res.json(rows);
