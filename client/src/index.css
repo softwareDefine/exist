@@ -9989,6 +9989,7 @@ input:focus {
 
 /* ── 넘치는 한 줄 텍스트 좌우 흐름 (Marquee.tsx) — 넘칠 때만 .on ── */
 .marquee {
+  display: block; /* span 기반이라 명시 (button 안에서도 유효한 마크업) */
   overflow: hidden;
   min-width: 0;
   white-space: nowrap;
@@ -9998,6 +9999,20 @@ input:focus {
 .marquee-inner {
   display: inline-block;
   white-space: nowrap;
+}
+
+/* 인라인 스타일에서 Marquee로 옮겨온 텍스트들 */
+.pd-catchup-text {
+  color: var(--text);
+  flex: 1;
+}
+
+.schedw-tl-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  color: var(--text);
+  text-align: left;
 }
 
 .marquee-inner.on {

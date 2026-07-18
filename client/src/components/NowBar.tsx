@@ -730,7 +730,7 @@ export default function NowBar({
                 title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
               >
                 <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
-                <span className="nb-next-title">{m.title}</span>
+                <Marquee className="nb-next-title">{m.title}</Marquee>
                 {m.recur && m.recur !== 'none' && (
                   <span className="nb-recur-tag">{RECUR_LABEL[m.recur] ?? '반복'}</span>
                 )}
@@ -753,7 +753,7 @@ export default function NowBar({
                 <span className="nowbar-todo-check" aria-hidden>
                   <CheckMarkIcon size={14} />
                 </span>
-                <span className="nowbar-todo-text">{todo.title}</span>
+                <Marquee className="nowbar-todo-text">{todo.title}</Marquee>
               </div>
             ))}
             {groupTodos.length === 0 && (
@@ -835,7 +835,7 @@ export default function NowBar({
                     <BellIcon size={11} />
                   </span>
                 )}
-                <span className="nb-next-title">{n.text}</span>
+                <Marquee className="nb-next-title">{n.text}</Marquee>
                 <span className="nb-next-start">{relTime(n.ts)}</span>
               </div>
             ))}
@@ -902,7 +902,7 @@ export default function NowBar({
                       title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
                     >
                       <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
-                      <span className="nb-next-title">{m.title}</span>
+                      <Marquee className="nb-next-title">{m.title}</Marquee>
                       {m.recur && m.recur !== 'none' && (
                         <span className="nb-recur-tag">{RECUR_LABEL[m.recur] ?? '반복'}</span>
                       )}
@@ -931,7 +931,7 @@ export default function NowBar({
                     <span className="nowbar-todo-check" aria-hidden>
                       <CheckMarkIcon size={14} />
                     </span>
-                    <span className="nowbar-todo-text">{todo.title}</span>
+                    <Marquee className="nowbar-todo-text">{todo.title}</Marquee>
                   </label>
                 ))}
                 {groupTodos.length === 0 && <div className="nb-next-empty">이 회의 할 일이 없어요</div>}
@@ -1024,7 +1024,7 @@ export default function NowBar({
               <span className="nb-ai-mark">
                 <SparklesIcon size={13} />
               </span>
-              <span className="ai-text">{brief || '상황을 분석하는 중이에요…'}</span>
+              <Marquee className="ai-text">{brief || '상황을 분석하는 중이에요…'}</Marquee>
               <span className="nb-ai-by">exist AI</span>
             </div>
           </div>

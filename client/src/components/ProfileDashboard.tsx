@@ -7,6 +7,7 @@ import InsightsPanel from './InsightsPanel';
 import { type Todo, type Meeting } from './NowBar';
 import UnifiedInbox from './UnifiedInbox';
 import ScheduleWidget from './ScheduleWidget';
+import Marquee from './Marquee';
 import { ListIcon, SparklesIcon, CalendarIcon, ChatIcon, UsersIcon, CheckMarkIcon, ChartIcon } from './Icons';
 
 /*
@@ -264,9 +265,7 @@ export default function ProfileDashboard() {
                   >
                     {CATCHUP_BADGE[it.type]}
                   </span>
-                  <span style={{ color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {it.text}
-                  </span>
+                  <Marquee className="pd-catchup-text">{it.text}</Marquee>
                 </div>
               ))}
             </>

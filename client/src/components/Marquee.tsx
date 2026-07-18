@@ -11,7 +11,7 @@ export default function Marquee({
   children: ReactNode;
   className?: string;
 }) {
-  const outer = useRef<HTMLDivElement>(null);
+  const outer = useRef<HTMLSpanElement>(null);
   const inner = useRef<HTMLSpanElement>(null);
   const [dist, setDist] = useState(0);
 
@@ -31,7 +31,8 @@ export default function Marquee({
   }, [children]);
 
   return (
-    <div ref={outer} className={`marquee${className ? ` ${className}` : ''}`}>
+    // span 기반 — button 등 phrasing 컨텍스트 안에서도 유효 (표시는 CSS block)
+    <span ref={outer} className={`marquee${className ? ` ${className}` : ''}`}>
       <span
         ref={inner}
         className={`marquee-inner${dist ? ' on' : ''}`}
@@ -47,6 +48,6 @@ export default function Marquee({
       >
         {children}
       </span>
-    </div>
+    </span>
   );
 }

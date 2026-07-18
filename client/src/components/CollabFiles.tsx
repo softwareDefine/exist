@@ -199,7 +199,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
                   />
                 </form>
               ) : (
-                <span className="cf-name">{f.name}</span>
+                <Marquee className="cf-name">{f.name}</Marquee>
               )}
               <span className="cf-actions" onClick={(e) => e.stopPropagation()}>
                 {f.type === 'folder' && (

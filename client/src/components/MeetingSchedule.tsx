@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { PhoneIcon } from './Icons';
+import Marquee from './Marquee';
 
 interface MEvent {
   id: number;
@@ -311,14 +312,14 @@ export default function MeetingSchedule({
                     {ev.end_time ? `~${ev.end_time}` : ''}
                   </span>
                 )}
-                <span className="msched-event-title">
+                <Marquee className="msched-event-title">
                   {ev.is_call ? (
                     <span className="msched-call-ic">
                       <PhoneIcon size={12} />
                     </span>
                   ) : null}
                   {ev.title}
-                </span>
+                </Marquee>
                 <span className="msched-event-author">{ev.author}</span>
                 {(ev.created_by === userId || isHost) && (
                   <>

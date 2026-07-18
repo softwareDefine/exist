@@ -1,5 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { type Meeting } from './NowBar';
+import Marquee from './Marquee';
 
 /*
  * 홈 대시보드 '전체 일정' 위젯 — 작은 월간 달력 + 선택한 날의 하루 세로 타임라인.
@@ -109,7 +110,7 @@ export default function ScheduleWidget({
                     {t.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                   <span style={tlDot}><span style={tlDotInner} /></span>
-                  <span style={tlTitle}>{s.title}</span>
+                  <Marquee className="schedw-tl-title">{s.title}</Marquee>
                 </button>
               );
             })}
@@ -231,12 +232,4 @@ const tlDotInner: CSSProperties = {
   border: '2px solid var(--surface)',
   boxSizing: 'content-box',
 };
-const tlTitle: CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  fontSize: 13.5,
-  color: 'var(--text)',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-};
+// 제목은 Marquee(.schedw-tl-title) — 잘림 대신 흐름 애니메이션

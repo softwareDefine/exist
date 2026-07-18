@@ -27,6 +27,7 @@ import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { yCollab } from 'y-codemirror.next';
 import { useAuthStore } from '../store';
+import Marquee from './Marquee';
 import { api } from '../api';
 import { PlusIcon, CloseIcon, CodeIcon, PlayIcon, DownloadIcon } from './Icons';
 
@@ -681,7 +682,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
         >
           <span className="vsc-chev">{open ? '▾' : '▸'}</span>
           <span className="vsc-file-ic">📁</span>
-          <span className="vsc-file-name">{basename(fp)}</span>
+          <Marquee className="vsc-file-name">{basename(fp)}</Marquee>
           <button className="vsc-file-del" title="폴더 삭제" onClick={(e) => deleteFolder(fp, e)}>
             <CloseIcon size={11} />
           </button>
@@ -707,7 +708,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
           }}
         >
           <span className="vsc-file-ic">{fileIcon(f.name)}</span>
-          <span className="vsc-file-name">{basename(f.name)}</span>
+          <Marquee className="vsc-file-name">{basename(f.name)}</Marquee>
           <button className="vsc-file-del" title="삭제" onClick={(e) => deleteFile(f.id, e)}>
             <CloseIcon size={11} />
           </button>

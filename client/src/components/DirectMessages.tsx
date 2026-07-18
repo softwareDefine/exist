@@ -3,6 +3,7 @@ import { api } from '../api';
 import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store';
 import Avatar from './Avatar';
+import Marquee from './Marquee';
 import { ChatIcon, CloseIcon } from './Icons';
 
 /* 1:1 다이렉트 메시지(DM).
@@ -400,10 +401,10 @@ export default function DirectMessages({ scope }: { scope: DmScope }) {
             <Avatar value={t.avatar} className="dm-item-avatar" />
             <div className="dm-item-main">
               <div className="dm-item-top">
-                <span className="dm-item-name">{t.username}</span>
+                <Marquee className="dm-item-name">{t.username}</Marquee>
                 {t.lastTs && <span className="dm-item-time">{relTime(t.lastTs)}</span>}
               </div>
-              <div className="dm-item-preview">
+              <Marquee className="dm-item-preview">
                 {t.lastText ? (
                   <>
                     {t.lastMine && <span className="dm-item-me">나: </span>}
@@ -414,7 +415,7 @@ export default function DirectMessages({ scope }: { scope: DmScope }) {
                     {[t.department, t.position].filter(Boolean).join(' · ') || '대화 시작하기'}
                   </span>
                 )}
-              </div>
+              </Marquee>
             </div>
             {t.unread > 0 && <span className="dm-item-badge">{t.unread > 9 ? '9+' : t.unread}</span>}
           </button>

@@ -6,6 +6,7 @@ import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { useAuthStore } from '../store';
+import Marquee from './Marquee';
 import { PlusIcon, CloseIcon, DownloadIcon } from './Icons';
 
 const CARET_COLORS = ['#30a46c', '#e5484d', '#f76808', '#4f7cff', '#8e4ec6', '#0091ff', '#d6409f'];
@@ -178,7 +179,7 @@ export default function DocEditor({ roomId }: { roomId: string }) {
                   }}
                 />
               ) : (
-                <span className="doc-tab-name">{d.name}</span>
+                <Marquee className="doc-tab-name">{d.name}</Marquee>
               )}
               {docs.length > 1 && (
                 <button className="doc-tab-close" onClick={(e) => deleteDoc(d.id, e)}>

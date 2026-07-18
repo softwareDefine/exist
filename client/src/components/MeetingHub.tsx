@@ -8,6 +8,7 @@ import CollabFiles from './CollabFiles';
 import DecisionLedger from './DecisionLedger';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
+import Marquee from './Marquee';
 import MeetingSchedule from './MeetingSchedule';
 import RecapPanel from './RecapPanel';
 import { togglePin, isPinned, PINS_EVENT } from '../lib/pins';
@@ -915,9 +916,9 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                   {messages.length > 0 ? (
                     <div className="hub-preview">
                       {messages.slice(-3).map((m, i) => (
-                        <div key={i} className="hub-preview-msg">
+                        <Marquee key={i} className="hub-preview-msg">
                           <b>{m.from}</b> {m.text}
-                        </div>
+                        </Marquee>
                       ))}
                     </div>
                   ) : (
@@ -965,7 +966,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                                 <span className="hub-todo-check" aria-hidden>
                                   <CheckMarkIcon size={16} />
                                 </span>
-                                <span className="hub-todo-text">{t.title}</span>
+                                <Marquee className="hub-todo-text">{t.title}</Marquee>
                               </label>
                               {t.author && <span className="hub-todo-author">{t.author}</span>}
                               <button
@@ -1018,14 +1019,14 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                                         <span className="hub-pcard-badge admin">관리자</span>
                                       )}
                                     </span>
-                                    <span className="hub-pcard-sub">
+                                    <Marquee className="hub-pcard-sub">
                                       {p.position && <b className="hub-pcard-pos">{p.position}</b>}
                                       {p.position && (p.department || detail.orgName) && ' · '}
                                       {p.department || (detail.orgName ? '부서 미지정' : '')}
                                       {p.username === detail.host && (
                                         <span className="hub-pcard-host"> · 호스트</span>
                                       )}
-                                    </span>
+                                    </Marquee>
                                   </span>
                                   <i
                                     className="presence-dot"
@@ -1357,7 +1358,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                     onClick={() => setActiveChannel(ch.id)}
                   >
                     <span className="hub-channel-hash">#</span>
-                    <span className="hub-channel-name">{ch.name}</span>
+                    <Marquee className="hub-channel-name">{ch.name}</Marquee>
                     {(channelUnread[ch.id] ?? 0) > 0 && <i className="hub-channel-dot" />}
                     {detail?.isHost && !ch.isDefault && (
                       <span

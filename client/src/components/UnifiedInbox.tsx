@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import Avatar from './Avatar';
+import Marquee from './Marquee';
 import MeetingThumb from './MeetingThumb';
 import { DmWindow, relTime, type Thread, type SearchHit, type DmScope } from './DirectMessages';
 
@@ -174,10 +175,10 @@ export default function UnifiedInbox({ scope }: { scope: DmScope }) {
             )}
             <div className="dm-item-main">
               <div className="dm-item-top">
-                <span className="dm-item-name">{it.name}</span>
+                <Marquee className="dm-item-name">{it.name}</Marquee>
                 {it.lastTs > 0 && <span className="dm-item-time">{relTime(it.lastTs)}</span>}
               </div>
-              <div className="dm-item-preview">
+              <Marquee className="dm-item-preview">
                 {it.lastText ? (
                   <>
                     {it.lastMine && <span className="dm-item-me">나: </span>}
@@ -188,7 +189,7 @@ export default function UnifiedInbox({ scope }: { scope: DmScope }) {
                     {it.sub || (it.kind === 'group' ? '아직 메시지가 없어요' : '대화 시작하기')}
                   </span>
                 )}
-              </div>
+              </Marquee>
             </div>
             {it.unread > 0 && <span className="dm-item-badge">{it.unread > 9 ? '9+' : it.unread}</span>}
           </button>
