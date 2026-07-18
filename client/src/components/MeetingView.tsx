@@ -159,7 +159,11 @@ export default function MeetingView({
   const [locked, setLocked] = useState(false);
   // 음성 전사(STT) — 내 발화를 브라우저가 전사해 서버로 (recap·결정 원장·AI 총무 근거)
   const [sttOn, setSttOn] = useState(true);
-  const [caption, setCaption] = useState<{ username: string; text: string } | null>(null);
+  const [caption, setCaption] = useState<{
+    username: string;
+    text: string;
+    interim?: boolean;
+  } | null>(null);
 
   const producersRef = useRef<{
     audio?: Producer;
@@ -437,10 +441,11 @@ export default function MeetingView({
       // 라이브 자막 — 누군가의 발화가 전사되면 하단에 잠깐 표시
       socket.on(
         'voice:caption',
-        ({ username, text }: { username: string; text: string }) => {
-          setCaption({ username, text });
+        ({ username, text, interim }: { username: string; text: string; interim?: boolean }) => {
+          setCaption({ username, text, interim });
           if (captionTimer.current) clearTimeout(captionTimer.current);
-          captionTimer.current = setTimeout(() => setCaption(null), 4000);
+          // 미확정은 짧게(다음 갱신이 금방 옴), 확정은 읽을 시간 확보
+          captionTimer.current = setTimeout(() => setCaption(null), interim ? 2500 : 4000);
         },
       );
       socket.on('room:locked', ({ locked }: { locked: boolean }) => setLocked(locked));
@@ -861,8 +866,9 @@ export default function MeetingView({
 
         {/* 라이브 자막 — 발화가 전사되는 순간 표시 (recap·결정 원장의 근거가 됨) */}
         {caption && (
-          <div className="call-caption">
+          <div className={`call-caption${caption.interim ? ' interim' : ''}`}>
             <b>{caption.username}</b> {caption.text}
+            {caption.interim && '…'}
           </div>
         )}
 

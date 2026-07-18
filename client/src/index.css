@@ -8775,6 +8775,12 @@ input:focus {
   margin-right: 6px;
 }
 
+/* 미확정(interim) 자막 — 말하는 도중의 추측이라 흐리게, 확정되면 또렷해짐 */
+.call-caption.interim {
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(0, 0, 0, 0.55);
+}
+
 /* CC(음성 기록) 토글 */
 .meeting-controls .stt-toggle {
   font-size: 13px;
