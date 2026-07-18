@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
+import Logo from '../components/Logo';
 import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspacePanel';
-import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, HistoryIcon, PinIcon } from '../components/Icons';
+import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, HistoryIcon, PinIcon, HomeIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
 import MeetingThumb from '../components/MeetingThumb';
@@ -17,6 +18,57 @@ export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(
     () => localStorage.getItem('exist:sidebar') !== 'closed',
   );
+
+  // 모바일 — 왼쪽 아이콘 레일 상시 고정. 홈↔그룹 이동은 레일 탭으로만
+  // (대시보드에선 페이지 스와이프 없음 — 스와이프는 그룹 서브 화면 나가기 전용)
+
+  // ── 태블릿(768~1023) — 사이드바(로고 포함)가 왼쪽 가장자리 스와이프로 나오는 드로어 ──
+  const TABLET_MQ = '(min-width: 768px) and (max-width: 1023px)';
+  const [tabletDrawer, setTabletDrawer] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(TABLET_MQ);
+    const onChange = () => {
+      if (!mq.matches) setTabletDrawer(false);
+    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const tabSwipe = useRef<{ x: number; y: number; edge: boolean } | null>(null);
+  function onTabPointerDown(e: React.PointerEvent) {
+    if (!window.matchMedia(TABLET_MQ).matches) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // 가로 제스처가 기능인 요소 위에선 무시 (탭바·채널·에디터류)
+    const blocked = (e.target as Element).closest?.(
+      '.hub-tabs, .hub-channels-list, .workspace-tabs, canvas, .cm-editor, [contenteditable="true"], ' +
+        '.sheet-scroll, .slide-el, .doc-tools, .sheet-toolbar, .sheet-bar, .slide-bar, .vsc-tabbar, .slide-list',
+    );
+    tabSwipe.current = {
+      x: e.clientX,
+      y: e.clientY,
+      // 화면 왼쪽 절반에서 시작한 →스와이프로 열기
+      edge: !blocked && e.clientX < window.innerWidth / 2,
+    };
+  }
+  /** 임계값을 넘는 즉시 발동 — pointerup을 기다리면 브라우저 스크롤 가로채기(pointercancel)에 씹힌다 */
+  function onTabPointerMove(e: React.PointerEvent) {
+    const s = tabSwipe.current;
+    if (!s || !window.matchMedia(TABLET_MQ).matches) return;
+    if (e.pointerType === 'mouse' && e.buttons === 0) {
+      tabSwipe.current = null;
+      return;
+    }
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    tabSwipe.current = null; // 한 제스처당 한 번만
+    if (dx > 0 && s.edge && !tabletDrawer) setTabletDrawer(true);
+    else if (dx < 0 && tabletDrawer) setTabletDrawer(false);
+  }
+  function onTabPointerEnd() {
+    tabSwipe.current = null;
+  }
+
   const [code, setCode] = useState('');
   const [recent, setRecent] = useState<Meeting[]>([]);
   const [schedule, setSchedule] = useState<Meeting[]>([]);
@@ -46,9 +98,15 @@ export default function DashboardPage() {
   function openMeetingTab(code: string, title: string, tab?: string) {
     setMeetingRequest({ code, title, ts: Date.now(), tab });
     setFocusedCode(code); // nowbar가 이 회의 그룹을 띄우도록
+    setTabletDrawer(false); // 태블릿 드로어: 그룹 고르면 닫기
   }
 
   function toggleSidebar() {
+    // 태블릿에선 접기 대신 드로어 토글
+    if (window.matchMedia(TABLET_MQ).matches) {
+      setTabletDrawer((v) => !v);
+      return;
+    }
     setSidebarOpen((v) => {
       const next = !v;
       localStorage.setItem('exist:sidebar', next ? 'open' : 'closed');
@@ -194,8 +252,27 @@ export default function DashboardPage() {
         onSchedule={() => openCreate(true)}
         onToggleSidebar={toggleSidebar}
       />
-      <main className={`dashboard${sidebarOpen ? '' : ' collapsed'}`}>
+      <main
+        className={`dashboard${sidebarOpen ? '' : ' collapsed'}${tabletDrawer ? ' t-open' : ''}`}
+        onPointerDown={onTabPointerDown}
+        onPointerMove={onTabPointerMove}
+        onPointerUp={onTabPointerEnd}
+        onPointerCancel={onTabPointerEnd}
+      >
         <aside>
+          {/* 태블릿 드로어 상단 로고 (모바일·데스크톱에선 숨김 — 데스크톱은 헤더에 있음) */}
+          <div className="drawer-logo">
+            <Logo />
+          </div>
+          {/* 모바일 전용 — 탭바가 없어서 드로어에서 홈으로 이동 */}
+          <button
+            className="drawer-home"
+            onClick={() => window.dispatchEvent(new Event('exist:go-home'))}
+          >
+            <HomeIcon size={20} />
+            <span className="drawer-home-label">홈 대시보드</span>
+          </button>
+
           <OrgSwitcher />
 
           <div className="join-card">
@@ -258,12 +335,22 @@ export default function DashboardPage() {
             )}
           </div>
 
+          {/* 모바일 레일 전용 — 새 그룹 만들기 (데스크톱은 그룹 입장 카드의 +) */}
+          <button className="drawer-add" onClick={() => openCreate(false)} title="새 그룹 만들기">
+            +
+          </button>
+
         </aside>
 
         <div className="workspace-col">
           {message && <div className="dash-message">{message}</div>}
           <WorkspacePanel meetingRequest={meetingRequest} />
         </div>
+
+        {/* 태블릿 드로어 스크림 — 탭하면 닫힘 */}
+        {tabletDrawer && (
+          <button className="t-scrim" aria-label="사이드바 닫기" onClick={() => setTabletDrawer(false)} />
+        )}
       </main>
 
       <CreateMeetingModal

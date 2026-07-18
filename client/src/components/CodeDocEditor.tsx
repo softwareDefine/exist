@@ -206,6 +206,8 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   const [showOutput, setShowOutput] = useState(false);
   const [running, setRunning] = useState(false);
   const [showGit, setShowGit] = useState(false);
+  // 모바일 — 탐색기가 오버레이 서랍이라 열림 상태 관리 (데스크톱은 상시 표시, CSS로 무시)
+  const [sideOpen, setSideOpen] = useState(false);
   const [git, setGit] = useState({
     remote: localStorage.getItem('exist:git-remote') ?? '',
     token: '',
@@ -469,6 +471,7 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
   function openFile(id: string) {
     setActiveId(id);
     setOpenTabs((tabs) => (tabs.includes(id) ? tabs : [...tabs, id]));
+    setSideOpen(false); // 모바일 서랍: 파일 고르면 닫고 에디터 보여주기
   }
   function closeTab(id: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -716,8 +719,9 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
 
   return (
     <div className={`vsc ${appDark ? 'dark' : 'light'}`}>
-      {/* 파일 탐색기 */}
-      <div className="vsc-sidebar">
+      {/* 파일 탐색기 — 모바일에선 ☰로 여닫는 오버레이 서랍 */}
+      {sideOpen && <div className="vsc-side-scrim" onClick={() => setSideOpen(false)} />}
+      <div className={`vsc-sidebar${sideOpen ? ' m-open' : ''}`}>
         <div className="vsc-sidebar-head">
           <span>탐색기{currentDir && <span className="vsc-curdir"> · {basename(currentDir)}/</span>}</span>
           <span className="vsc-head-btns">
@@ -755,6 +759,13 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
       {/* 에디터 영역 */}
       <div className="vsc-main">
         <div className="vsc-tabbar">
+          <button
+            className="vsc-side-toggle"
+            onClick={() => setSideOpen((v) => !v)}
+            title="파일 탐색기"
+          >
+            ☰
+          </button>
           <div className="vsc-tabs">
             {openTabs.map((id) => {
               const f = files.find((x) => x.id === id);

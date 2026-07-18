@@ -52,6 +52,10 @@ export default function OrgSwitcher() {
         <ChevronIcon size={15} />
       </button>
 
+      {/* 모바일 — 메뉴가 중앙 팝업이라 뒤를 덮는 스크림 (데스크톱은 CSS로 숨김) */}
+      {open && (
+        <button className="org-menu-scrim" aria-label="닫기" onClick={() => setOpen(false)} />
+      )}
       {open && (
         <div className="org-menu">
           <div className="org-menu-section">

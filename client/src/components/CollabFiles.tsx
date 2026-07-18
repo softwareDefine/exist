@@ -6,6 +6,7 @@ import DocEditor from './DocEditor';
 import SheetEditor from './SheetEditor';
 import SlideEditor from './SlideEditor';
 import CanvasBoard from './CanvasBoard';
+import Marquee from './Marquee';
 import {
   FolderIcon,
   CodeIcon,
@@ -305,7 +306,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
             <span className={`cf-icon ${active.type}`}>
               <TypeIcon type={active.type} />
             </span>
-            <span className="cf-editor-name">{active.name}</span>
+            <Marquee className="cf-editor-name">{active.name}</Marquee>
           </div>
         )}
         {openedFiles.map((f) => (

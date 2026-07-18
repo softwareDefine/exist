@@ -23,6 +23,7 @@ import {
   ListIcon,
   CheckMarkIcon,
   PinIcon,
+  ChevronIcon,
 } from './Icons';
 
 interface Participant {
@@ -179,6 +180,88 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
   const [subtab, setSubtab] = useState<SubTab>('dash');
   const [inCall, setInCall] = useState(false);
+
+  // 모바일 — 서브 화면이 대시보드 위 오버레이로 뜨고, 드래그하면 아래 대시보드가 보인다
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const onChange = () => setIsMobile(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  // 서브 화면이 열리면 nowbar shade(팝업)는 닫는다 — 레이어가 겹치지 않게
+  useEffect(() => {
+    if (subtab !== 'dash') window.dispatchEvent(new Event('exist:close-shade'));
+  }, [subtab]);
+
+  // 모바일 — 서브 화면(오버레이)을 좌우로 밀어서 나가기. 아래에 보이는 게 대시보드니까
+  // 탭 간 이동이 아니라 대시보드 복귀가 맞다. 탭 진입은 대시보드 메뉴 타일로.
+  const swipeRef = useRef<{ x: number; y: number; skip: boolean; moving: boolean } | null>(null);
+  // 드래그 중 화면 x 오프셋 — 손가락을 따라감. null = 드래그 아님(트랜지션으로 복귀)
+  const [swipeDx, setSwipeDx] = useState<number | null>(null);
+
+  // Pointer Events — 터치·마우스 둘 다 발화
+  function onHubPointerDown(e: React.PointerEvent) {
+    if (subtab === 'dash' || !window.matchMedia('(max-width: 767px)').matches) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.stopPropagation(); // 페이지 스와이프(홈/그룹 전환)와 분리
+    swipeRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      // 예외 — 가로 드래그가 기능인 곳(캔버스·에디터·시트 스크롤·발표 요소) + 에디터 툴바류(오발 방지)
+      skip: !!(e.target as Element).closest?.(
+        'canvas, [contenteditable="true"], .cm-editor, .sheet-scroll, .slide-el, ' +
+          '.doc-tools, .sheet-toolbar, .sheet-bar, .slide-bar, .vsc-tabbar, .cf-editor-bar, .slide-list',
+      ),
+      moving: false,
+    };
+  }
+
+  function onHubPointerMove(e: React.PointerEvent) {
+    const s = swipeRef.current;
+    if (!s || s.skip || subtab === 'dash') return;
+    // 창 밖에서 마우스를 놓은 채 돌아온 경우 정리
+    if (e.pointerType === 'mouse' && e.buttons === 0) {
+      swipeRef.current = null;
+      setSwipeDx(null);
+      return;
+    }
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (!s.moving) {
+      // 수평 의도가 분명해질 때까지 대기 (세로 스크롤 방해 금지)
+      if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      s.moving = true;
+      // 스크롤 등으로 타겟이 이벤트를 놓쳐도 끝까지 우리가 받도록
+      try {
+        (e.currentTarget as Element).setPointerCapture(e.pointerId);
+      } catch {
+        /* 이미 해제된 포인터 등 — 무시 */
+      }
+    }
+    setSwipeDx(dx);
+  }
+
+  function onHubPointerUp(e: React.PointerEvent) {
+    if (subtab === 'dash') return;
+    e.stopPropagation();
+    const s = swipeRef.current;
+    swipeRef.current = null;
+    setSwipeDx(null);
+    if (!s || s.skip) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    // 어느 방향이든 충분히 밀면 대시보드로 나가기 (통화는 inCall이면 미니 PiP로 유지됨)
+    setSubtab('dash');
+  }
+
+  // pointercancel — 좌표를 믿을 수 없으니 내비게이션 없이 원위치만
+  function onHubPointerAbort() {
+    swipeRef.current = null;
+    setSwipeDx(null);
+  }
   const [copied, setCopied] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -634,7 +717,13 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const range = detail ? formatRange(detail.starts_at, detail.ends_at) : null;
 
   return (
-    <div className="meeting-hub">
+    <div
+      className="meeting-hub"
+      onPointerDown={onHubPointerDown}
+      onPointerMove={onHubPointerMove}
+      onPointerUp={onHubPointerUp}
+      onPointerCancel={onHubPointerAbort}
+    >
       {/* 서브탭 — 대시보드가 메인 */}
       <div className="hub-tabs">
         <button
@@ -684,8 +773,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       </div>
 
       <div className="hub-body">
-        {/* 대시보드 (메인) */}
-        {subtab === 'dash' && (
+        {/* 대시보드 (메인) — 모바일에선 서브 화면 오버레이 아래층으로 항상 렌더 */}
+        {(subtab === 'dash' || isMobile) && (
           <div className="hub-dash">
             {!detail ? (
               <div className="hub-loading">그룹 정보를 불러오는 중…</div>
@@ -745,6 +834,31 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                       <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여'}
                     </button>
                   </div>
+                </section>
+
+                {/* 모바일 전용 메뉴 — 상단 탭 대신 대시보드에서 각 화면을 새 창처럼 연다 */}
+                <section className="hub-m-menu">
+                  <button className="hub-m-item" onClick={() => setSubtab('schedule')}>
+                    <CalendarIcon size={19} /> 일정
+                  </button>
+                  <button className="hub-m-item" onClick={() => setSubtab('call')}>
+                    <PhoneIcon size={19} /> 통화
+                    {(detail?.online ?? 0) > 0 && (
+                      <span className="hub-tab-count">{detail!.online}</span>
+                    )}
+                  </button>
+                  <button className="hub-m-item" onClick={() => setSubtab('chat')}>
+                    <ChatIcon size={19} /> 채팅
+                  </button>
+                  <button className="hub-m-item" onClick={() => setSubtab('files')}>
+                    <FolderIcon size={19} /> 공동편집
+                  </button>
+                  <button className="hub-m-item" onClick={() => setSubtab('decisions')}>
+                    <CheckMarkIcon size={19} /> 결정
+                  </button>
+                  <button className="hub-m-item" onClick={() => setSubtab('settings')}>
+                    <GearIcon size={19} /> 설정
+                  </button>
                 </section>
 
                 {/* 본문: 메인 + 사이드 (Teams식 2단) */}
@@ -928,6 +1042,32 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                 </div>
               </>
             )}
+          </div>
+        )}
+
+        {/* ── 서브 화면 오버레이 — 데스크톱은 display:contents(무영향), 모바일은 대시보드 위 레이어 ── */}
+        <div
+          className={`hub-m-screen${subtab !== 'dash' ? ' open' : ''}${swipeDx != null ? ' m-swiping' : ''}`}
+          style={swipeDx != null ? { transform: `translateX(${swipeDx}px)` } : undefined}
+        >
+        {/* 모바일 — 서브 화면 상단 뒤로가기 바 */}
+        {subtab !== 'dash' && (
+          <div className="hub-m-back">
+            <button onClick={() => setSubtab('dash')} aria-label="대시보드로">
+              <ChevronIcon size={20} />
+            </button>
+            <span>
+              {
+                {
+                  schedule: '일정',
+                  call: '통화',
+                  chat: '채팅',
+                  files: '공동편집',
+                  decisions: '결정',
+                  settings: '설정',
+                }[subtab]
+              }
+            </span>
           </div>
         )}
 
@@ -1353,6 +1493,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

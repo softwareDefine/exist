@@ -6,6 +6,7 @@ import SettingsModal from './SettingsModal';
 import NotificationCenter from './NotificationCenter';
 import Avatar from './Avatar';
 import MeetingThumb from './MeetingThumb';
+import Marquee from './Marquee';
 import {
   PanelLeftIcon,
   CheckMarkIcon,
@@ -136,11 +137,27 @@ function relTime(ts: number): string {
 
 const NOTIF_FLASH_MS = 8000;
 
-/** "7월 8일 (오후) 4시 40분" 형식 */
+/** "7월 8일 (오후) 4시 40분" 형식 — 확장 패널 등 문자열이 필요한 곳용 */
 function formatNow(d: Date): string {
   const ampm = d.getHours() < 12 ? '오전' : '오후';
   const h12 = d.getHours() % 12 || 12;
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${ampm}) ${h12}시 ${d.getMinutes()}분`;
+}
+
+/** 헤더 시계 — 좁은 데스크톱에선 "7월 18일" / "(오후) 9시 19분" 2줄로 접힘 (줄바꿈은 CSS) */
+function NowClock({ now }: { now: Date }) {
+  const ampm = now.getHours() < 12 ? '오전' : '오후';
+  const h12 = now.getHours() % 12 || 12;
+  return (
+    <span className="nowbar-clock">
+      <span className="nowbar-clock-date">
+        {now.getMonth() + 1}월 {now.getDate()}일
+      </span>{' '}
+      <span className="nowbar-clock-time">
+        ({ampm}) {h12}시 {now.getMinutes()}분
+      </span>
+    </span>
+  );
 }
 
 /** "3시간 30분 뒤" */
@@ -227,12 +244,10 @@ function CurrentBlock({
         className="nb-thumb"
       />
       <div className="nb-current-text">
-        <div className="title" title={ctx.meeting.title}>
-          {ctx.meeting.title}
-        </div>
-        <div className="countdown">
+        <Marquee className="title">{ctx.meeting.title}</Marquee>
+        <Marquee className="countdown">
           <b>{ctx.ongoing ? '종료' : '시작'}</b> {ctx.label}
-        </div>
+        </Marquee>
       </div>
     </div>
   );
@@ -373,6 +388,36 @@ export default function NowBar({
   const [rotateIdx, setRotateIdx] = useState(0); // AI 모드에서 회의 그룹 번갈아 띄우기
   const [avatar, setAvatar] = useState('🐧');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // 모바일 — 헤더에 프로필이 없어서 홈 대시보드 히어로가 이 이벤트로 설정을 연다
+  useEffect(() => {
+    const onOpen = () => setSettingsOpen(true);
+    const onCloseShade = () => setShadeOpen(false);
+    window.addEventListener('exist:open-settings', onOpen);
+    window.addEventListener('exist:close-shade', onCloseShade);
+    return () => {
+      window.removeEventListener('exist:open-settings', onOpen);
+      window.removeEventListener('exist:close-shade', onCloseShade);
+    };
+  }, []);
+  // 모바일 — 폰 알림바처럼: 접힌 한 줄 바(.nb-mini), 탭하면 카드가 아래로 펼쳐짐(shade)
+  const [shadeOpen, setShadeOpen] = useState(false);
+  // 모바일 통합 알림 — 미니바 벨 뱃지용 미읽음 수 (벨 탭 → shade 알림 카드 + 읽음 처리)
+  const [notifUnread, setNotifUnread] = useState(0);
+
+  /** 모바일 — 카드(pill) 탭으로 shade 토글. 내부 버튼(점·AI 토글·참여 등) 클릭은 제외.
+   *  미읽음 알림이 있으면 알림 카드로 열면서 읽음 처리 (별도 벨 없이 카드에 통합) */
+  function onPillTap(e: React.MouseEvent) {
+    if (!window.matchMedia('(max-width: 767px)').matches) return;
+    if ((e.target as Element).closest?.('button')) return;
+    const opening = !shadeOpen;
+    if (opening && notifUnread > 0) {
+      pauseAuto(); // auto 모드가 카드를 되돌리지 않게 잠깐 수동
+      setCard(NOTIF_CARD);
+      setNotifUnread(0);
+      void api('/api/notifications/read', { method: 'POST' }).catch(() => {});
+    }
+    setShadeOpen(opening);
+  }
   const [notifs, setNotifs] = useState<NotifItem[]>([]);
   const [notifFlash, setNotifFlash] = useState(false);
   const wheelLock = useRef(0);
@@ -393,8 +438,11 @@ export default function NowBar({
 
   // 알림 — 초기 로드 + 실시간 수신(새 알림 오면 알림 카드로 잠깐 플래시)
   useEffect(() => {
-    void api<{ items: NotifItem[] }>('/api/notifications')
-      .then((d) => setNotifs(d.items.slice(0, 10)))
+    void api<{ unread: number; items: NotifItem[] }>('/api/notifications')
+      .then((d) => {
+        setNotifs(d.items.slice(0, 10));
+        setNotifUnread(d.unread ?? 0);
+      })
       .catch(() => {});
 
     const socket = getSocket();
@@ -405,6 +453,7 @@ export default function NowBar({
       setNotifs((prev) =>
         prev.some((x) => x.id === n.id) ? prev : [{ ...n, ts }, ...prev].slice(0, 10),
       );
+      setNotifUnread((u) => u + 1);
       playNotifSound(n.kind); // 알림음 (통화/일반 구분)
       setNotifFlash(true);
       if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -592,9 +641,10 @@ export default function NowBar({
     return () => clearInterval(t);
   }, [auto]);
 
-  // 사이드바에서 회의를 직접 고르면 수동 모드로 전환 (그 회의를 따라감)
+  // 사이드바에서 회의를 직접 고르면 수동 모드로 전환 (그 회의를 따라감).
+  // 모바일은 풀 AI 모드 — 토글·점이 없으니 수동으로 빠지면 복귀 수단이 없다
   useEffect(() => {
-    if (focusedCode) setAuto(false);
+    if (focusedCode && !window.matchMedia('(max-width: 767px)').matches) setAuto(false);
   }, [focusedCode]);
 
   // 선택 그룹의 다가오는 일정 (최대 4개 = 2×2)
@@ -630,15 +680,16 @@ export default function NowBar({
 
   if (isEmpty) {
     return (
-      <header className="nowbar">
+      <header className={`nowbar${shadeOpen ? ' shade-open' : ''}`}>
         <Logo />
         <SidebarToggle onToggle={onToggleSidebar} />
-        <div className="nowbar-pill">
+        <div className="nowbar-pill" onClick={onPillTap}>
           <div className="nowbar-card front nb-onboard">
             ✨ 일정이나 할 일을 추가해 <b>nowbar</b>를 사용해보세요
           </div>
         </div>
-        <span className="nowbar-clock">{formatNow(now)}</span>
+        {shadeOpen && <button className="nb-shade-scrim" onClick={() => setShadeOpen(false)} />}
+        <NowClock now={now} />
         <ThemeToggle />
         <NotificationCenter />
         <ProfileMenu avatar={avatar} onOpenSettings={() => setSettingsOpen(true)} />
@@ -653,11 +704,19 @@ export default function NowBar({
   }
 
   return (
-    <header className="nowbar">
+    <header className={`nowbar${shadeOpen ? ' shade-open' : ''}`}>
       <Logo />
       <SidebarToggle onToggle={onToggleSidebar} />
 
-      <div className="nowbar-pill" onWheel={onWheel} title="스크롤로 카드 전환">
+      {shadeOpen && <button className="nb-shade-scrim" onClick={() => setShadeOpen(false)} />}
+
+      <div className="nowbar-pill" onWheel={onWheel} onClick={onPillTap} title="스크롤로 카드 전환">
+        {/* 모바일 통합 알림 뱃지 — 탭하면 shade가 알림 카드로 열리며 읽음 처리 */}
+        {notifUnread > 0 && (
+          <span className="nb-pill-count" aria-label={`안 읽은 알림 ${notifUnread}개`}>
+            {notifUnread > 9 ? '9+' : notifUnread}
+          </span>
+        )}
         {/* 카드 1 — 다음/이전 일정 모드 (최대 2×2) */}
         <div className={`nowbar-card${stackCls(0)}`}>
           <CurrentBlock ctx={ctx} onOpen={onOpenMeeting} />
@@ -739,10 +798,8 @@ export default function NowBar({
             <div className="nb-current-text">
               {notifs.length > 0 ? (
                 <>
-                  <div className="title" title={notifs[0].text}>
-                    {notifs[0].from}
-                  </div>
-                  <div className="countdown">{notifs[0].text}</div>
+                  <Marquee className="title">{notifs[0].from}</Marquee>
+                  <Marquee className="countdown">{notifs[0].text}</Marquee>
                 </>
               ) : (
                 <>
@@ -974,7 +1031,7 @@ export default function NowBar({
         </div>
       </div>
 
-      <span className="nowbar-clock">{formatNow(now)}</span>
+      <NowClock now={now} />
 
       <ThemeToggle />
       <NotificationCenter />

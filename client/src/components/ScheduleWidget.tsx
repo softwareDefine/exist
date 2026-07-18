@@ -53,7 +53,7 @@ export default function ScheduleWidget({
   const selLabel = `${sel.getMonth() + 1}월 ${sel.getDate()}일 (${WD[sel.getDay()]})`;
 
   return (
-    <div style={wrap}>
+    <div className="schedw">
       {/* ── 미니 달력 ── */}
       <div style={calSide}>
         <div style={calHead}>
@@ -124,11 +124,7 @@ function dowColor(i: number) {
   return i === 0 ? '#e5484d' : i === 6 ? '#3b7cff' : 'var(--text)';
 }
 
-const wrap: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(200px, 1fr) 1fr',
-  gap: 20,
-};
+// 그리드 컨테이너(.schedw)는 index.css — 인라인이면 미디어쿼리가 못 건드림
 const calSide: CSSProperties = {};
 const calHead: CSSProperties = {
   display: 'flex',

@@ -114,12 +114,12 @@ export default function ProfileDashboard() {
   if (org !== 'personal') {
     const orgName = orgs.find((o) => o.id === org)?.name ?? '조직';
     return (
-      <div style={wrap}>
-        <div style={heroOrg}>
-          <div style={heroAvatar}>👥</div>
+      <div className="pd-wrap" style={wrap}>
+        <div className="pd-hero org">
+          <div className="pd-hero-avatar">👥</div>
           <div>
             <div style={heroGreeting}>🏢 {orgName} · {greeting()}</div>
-            <div style={heroName}>{orgName} 팀</div>
+            <div className="pd-hero-name">{orgName} 팀</div>
             <div style={heroChips}>
               <span style={heroChip}>📊 팀 협업 현황을 아래에서 한눈에</span>
             </div>
@@ -142,7 +142,7 @@ export default function ProfileDashboard() {
           <InsightsPanel orgId={org} />
         </div>
 
-        <div style={{ ...section, maxWidth: '50%', minHeight: 420 }}>
+        <div className="pd-org-inbox" style={{ ...section, minHeight: 420 }}>
           <div style={sectionHead}><span style={headIcon}><ChatIcon size={16} /></span> 통합 메시지</div>
           <UnifiedInbox scope={org} />
         </div>
@@ -152,9 +152,14 @@ export default function ProfileDashboard() {
 
   // ── 개인 홈 (내 중심) ──
   return (
-    <div style={wrap}>
-      <div style={heroPersonal}>
-        <div style={heroAvatar}>
+    <div className="pd-wrap" style={wrap}>
+      <div className="pd-hero personal">
+        {/* 모바일: 헤더에 프로필이 없어서 여기가 프로필 수정 진입점 (✎ 뱃지는 모바일만 표시) */}
+        <button
+          className="pd-hero-avatar pd-hero-edit"
+          onClick={() => window.dispatchEvent(new Event('exist:open-settings'))}
+          title="프로필 수정"
+        >
           {avatarIsImg ? (
             <img
               src={avatarVal}
@@ -164,10 +169,13 @@ export default function ProfileDashboard() {
           ) : (
             avatarVal
           )}
-        </div>
+          <span className="pd-hero-edit-badge" aria-hidden>
+            ✎
+          </span>
+        </button>
         <div>
           <div style={heroGreeting}>👤 개인 워크스페이스 · {greeting()}</div>
-          <div style={heroName}>{user?.username ?? '게스트'}님 👋</div>
+          <div className="pd-hero-name">{user?.username ?? '게스트'}님 👋</div>
           <div style={heroChips}>
             <span style={heroChip}>
               <b style={heroChipVal}>{ov?.meetingCount ?? '–'}</b> 참여 그룹
@@ -195,39 +203,39 @@ export default function ProfileDashboard() {
 
       <div style={section}>
         <div style={sectionHead}><span style={headIcon}><ChartIcon size={16} /></span> 내 지표</div>
-        <div style={statRow}>
-          <div style={statCard}>
-            <div style={statIcon}><UsersIcon size={19} /></div>
+        <div className="pd-stats">
+          <div className="pd-stat">
+            <div className="pd-stat-icon"><UsersIcon size={19} /></div>
             <div>
-              <div style={statNum}>{ov?.meetingCount ?? 0}</div>
-              <div style={statLabel}>참여 그룹</div>
+              <div className="pd-stat-num">{ov?.meetingCount ?? 0}</div>
+              <div className="pd-stat-label">참여 그룹</div>
             </div>
           </div>
-          <div style={statCard}>
-            <div style={statIcon}><CheckMarkIcon size={19} /></div>
+          <div className="pd-stat">
+            <div className="pd-stat-icon"><CheckMarkIcon size={19} /></div>
             <div>
-              <div style={statNum}>{donePct}%</div>
-              <div style={statLabel}>할 일 완료율</div>
+              <div className="pd-stat-num">{donePct}%</div>
+              <div className="pd-stat-label">할 일 완료율</div>
             </div>
           </div>
-          <div style={statCard}>
-            <div style={statIcon}><ListIcon size={19} /></div>
+          <div className="pd-stat">
+            <div className="pd-stat-icon"><ListIcon size={19} /></div>
             <div>
-              <div style={statNum}>{doneCount}/{todos.length}</div>
-              <div style={statLabel}>완료한 할 일</div>
+              <div className="pd-stat-num">{doneCount}/{todos.length}</div>
+              <div className="pd-stat-label">완료한 할 일</div>
             </div>
           </div>
-          <div style={statCard}>
-            <div style={statIcon}><CalendarIcon size={19} /></div>
+          <div className="pd-stat">
+            <div className="pd-stat-icon"><CalendarIcon size={19} /></div>
             <div>
-              <div style={statNum}>{weekCount}</div>
-              <div style={statLabel}>이번 주 일정</div>
+              <div className="pd-stat-num">{weekCount}</div>
+              <div className="pd-stat-label">이번 주 일정</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div style={quadGrid}>
+      <div className="pd-quad">
         <div style={cellCard}>
           <div style={sectionHead}><span style={headIcon}><SparklesIcon size={16} /></span> AI 피드백</div>
           {catchup && catchup.items.length > 0 ? (
@@ -325,10 +333,10 @@ export default function ProfileDashboard() {
   );
 }
 
+// 패딩은 index.css의 .pd-wrap — 인라인이면 모바일 미디어쿼리가 못 줄임
 const wrap: CSSProperties = {
   height: '100%',
   overflow: 'auto',
-  padding: '20px 18px',
   boxSizing: 'border-box',
   background: 'var(--surface-2)',
 };
@@ -355,38 +363,8 @@ const actionBtn: CSSProperties = {
   cursor: 'pointer',
 };
 
-/* ── 히어로 배너 (개편) ── */
-const hero: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 22,
-  borderRadius: 20,
-  padding: '30px 34px',
-  marginBottom: 20,
-  color: '#fff',
-  boxShadow: '0 10px 28px rgba(0,0,0,0.14)',
-};
-const heroPersonal: CSSProperties = {
-  ...hero,
-  background: 'linear-gradient(135deg, #2c3e50 0%, #54708e 100%)',
-};
-const heroOrg: CSSProperties = {
-  ...hero,
-  background: 'linear-gradient(135deg, #178a37 0%, #21C818 100%)',
-};
-const heroAvatar: CSSProperties = {
-  width: 64,
-  height: 64,
-  borderRadius: 16,
-  background: 'rgba(255,255,255,0.2)',
-  display: 'grid',
-  placeItems: 'center',
-  fontSize: 32,
-  flexShrink: 0,
-  overflow: 'hidden',
-};
+/* ── 히어로 배너 — 레이아웃은 index.css의 .pd-hero* (모바일 축소 때문에 클래스) ── */
 const heroGreeting: CSSProperties = { fontSize: 14, opacity: 0.85 };
-const heroName: CSSProperties = { fontSize: 26, fontWeight: 700, margin: '2px 0 13px' };
 const heroChips: CSSProperties = { display: 'flex', gap: 10, flexWrap: 'wrap' };
 const heroChip: CSSProperties = {
   background: 'rgba(255,255,255,0.16)',
@@ -418,36 +396,10 @@ const sectionHead: CSSProperties = {
 };
 // 섹션 제목 아이콘 — 텍스트보다 한 톤 낮춘 회색
 const headIcon: CSSProperties = { color: 'var(--text-sub)', display: 'inline-flex', alignItems: 'center' };
-const quadGrid: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '2fr 1fr',
-  gap: 14,
-};
+// 그리드 컨테이너(.pd-quad, .pd-stats)는 index.css — 인라인이면 미디어쿼리가 못 건드림
 // grid 셀 카드 — section의 marginBottom을 없애 gap(14)만 세로 간격으로 적용
 const cellCard: CSSProperties = { ...section, marginBottom: 0 };
-const statRow: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: 8,
-};
-const statCard: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 13,
-  padding: '4px 2px',
-};
-const statIcon: CSSProperties = {
-  width: 40,
-  height: 40,
-  borderRadius: 11,
-  background: 'var(--surface-2)',
-  color: 'var(--green)',
-  display: 'grid',
-  placeItems: 'center',
-  flexShrink: 0,
-};
-const statNum: CSSProperties = { fontSize: 22, fontWeight: 700, color: 'var(--text)', lineHeight: 1.1 };
-const statLabel: CSSProperties = { fontSize: 12.5, color: 'var(--text-sub)', marginTop: 3 };
+// 내 지표 카드(.pd-stat*)는 index.css — 모바일에서 아이콘·글자 축소
 const listRow: CSSProperties = {
   display: 'flex',
   alignItems: 'center',

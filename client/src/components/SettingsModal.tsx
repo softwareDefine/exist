@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import Avatar from './Avatar';
+import { SunIcon, MoonIcon } from './Icons';
 
 const AVATARS = ['🐧', '🦊', '🐻', '🐼', '🐯', '🦁', '🐸', '🐰', '🦉', '🐢', '🐳', '🚀'];
 
@@ -15,6 +16,7 @@ interface Props {
 export default function SettingsModal({ open, onClose, avatar, onAvatarChange }: Props) {
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
+  const logout = useAuthStore((s) => s.logout);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -22,6 +24,15 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
   const [pwDone, setPwDone] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 다크모드 — 모바일에선 헤더 토글이 없어서 여기서 변경 (.settings-theme는 모바일에서만 노출)
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
+  function toggleTheme() {
+    const nextDark = !dark;
+    document.documentElement.classList.toggle('dark', nextDark);
+    localStorage.setItem('exist:theme', nextDark ? 'dark' : 'light');
+    setDark(nextDark);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -101,6 +112,23 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
         <div className="settings-user">
           <Avatar value={avatar} className="settings-avatar" />
           <b>{user?.username}</b>
+          {/* 모바일 전용 — 헤더 프로필 메뉴가 없어서 로그아웃이 여기 */}
+          <button className="settings-logout" onClick={logout}>
+            로그아웃
+          </button>
+        </div>
+
+        <div className="settings-theme">
+          <div className="settings-section">화면 테마</div>
+          <button type="button" className="theme-row" onClick={toggleTheme}>
+            <span className="theme-row-label">
+              {dark ? <MoonIcon size={16} /> : <SunIcon size={16} />}
+              {dark ? '다크 모드' : '라이트 모드'}
+            </span>
+            <span className={`theme-switch${dark ? ' on' : ''}`}>
+              <span className="theme-knob" />
+            </span>
+          </button>
         </div>
 
         <div className="settings-section">프로필 사진</div>

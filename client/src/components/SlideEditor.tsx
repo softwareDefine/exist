@@ -198,9 +198,9 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
     setEditingEl(null);
   }
 
-  // 드래그 이동 / 크기 조절
+  // 드래그 이동 / 크기 조절 — Pointer Events (터치·마우스 공용, 모바일 드래그 지원)
   useEffect(() => {
-    function onMove(e: MouseEvent) {
+    function onMove(e: PointerEvent) {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
@@ -230,23 +230,25 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
         document.body.style.userSelect = '';
       }
     }
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function startDrag(id: string, el: ElData, e: React.MouseEvent) {
+  function startDrag(id: string, el: ElData, e: React.PointerEvent) {
     if (editingEl === id) return;
     setSelEl(id);
     dragRef.current = { id, sx: e.clientX, sy: e.clientY, ox: el.x, oy: el.y };
     document.body.style.userSelect = 'none';
     e.preventDefault();
   }
-  function startResize(id: string, el: ElData, e: React.MouseEvent) {
+  function startResize(id: string, el: ElData, e: React.PointerEvent) {
     e.stopPropagation();
     setSelEl(id);
     resizeRef.current = { id, sx: e.clientX, sy: e.clientY, ow: el.w, oh: el.h };
@@ -309,7 +311,7 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
           color: el.color || undefined,
           cursor: editable ? (editingEl === id ? 'text' : 'move') : 'default',
         }}
-        onMouseDown={editable ? (e) => startDrag(id, el, e) : undefined}
+        onPointerDown={editable ? (e) => startDrag(id, el, e) : undefined}
         onDoubleClick={editable && isText ? () => setEditingEl(id) : undefined}
       >
         {isText &&
@@ -332,10 +334,10 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
         {isImage && <img className="slide-el-img" src={el.src} alt="" draggable={false} />}
         {editable && selEl === id && editingEl !== id && (
           <>
-            <button className="slide-el-del" onMouseDown={(e) => e.stopPropagation()} onClick={() => deleteEl(id)}>
+            <button className="slide-el-del" onPointerDown={(e) => e.stopPropagation()} onClick={() => deleteEl(id)}>
               <CloseIcon size={11} />
             </button>
-            <span className="slide-el-resize" onMouseDown={(e) => startResize(id, el, e)} />
+            <span className="slide-el-resize" onPointerDown={(e) => startResize(id, el, e)} />
           </>
         )}
       </div>

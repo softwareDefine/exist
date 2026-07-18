@@ -172,6 +172,15 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaces.length]);
 
+  // 모바일 — 탭바가 없어서 드로어의 홈 버튼이 이 이벤트로 홈 전환
+  useEffect(() => {
+    function onHome() {
+      setActive(null);
+    }
+    window.addEventListener('exist:go-home', onHome);
+    return () => window.removeEventListener('exist:go-home', onHome);
+  }, []);
+
   // ESC로 전체화면 축소
   useEffect(() => {
     if (!expanded) return;
