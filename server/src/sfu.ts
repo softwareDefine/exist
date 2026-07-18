@@ -338,6 +338,45 @@ export function attachSfu(io: Server) {
       ack?.({ ok: true });
     });
 
+    /** 통화 음성 전사 — 각자 브라우저 STT 결과를 저장 + 방에 자막 브로드캐스트.
+     *  recap·결정 원장·AI 총무가 채팅과 함께 근거로 쓴다. */
+    socket.on('voice:transcript', ({ text }: { text: string }) => {
+      if (!room || !peer) return; // 통화 중인 사람만
+      const trimmed = String(text ?? '').trim().slice(0, 500);
+      if (!trimmed) return;
+      const meeting = db.prepare('SELECT id FROM meetings WHERE code = ?').get(room.code) as
+        | { id: number }
+        | undefined;
+      if (!meeting) return;
+      db.prepare('INSERT INTO call_transcripts (meeting_id, user_id, text) VALUES (?, ?, ?)').run(
+        meeting.id,
+        peer.userId,
+        trimmed,
+      );
+      // 라이브 자막 (본인 포함 전원에게)
+      io.to(`room:${room.code}`).emit('voice:caption', {
+        peerId: socket.id,
+        username: peer.username,
+        text: trimmed,
+        ts: Date.now(),
+      });
+    });
+
+    /** 중간 전사 — 말하는 도중의 미확정 텍스트. 저장 없이 자막 브로드캐스트만
+     *  (확정 대기 딜레이 없이 자막이 실시간으로 따라오게) */
+    socket.on('voice:interim', ({ text }: { text: string }) => {
+      if (!room || !peer) return;
+      const trimmed = String(text ?? '').trim().slice(0, 500);
+      if (!trimmed) return;
+      io.to(`room:${room.code}`).emit('voice:caption', {
+        peerId: socket.id,
+        username: peer.username,
+        text: trimmed,
+        interim: true,
+        ts: Date.now(),
+      });
+    });
+
     /** 채팅 구독 — 통화 없이도 허브에서 채팅 가능 (chat:CODE 룸) */
     socket.on('chat:join', ({ code }: { code: string }, ack) => {
       const meeting = db

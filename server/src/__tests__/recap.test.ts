@@ -208,6 +208,38 @@ describe('runRecapForMeeting — 파이프라인 (통합)', () => {
     return { host, code: m.body.code as string, meetingId };
   }
 
+  it('통화 음성 전사도 recap 재료가 된다 (채팅 없이 음성만으로 결정 추출)', async () => {
+    const host = await registerUser('recap_voice');
+    const m = await request(app)
+      .post('/api/meetings')
+      .set('Authorization', `Bearer ${host.token}`)
+      .send({ title: '음성 회의' });
+    const mid = (
+      db.prepare('SELECT id FROM meetings WHERE code = ?').get(m.body.code) as { id: number }
+    ).id;
+    const uid = userId('recap_voice');
+    db.prepare('INSERT INTO call_transcripts (meeting_id, user_id, text) VALUES (?, ?, ?)').run(
+      mid,
+      uid,
+      '점검 일정은 다음 주 화요일로 확정합니다',
+    );
+    db.prepare('INSERT INTO call_transcripts (meeting_id, user_id, text) VALUES (?, ?, ?)').run(
+      mid,
+      uid,
+      '제가 체크리스트 정리할게요',
+    );
+
+    const recapId = await runRecapForMeeting(m.body.code, [uid]);
+    expect(recapId).not.toBeNull();
+    const row = db
+      .prepare('SELECT decisions, actions FROM meeting_recaps WHERE id = ?')
+      .get(recapId) as { decisions: string; actions: string };
+    expect(JSON.parse(row.decisions).length).toBe(1);
+    // 음성 화자의 "제가 …게요" 자기 배정도 동작 (화자명이 순수 username이라)
+    const actions = JSON.parse(row.actions) as { assignee: string | null }[];
+    expect(actions[0].assignee).toBe('recap_voice');
+  });
+
   it('recap·chat_reads가 있어도 회의 삭제가 된다 (FK 강제 환경 회귀 — 라이브 QA 발견 버그)', async () => {
     db.pragma('foreign_keys = ON'); // 라이브 DB가 FK를 강제하는 상황 재현
     try {

@@ -157,6 +157,9 @@ export default function MeetingView({
   const [unread, setUnread] = useState(0);
   const [isHost, setIsHost] = useState(false);
   const [locked, setLocked] = useState(false);
+  // 음성 전사(STT) — 내 발화를 브라우저가 전사해 서버로 (recap·결정 원장·AI 총무 근거)
+  const [sttOn, setSttOn] = useState(true);
+  const [caption, setCaption] = useState<{ username: string; text: string } | null>(null);
 
   const producersRef = useRef<{
     audio?: Producer;
@@ -173,6 +176,13 @@ export default function MeetingView({
   const defaultChannelRef = useRef<number | null>(null); // 통화 패널이 고정될 기본 채널
   const onLeaveRef = useRef(onLeave);
   onLeaveRef.current = onLeave;
+  // SpeechRecognition 인스턴스 — 크롬 계열만 지원, 없으면 STT 기능 숨김
+  const sttRef = useRef<{ stop(): void; start(): void } | null>(null);
+  const sttWantedRef = useRef(true); // onend 자동 재시작 여부 (침묵으로 자주 끊기므로)
+  const captionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sttSupported =
+    typeof window !== 'undefined' &&
+    !!(window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -424,6 +434,15 @@ export default function MeetingView({
         setMessages((prev) => [...prev, msg]);
         if (!chatOpenRef.current) setUnread((n) => n + 1);
       });
+      // 라이브 자막 — 누군가의 발화가 전사되면 하단에 잠깐 표시
+      socket.on(
+        'voice:caption',
+        ({ username, text }: { username: string; text: string }) => {
+          setCaption({ username, text });
+          if (captionTimer.current) clearTimeout(captionTimer.current);
+          captionTimer.current = setTimeout(() => setCaption(null), 4000);
+        },
+      );
       socket.on('room:locked', ({ locked }: { locked: boolean }) => setLocked(locked));
       socket.on('room:kicked', () => {
         onLeaveRef.current('호스트가 회의에서 내보냈습니다');
@@ -443,6 +462,7 @@ export default function MeetingView({
       socket.off('producer:paused');
       socket.off('producer:resumed');
       socket.off('chat:message');
+      socket.off('voice:caption');
       socket.off('room:locked');
       socket.off('room:kicked');
       sendTransportRef.current?.close();
@@ -451,6 +471,89 @@ export default function MeetingView({
       socket.disconnect();
     };
   }, [code, user?.username, phase]);
+
+  // ── 음성 전사(STT) — 통화 중 + 마이크 켜짐 + 자막 켜짐일 때 내 발화를 전사해 서버로 ──
+  useEffect(() => {
+    if (!sttSupported || phase !== 'live' || !micOn || !sttOn) {
+      sttWantedRef.current = false;
+      try {
+        sttRef.current?.stop();
+      } catch {
+        /* 이미 종료 */
+      }
+      sttRef.current = null;
+      return;
+    }
+    sttWantedRef.current = true;
+    interface SttEvent {
+      resultIndex: number;
+      results: { length: number; [i: number]: { isFinal: boolean; 0: { transcript: string } } };
+    }
+    interface Stt {
+      lang: string;
+      continuous: boolean;
+      interimResults: boolean;
+      onresult: ((e: SttEvent) => void) | null;
+      onend: (() => void) | null;
+      onerror: (() => void) | null;
+      start(): void;
+      stop(): void;
+    }
+    const W = window as unknown as { webkitSpeechRecognition: new () => Stt };
+    const rec = new W.webkitSpeechRecognition();
+    rec.lang = 'ko-KR';
+    rec.continuous = true;
+    // 중간 결과도 받아서 말하는 도중에 자막이 따라오게 (확정 대기 딜레이 제거)
+    rec.interimResults = true;
+    let lastInterim = 0;
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) {
+          const text = r[0].transcript.trim();
+          if (text) getSocket().emit('voice:transcript', { text }); // 확정본만 저장·기록
+        } else {
+          interim += r[0].transcript;
+        }
+      }
+      interim = interim.trim();
+      // 중간 자막은 저장 없이 브로드캐스트만 — 과호출 방지로 250ms 스로틀
+      const nowMs = Date.now();
+      if (interim && nowMs - lastInterim > 250) {
+        lastInterim = nowMs;
+        getSocket().emit('voice:interim', { text: interim });
+      }
+    };
+    // 침묵·일시 오류로 자주 끊기므로 원할 때까지 자동 재시작
+    rec.onend = () => {
+      if (sttWantedRef.current) {
+        try {
+          rec.start();
+        } catch {
+          /* 연속 start 예외 무시 */
+        }
+      }
+    };
+    rec.onerror = () => {
+      /* no-speech 등 — onend에서 재시작 */
+    };
+    try {
+      rec.start();
+    } catch {
+      /* 미지원/권한 문제 — 조용히 포기 */
+    }
+    sttRef.current = rec;
+    return () => {
+      sttWantedRef.current = false;
+      try {
+        rec.stop();
+      } catch {
+        /* 이미 종료 */
+      }
+      sttRef.current = null;
+    };
+  }, [phase, micOn, sttOn, sttSupported]);
 
   function toggleMic() {
     const p = producersRef.current.audio;
@@ -756,6 +859,13 @@ export default function MeetingView({
           </div>
         </div>
 
+        {/* 라이브 자막 — 발화가 전사되는 순간 표시 (recap·결정 원장의 근거가 됨) */}
+        {caption && (
+          <div className="call-caption">
+            <b>{caption.username}</b> {caption.text}
+          </div>
+        )}
+
         {chatOpen && (
           <aside className="chat-panel">
             <div className="chat-head">
@@ -810,6 +920,15 @@ export default function MeetingView({
         >
           <ScreenIcon size={21} />
         </button>
+        {sttSupported && (
+          <button
+            className={`stt-toggle${sttOn ? ' active' : ''}`}
+            onClick={() => setSttOn((v) => !v)}
+            title={sttOn ? '음성 기록 끄기' : '음성 기록 켜기 — 발화를 AI 총무가 기록·정리해요'}
+          >
+            CC
+          </button>
+        )}
         <button
           className={`chat-toggle${chatOpen ? ' active' : ''}`}
           onClick={() => {

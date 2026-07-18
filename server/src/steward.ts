@@ -57,7 +57,16 @@ function gatherContext(meetingId: number, channelId: number): AgentContext {
     )
     .all(meetingId, channelId)
     .reverse() as { from: string; text: string }[];
-  return { meetingTitle: meeting.title, decisions, recaps, todos, chat };
+  // 최근 통화 음성 전사도 근거에 포함
+  const voice = db
+    .prepare(
+      `SELECT u.username AS "from", t.text FROM call_transcripts t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.meeting_id = ? ORDER BY t.id DESC LIMIT 30`,
+    )
+    .all(meetingId)
+    .reverse() as { from: string; text: string }[];
+  return { meetingTitle: meeting.title, decisions, recaps, todos, chat: [...voice, ...chat] };
 }
 
 /** 규칙 폴백 — 질문 키워드에 따라 기록을 그대로 보여준다 */

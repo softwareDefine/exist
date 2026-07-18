@@ -193,14 +193,27 @@ export async function runRecapForMeeting(
     .get(meeting.id) as { t: string | null };
   const since = last.t ?? new Date(Date.now() - 24 * 3600_000).toISOString().replace('T', ' ').slice(0, 19);
 
-  const msgs = db
+  // 채팅 + 통화 음성 전사를 시간순으로 합쳐서 요약 재료로 쓴다
+  const chatMsgs = db
     .prepare(
-      `SELECT u.username AS "from", m.text FROM messages m
+      `SELECT u.username AS "from", m.text, m.created_at AS at FROM messages m
        JOIN users u ON u.id = m.user_id
        WHERE m.meeting_id = ? AND m.created_at > ? AND m.text != ''
        ORDER BY m.id ASC LIMIT 200`,
     )
-    .all(meeting.id, since) as ChatMsg[];
+    .all(meeting.id, since) as (ChatMsg & { at: string })[];
+  const voiceMsgs = db
+    .prepare(
+      `SELECT u.username AS "from", t.text, t.created_at AS at FROM call_transcripts t
+       JOIN users u ON u.id = t.user_id
+       WHERE t.meeting_id = ? AND t.created_at > ?
+       ORDER BY t.id ASC LIMIT 300`,
+    )
+    .all(meeting.id, since) as (ChatMsg & { at: string })[];
+  // 화자명은 순수 username 유지 — ruleBasedRecap의 담당자 매칭("제가 …게요")이 깨지지 않도록
+  const msgs: ChatMsg[] = [...chatMsgs, ...voiceMsgs]
+    .sort((a, b) => (a.at < b.at ? -1 : 1))
+    .map((m) => ({ from: m.from, text: m.text }));
   if (msgs.length < MIN_MESSAGES) return null;
 
   // 회의 등록 참가자 전원 (배달 대상) — 참석/불참은 sessionUserIds로 구분

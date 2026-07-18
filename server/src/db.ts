@@ -292,6 +292,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_cfiles_meeting ON collab_files(meeting_id, parent_id);
 `);
 
+/* 통화 음성 전사 — 각 참가자 브라우저의 STT(Web Speech) 결과.
+ * recap·결정 원장·AI 총무의 근거로 채팅과 함께 쓰인다. */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS call_transcripts (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id),
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    text       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_transcripts_meeting ON call_transcripts(meeting_id, id);
+`);
+
 /* P1 — 회의 통화가 끝나면 AI가 채팅에서 결정·할 일을 추출해 저장하고
  * 참석자/불참자에게 라우팅한다. decisions/actions/attendees는 JSON 텍스트. */
 db.exec(`
