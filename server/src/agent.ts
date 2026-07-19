@@ -156,29 +156,56 @@ interface Decision {
   reason: string;
 }
 
-/** OpenAI API 기반 — 브리핑 + 지금 보여줄 nowbar 카드를 함께 결정 */
+/** nowbar 브리핑 재료 — 데이터에서 직접 만든 사실 문장만.
+ *  일정이 없으면 "없다"가 사실로 들어가서 AI가 "곧 시작"을 지어낼 수 없다 (환각 방어). */
+function buildBriefFacts(ctx: UserContext): string[] {
+  const { now, todos, meetings } = ctx;
+  const facts: string[] = [];
+  const live = meetings.filter((m) => m.in_call > 0).sort((a, b) => b.in_call - a.in_call)[0];
+  if (live) facts.push(`지금 "${live.title}"에서 ${live.in_call}명이 통화 중이다`);
+  const ongoing = meetings.find(
+    (m) => m.starts_at && m.ends_at && new Date(m.starts_at) <= now && now < new Date(m.ends_at),
+  );
+  if (ongoing) facts.push(`"${ongoing.title}" 회의가 지금 진행 중이다`);
+  const upcoming = meetings
+    .filter((m) => m.starts_at && new Date(m.starts_at) > now)
+    .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime())[0];
+  if (upcoming) {
+    const min = minutesUntil(upcoming.starts_at!, now);
+    facts.push(
+      min <= 90
+        ? `"${upcoming.title}" 회의가 ${min}분 뒤에 시작한다`
+        : `다음 회의는 "${upcoming.title}"(${new Date(upcoming.starts_at!).getMonth() + 1}/${new Date(upcoming.starts_at!).getDate()})이다`,
+    );
+  } else if (!ongoing && !live) {
+    facts.push('예정된 회의가 없다');
+  }
+  const undone = todos.filter((t) => !t.done);
+  const dueSoon = undone.filter(
+    (t) => t.due_at && new Date(t.due_at).getTime() <= now.getTime() + 24 * 3600_000,
+  );
+  if (dueSoon[0]) facts.push(`24시간 내 마감 할 일: "${dueSoon[0].title}"`);
+  else if (undone.length > 0) facts.push(`미완료 할 일이 ${undone.length}개 있다`);
+  else facts.push('할 일은 모두 완료됐다');
+  return facts;
+}
+
+/** OpenAI API 기반 — 브리핑 + 지금 보여줄 nowbar 카드를 함께 결정.
+ *  자유 작문 금지: 서버가 만든 사실 문장에서 고르고 다듬기만 한다
+ *  (원본 데이터를 주면 없는 일정을 "곧 시작"이라 지어내는 사고가 실제로 났음) */
 async function aiDecision(ctx: UserContext): Promise<Decision> {
-  const payload = {
-    current_time: ctx.now.toISOString(),
-    todos: ctx.todos.map((t) => ({ title: t.title, done: !!t.done, due_at: t.due_at })),
-    meetings: ctx.meetings.map((m) => ({
-      title: m.title,
-      starts_at: m.starts_at,
-      ends_at: m.ends_at,
-      now_in_call: m.in_call, // 지금 통화 중인 인원 — 0이 아니면 가장 시급한 정보
-    })),
-  };
+  const facts = buildBriefFacts(ctx);
 
   const system =
-    '너는 재택근무 플랫폼 exist의 AI 비서로, 상단 상태바(nowbar)를 관리한다. ' +
-    'nowbar에는 카드 3개가 있고, 사용자의 일정·할 일 데이터를 보고 지금 가장 유용한 카드 하나를 고른다.\n' +
-    '카드: 0 = 일정(다가오는·예정된 회의), 1 = 할 일(미완료 todo), 2 = 진행 타임라인(지금 진행 중인 회의의 진행도).\n' +
-    '판단 기준: 지금 통화 중이거나 진행 중인 회의가 있으면 2. 곧 시작하는 회의가 임박하면 0. ' +
-    '마감이 급한 할 일이 있으면 1. 그 외엔 사용자에게 가장 도움 되는 것. ' +
-    '진행 중인 회의가 없으면 절대 2를 고르지 않는다.\n' +
-    '응답은 오직 JSON 한 개. 형식: {"brief": string, "card": 0|1|2, "reason": string}. ' +
-    'brief는 nowbar 한 줄 브리핑(한국어 50자 이내, 가장 시급한 것 하나, 인사말·이모지 없이). ' +
-    'reason은 그 카드를 고른 이유(한국어 20자 이내). 데이터에 없는 수치·사실은 만들지 않는다.';
+    '너는 분산 근무 플랫폼 exist의 AI 총무로, 상단 상태바(nowbar)를 관리한다. ' +
+    '아래 "사실 문장" 목록에서 가장 시급한 것 하나를 골라 한 줄 브리핑으로 다듬고, 보여줄 카드를 고른다.\n' +
+    '절대 규칙: 목록에 있는 사실만 쓴다. 새 사실·시각·수치를 만들지 않는다.\n' +
+    '카드: 0 = 일정, 1 = 할 일, 2 = 진행 타임라인. ' +
+    '통화 중·진행 중 회의 사실이 있으면 2, 곧 시작하는 회의 사실이 있으면 0, ' +
+    '마감 임박 할 일 사실이 있으면 1. "진행 중" 사실이 없으면 절대 2를 고르지 않는다.\n' +
+    '응답은 오직 JSON: {"brief": string, "card": 0|1|2, "reason": string}. ' +
+    'brief는 한국어 50자 이내(인사말·이모지 없이), reason은 카드 선택 이유 20자 이내 — ' +
+    'reason도 사실 문장에 있는 표현만 사용한다 (예: 목록에 "마감"이 없으면 "마감"이라 쓰지 않는다).';
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
@@ -187,7 +214,7 @@ async function aiDecision(ctx: UserContext): Promise<Decision> {
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
-      { role: 'user', content: JSON.stringify(payload) },
+      { role: 'user', content: JSON.stringify({ facts }) },
     ],
   });
 
