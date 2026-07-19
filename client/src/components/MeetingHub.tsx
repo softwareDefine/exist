@@ -990,21 +990,6 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                       )}
                     </section>
 
-                    {/* 협업 공간 앱 런처 */}
-                    <section className="hub-section hub-apps-card">
-                      <div className="hub-section-title">
-                        <GridIcon size={15} /> 협업 공간
-                      </div>
-                      <div className="hub-apps">
-                        <button className="hub-app" onClick={() => setSubtab('files')}>
-                          <span className="hub-app-ic doc">
-                            <FolderIcon size={20} />
-                          </span>
-                          공동편집
-                        </button>
-                      </div>
-                    </section>
-
                 {/* 일정 (메인으로 이동) */}
                 <section className="hub-section">
                   <div className="hub-section-title">
@@ -1025,32 +1010,32 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                   )}
                 </section>
 
-                {/* 6. 최근 채팅 */}
-                <section className="hub-section">
-                  <div className="hub-section-title">
-                    <ChatIcon size={15} /> 최근 채팅
-                    {messages.length > 0 && (
-                      <button className="hub-preview-more" onClick={() => setSubtab('chat')}>
-                        더 보기 ›
-                      </button>
-                    )}
-                  </div>
-                  {messages.length > 0 ? (
-                    <div className="hub-preview">
-                      {messages.slice(-3).map((m, i) => (
-                        <Marquee key={i} className="hub-preview-msg">
-                          <b>{m.from}</b> {m.text}
-                        </Marquee>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="hub-section-empty">아직 대화가 없어요</div>
-                  )}
-                </section>
-
                   </div>
 
                   <aside className="hub-dash-side">
+                    {/* 최근 채팅 (사이드로 이동) */}
+                    <section className="hub-section">
+                      <div className="hub-section-title">
+                        <ChatIcon size={15} /> 최근 채팅
+                        {messages.length > 0 && (
+                          <button className="hub-preview-more" onClick={() => setSubtab('chat')}>
+                            더 보기 ›
+                          </button>
+                        )}
+                      </div>
+                      {messages.length > 0 ? (
+                        <div className="hub-preview">
+                          {messages.slice(-3).map((m, i) => (
+                            <Marquee key={i} className="hub-preview-msg">
+                              <b>{m.from}</b> {m.text}
+                            </Marquee>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="hub-section-empty">아직 대화가 없어요</div>
+                      )}
+                    </section>
+
                     {/* 할 일 (사이드로 이동) */}
                     <section className="hub-section">
                       <div className="hub-section-title">

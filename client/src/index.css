@@ -2444,10 +2444,6 @@ input:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px 8px;
   }
-
-  .hub-apps {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 .workspace-empty {
@@ -2684,68 +2680,6 @@ input:focus {
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-}
-
-/* ── 협업 공간 앱 런처 ── */
-.hub-apps {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-@media (max-width: 767px) {
-  .hub-apps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.hub-app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-  padding: 16px 8px;
-  border: 1px solid var(--border);
-  border-radius: 13px;
-  background: var(--surface);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  cursor: pointer;
-  transition: border-color 0.14s, transform 0.12s, box-shadow 0.14s;
-}
-
-.hub-app:hover {
-  border-color: var(--green);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
-}
-
-.hub-app-ic {
-  width: 42px;
-  height: 42px;
-  border-radius: 11px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-}
-
-.hub-app-ic.canvas {
-  background: linear-gradient(135deg, #f76808, #f5a524);
-}
-.hub-app-ic.code {
-  background: linear-gradient(135deg, #4f7cff, #0091ff);
-}
-.hub-app-ic.doc {
-  background: linear-gradient(135deg, #8e4ec6, #d6409f);
-}
-.hub-app-ic.sheet {
-  background: linear-gradient(135deg, #18a957, #30a46c);
-}
-
-.hub-app-ic.slide {
-  background: linear-gradient(135deg, #e5484d, #f76808);
 }
 
 /* 대시보드 정보 섹션 카드 */
@@ -10695,11 +10629,6 @@ input:focus {
 
   /* 허브 상단 서브탭 제거 — 대시보드가 기본, 각 화면은 메뉴 타일로 새 창처럼 */
   .hub-tabs {
-    display: none;
-  }
-
-  /* 협업 공간 카드 — 메뉴 타일의 공동편집과 중복이라 대시보드에선 숨김 */
-  .hub-apps-card {
     display: none;
   }
 
