@@ -405,12 +405,119 @@ export async function getCatchup(userId: number): Promise<Catchup> {
   return { since, headline, source, items };
 }
 
+/* ── 오늘 브리핑 — 홈 대시보드용. nowbar 한 줄(brief)보다 긴 2~3문장으로
+ * 오늘 일정 + 자리 비운 사이 놓친 것 + 급한 할 일을 하루 세팅 문단으로 묶는다 ── */
+
+export interface DailyBrief {
+  text: string;
+  source: 'ai' | 'rule';
+}
+
+const dailyCache = new Map<number, DailyBrief & { at: number }>();
+const DAILY_CACHE_MS = 5 * 60 * 1000;
+
+/** 브리핑 재료 — 서버가 데이터에서 직접 만든 사실 문장만.
+ *  AI는 이 문장들을 다듬기만 하고 새 사실(특히 시각·수치)을 만들 수 없다 (환각 방어). */
+function buildDailyFacts(ctx: UserContext, catchup: Catchup): string[] {
+  const facts: string[] = [];
+  const today = ctx.meetings
+    .filter(
+      (m) =>
+        m.starts_at &&
+        new Date(m.starts_at) > ctx.now &&
+        new Date(m.starts_at).toDateString() === ctx.now.toDateString(),
+    )
+    .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime());
+  if (today[0]) {
+    const d = new Date(today[0].starts_at!);
+    const ampm = d.getHours() < 12 ? '오전' : '오후';
+    facts.push(`오늘 ${ampm} ${d.getHours() % 12 || 12}시 "${today[0].title}" 일정이 있다`);
+  } else {
+    facts.push('오늘 예정된 일정은 없다');
+  }
+  const live = ctx.meetings.filter((m) => m.in_call > 0)[0];
+  if (live) facts.push(`지금 "${live.title}"에서 ${live.in_call}명이 통화 중이다`);
+  for (const i of catchup.items.slice(0, 4)) facts.push(`자리 비운 사이: ${i.text}`);
+  const urgent = ctx.todos
+    .filter((t) => !t.done && t.due_at)
+    .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime())[0];
+  const undone = ctx.todos.filter((t) => !t.done);
+  if (urgent) facts.push(`할 일 중 마감이 가장 가까운 것은 "${urgent.title}"이다`);
+  else if (undone.length > 0)
+    facts.push(
+      `미완료 할 일 ${undone.length}개: ${undone.slice(0, 3).map((t) => t.title).join(', ')}`,
+    );
+  return facts;
+}
+
+function ruleBasedDaily(ctx: UserContext, catchup: Catchup): string {
+  const facts = buildDailyFacts(ctx, catchup);
+  const meaningful = facts.filter((f) => f !== '오늘 예정된 일정은 없다');
+  if (meaningful.length === 0) return '오늘은 예정된 일정이 없어요. 밀린 일을 정리하기 좋은 날이에요.';
+  return facts.map((f) => f + '요.').join(' ').replace(/다요\./g, '어요.').slice(0, 300);
+}
+
+export async function getDailyBrief(userId: number): Promise<DailyBrief> {
+  const cached = dailyCache.get(userId);
+  if (cached && Date.now() - cached.at < DAILY_CACHE_MS) {
+    return { text: cached.text, source: cached.source };
+  }
+  const ctx = getUserContext(userId);
+  const catchup = await getCatchup(userId);
+
+  let result: DailyBrief;
+  if (openai) {
+    try {
+      // 자유 작문 금지 — 서버가 만든 사실 문장만 주고 "다듬기"만 시킨다.
+      // (원본 데이터를 주면 모델이 없는 시각·일정을 지어내는 사고가 실제로 났음)
+      const facts = buildDailyFacts(ctx, catchup);
+      const response = await openai.chat.completions.create({
+        model: OPENAI_MODEL,
+        temperature: 0.3,
+        max_tokens: 300,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              '너는 분산 근무 플랫폼 exist의 AI 총무다. 아래 "사실 문장" 목록을 자연스러운 ' +
+              '"오늘 브리핑" 문단(한국어 해요체 2~3문장, 200자 이내)으로 다듬는다.\n' +
+              '절대 규칙: 목록에 있는 사실만 쓴다. 새 사실·시각·수치·일정을 추가하지 않는다. ' +
+              '중요도 순으로 재배열은 허용. 덜 중요한 사실은 생략 가능. 인사말·이모지 없이.\n' +
+              '응답은 오직 JSON: {"text": string}',
+          },
+          { role: 'user', content: JSON.stringify({ facts }) },
+        ],
+      });
+      const raw = response.choices[0]?.message?.content ?? '';
+      const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+        text?: unknown;
+      };
+      const text = String(parsed.text ?? '').trim();
+      if (!text) throw new Error('empty daily brief');
+      result = { text: text.slice(0, 300), source: 'ai' };
+    } catch (err) {
+      console.error('[agent] 오늘 브리핑 AI 실패, 규칙 폴백:', err);
+      result = { text: ruleBasedDaily(ctx, catchup), source: 'rule' };
+    }
+  } else {
+    result = { text: ruleBasedDaily(ctx, catchup), source: 'rule' };
+  }
+  dailyCache.set(userId, { ...result, at: Date.now() });
+  return result;
+}
+
 const router = Router();
 router.use(requireAuth);
 
 router.get('/brief', async (req: AuthedRequest, res) => {
   const brief = await generateBrief(req.userId!);
   res.json(brief);
+});
+
+/** 오늘 브리핑 — 홈 대시보드 상단 문단 */
+router.get('/daily', async (req: AuthedRequest, res) => {
+  res.json(await getDailyBrief(req.userId!));
 });
 
 /** P2 — 자리 비운 사이 놓친 것 브리핑 */

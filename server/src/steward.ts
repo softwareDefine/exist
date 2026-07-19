@@ -127,6 +127,101 @@ async function aiAnswer(question: string, asker: string, ctx: AgentContext): Pro
   return answer.slice(0, 1000);
 }
 
+/* ── 다음 회의 아젠다 제안 — 회의 "전"에도 총무가 일한다 ──
+ * 재료: 최근 recap 요약/결정, 미완료 할 일, 최근 채팅.
+ * AI 실패·키 없음 → 규칙 폴백 (미완료 할 일 상위). 10분 캐시. */
+
+export interface AgendaItem {
+  title: string;
+  why: string; // 근거 한 줄 ("지난 통화 미결" / "미완료 할 일" 등)
+}
+
+export interface Agenda {
+  items: AgendaItem[];
+  source: 'ai' | 'rule';
+  generatedAt: number;
+}
+
+const agendaCache = new Map<number, Agenda>();
+const AGENDA_CACHE_MS = 10 * 60 * 1000;
+
+/** 규칙 폴백 — 미완료 할 일과 최근 결정 후속을 안건으로 */
+function ruleBasedAgenda(ctx: AgentContext): AgendaItem[] {
+  const items: AgendaItem[] = [];
+  for (const t of ctx.todos.filter((t) => !t.done).slice(0, 3)) {
+    items.push({ title: `"${t.title}" 진행 상황 공유`, why: `${t.author}의 미완료 할 일` });
+  }
+  if (items.length < 2 && ctx.decisions[0]) {
+    items.push({
+      title: `지난 결정 후속 점검 — ${ctx.decisions[0].decision.slice(0, 40)}`,
+      why: '가장 최근 결정',
+    });
+  }
+  return items.slice(0, 4);
+}
+
+async function aiAgenda(ctx: AgentContext): Promise<AgendaItem[]> {
+  const system =
+    `너는 분산 근무 플랫폼 exist의 AI 총무다. "${ctx.meetingTitle}" 그룹의 다음 회의 안건 초안을 만든다. ` +
+    '아래 기록(통화 정리·결정·미완료 할 일·최근 대화)에서 아직 끝나지 않았거나 다음에 논의하기로 한 것만 골라 ' +
+    '안건 2~4개를 제안한다. 기록에 없는 내용은 만들지 않는다.\n' +
+    '각 안건: title(한국어 30자 이내, 명사형), why(근거 한 줄 20자 이내 — 어떤 기록에서 나왔는지).\n' +
+    '응답은 오직 JSON: {"items": [{"title": string, "why": string}]}';
+
+  const response = await openai!.chat.completions.create({
+    model: OPENAI_MODEL,
+    temperature: 0.3,
+    max_tokens: 400,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: system },
+      {
+        role: 'user',
+        content: JSON.stringify({
+          call_summaries: ctx.recaps.map((r) => r.summary),
+          decisions: ctx.decisions.map((d) => d.decision),
+          undone_todos: ctx.todos.filter((t) => !t.done).map((t) => `${t.title} (${t.author})`),
+          recent_chat: ctx.chat.slice(-20).map((c) => `${c.from}: ${c.text}`),
+        }),
+      },
+    ],
+  });
+  const raw = response.choices[0]?.message?.content ?? '';
+  const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+    items?: unknown;
+  };
+  if (!Array.isArray(parsed.items)) throw new Error('no items');
+  const items = parsed.items
+    .map((it) => ({
+      title: String((it as AgendaItem).title ?? '').trim().slice(0, 60),
+      why: String((it as AgendaItem).why ?? '').trim().slice(0, 40),
+    }))
+    .filter((it) => it.title)
+    .slice(0, 4);
+  if (items.length === 0) throw new Error('empty agenda');
+  return items;
+}
+
+export async function generateAgenda(meetingId: number, channelId: number): Promise<Agenda> {
+  const cached = agendaCache.get(meetingId);
+  if (cached && Date.now() - cached.generatedAt < AGENDA_CACHE_MS) return cached;
+
+  const ctx = gatherContext(meetingId, channelId);
+  let result: Agenda;
+  if (openai) {
+    try {
+      result = { items: await aiAgenda(ctx), source: 'ai', generatedAt: Date.now() };
+    } catch (err) {
+      console.error('[steward] 아젠다 AI 실패, 규칙 폴백:', err);
+      result = { items: ruleBasedAgenda(ctx), source: 'rule', generatedAt: Date.now() };
+    }
+  } else {
+    result = { items: ruleBasedAgenda(ctx), source: 'rule', generatedAt: Date.now() };
+  }
+  agendaCache.set(meetingId, result);
+  return result;
+}
+
 /** io 최소 인터페이스 — 테스트에서 스텁 주입용 */
 interface Broadcaster {
   to(room: string): { emit(event: string, payload: unknown): void };

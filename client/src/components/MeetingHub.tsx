@@ -632,6 +632,32 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       /* 무시 */
     }
   }
+
+  // 대시보드 카드 — 최근 결정(원장 상위 3) + 다음 회의 아젠다 제안
+  interface LedgerEntry {
+    recapId: number;
+    decision: string;
+    attendees: string[];
+    ts: number;
+  }
+  interface AgendaItem {
+    title: string;
+    why: string;
+  }
+  const [recentDecisions, setRecentDecisions] = useState<LedgerEntry[]>([]);
+  const [agenda, setAgenda] = useState<AgendaItem[] | null>(null); // null = 로딩 중
+  useEffect(() => {
+    let alive = true;
+    void api<LedgerEntry[]>(`/api/meetings/${code}/decisions`)
+      .then((d) => alive && setRecentDecisions(d.slice(0, 3)))
+      .catch(() => {});
+    void api<{ items: AgendaItem[] }>(`/api/meetings/${code}/agenda`)
+      .then((a) => alive && setAgenda(a.items))
+      .catch(() => alive && setAgenda([]));
+    return () => {
+      alive = false;
+    };
+  }, [code]);
   async function kickParticipant(username: string) {
     if (!confirm(`${username} 님을 그룹에서 내보낼까요?`)) return;
     try {
@@ -867,6 +893,70 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                   <div className="hub-dash-main">
                     {/* P1 — AI 회의 정리 (통화 종료 시 결정·할 일 배달) */}
                     <RecapPanel code={detail.code} />
+
+                    {/* 최근 결정 — 원장 상위 3개를 첫 화면에 (회의→결정→전달 노출) */}
+                    <section className="hub-section">
+                      <div className="hub-section-title">
+                        <CheckMarkIcon size={15} /> 최근 결정
+                        {recentDecisions.length > 0 && (
+                          <button
+                            className="hub-preview-more"
+                            onClick={() => setSubtab('decisions')}
+                          >
+                            전체 보기 ›
+                          </button>
+                        )}
+                      </div>
+                      {recentDecisions.length === 0 ? (
+                        <div className="hub-section-empty">
+                          아직 기록된 결정이 없어요 — 통화가 끝나면 AI가 여기에 쌓아요
+                        </div>
+                      ) : (
+                        <div className="hub-decision-list">
+                          {recentDecisions.map((d, i) => (
+                            <div key={`${d.recapId}-${i}`} className="hub-decision-row">
+                              <span className="hub-decision-dot" aria-hidden>
+                                ✓
+                              </span>
+                              <Marquee className="hub-decision-text">{d.decision}</Marquee>
+                              <span className="hub-decision-when">
+                                {new Date(d.ts).toLocaleDateString('ko-KR', {
+                                  month: 'numeric',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {/* 다음 회의 아젠다 — 총무가 미결 기록에서 미리 뽑은 안건 초안 */}
+                    <section className="hub-section">
+                      <div className="hub-section-title">
+                        <ListIcon size={15} /> 다음 회의 아젠다
+                        <span className="hub-agenda-badge">AI 제안</span>
+                      </div>
+                      {agenda === null ? (
+                        <div className="hub-section-empty">기록을 보고 안건을 정리하는 중…</div>
+                      ) : agenda.length === 0 ? (
+                        <div className="hub-section-empty">
+                          아직 제안할 안건이 없어요 — 통화·할 일이 쌓이면 여기에 초안이 떠요
+                        </div>
+                      ) : (
+                        <div className="hub-agenda-list">
+                          {agenda.map((a, i) => (
+                            <div key={i} className="hub-agenda-row">
+                              <span className="hub-agenda-num">{i + 1}</span>
+                              <div className="hub-agenda-body">
+                                <Marquee className="hub-agenda-title">{a.title}</Marquee>
+                                {a.why && <span className="hub-agenda-why">{a.why}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
 
                     {/* 협업 공간 앱 런처 */}
                     <section className="hub-section hub-apps-card">

@@ -60,7 +60,7 @@ export default function ProfileDashboard() {
   const [ov, setOv] = useState<Overview | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [schedule, setSchedule] = useState<Meeting[]>([]);
-  const [brief, setBrief] = useState('');
+  const [daily, setDaily] = useState('');
   const [catchup, setCatchup] = useState<Catchup | null>(null);
 
   useEffect(() => {
@@ -70,8 +70,9 @@ export default function ProfileDashboard() {
     api<Meeting[]>('/api/meetings/schedule?org=personal')
       .then((d) => alive && setSchedule(d))
       .catch(() => {});
-    api<{ brief: string }>('/api/agent/brief')
-      .then((d) => alive && setBrief(d.brief))
+    // 오늘 브리핑 — AI 총무의 하루 세팅 문단
+    api<{ text: string }>('/api/agent/daily')
+      .then((d) => alive && setDaily(d.text))
       .catch(() => {});
     // P2 — 자리 비운 사이 놓친 것 브리핑
     api<Catchup>('/api/agent/catchup')
@@ -238,12 +239,17 @@ export default function ProfileDashboard() {
 
       <div className="pd-quad">
         <div style={cellCard}>
-          <div style={sectionHead}><span style={headIcon}><SparklesIcon size={16} /></span> AI 피드백</div>
-          {catchup && catchup.items.length > 0 ? (
+          <div style={sectionHead}><span style={headIcon}><SparklesIcon size={16} /></span> 오늘 브리핑</div>
+          {/* AI 총무의 하루 세팅 문단 — 오늘 일정 + 놓친 것 + 급한 할 일 */}
+          {daily ? (
+            <div className="pd-daily-text">{daily}</div>
+          ) : (
+            <div className="pd-daily-text" style={{ color: 'var(--text-sub)' }}>
+              오늘 하루를 정리하는 중…
+            </div>
+          )}
+          {catchup && catchup.items.length > 0 && (
             <>
-              <div style={{ fontSize: 14.5, fontWeight: 700, color: 'var(--text)', lineHeight: 1.5, marginBottom: 10 }}>
-                {catchup.headline}
-              </div>
               {catchup.items.slice(0, 5).map((it, i) => (
                 <div
                   key={i}
@@ -269,10 +275,6 @@ export default function ProfileDashboard() {
                 </div>
               ))}
             </>
-          ) : brief ? (
-            <div style={{ fontSize: 14.5, color: 'var(--text)', lineHeight: 1.55 }}>{brief}</div>
-          ) : (
-            <div style={emptyRow}>분석할 활동이 아직 없어요</div>
           )}
         </div>
 

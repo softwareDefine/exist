@@ -12,6 +12,7 @@ import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
 import { listRecaps, listDecisions } from './recap.js';
 import { listChannels, ensureDefaultChannel, resolveChannel, cleanChannelName } from './channels.js';
+import { generateAgenda } from './steward.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -849,6 +850,14 @@ router.get('/:code/decisions', (req: AuthedRequest, res) => {
   const r = meetingForParticipant(req.params.code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   res.json(listDecisions(r.meeting.id));
+});
+
+/** 다음 회의 아젠다 제안 — AI 총무가 미결 기록에서 안건 초안 (참가자만, 10분 캐시) */
+router.get('/:code/agenda', async (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const channelId = resolveChannel(r.meeting.id, undefined, req.userId!);
+  res.json(await generateAgenda(r.meeting.id, channelId ?? 0));
 });
 
 /** 회의 채팅 히스토리 (채널당 최근 100개) — ?channel=ID, 없으면 기본 채널 */
