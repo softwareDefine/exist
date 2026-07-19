@@ -2008,15 +2008,21 @@ input:focus {
 }
 
 .dm-item-preview {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
   font-size: 12px;
   color: var(--text-sub);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   margin-top: 1px;
 }
 
+.dm-item-preview-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .dm-item-me {
+  flex: none;
   opacity: 0.8;
 }
 
@@ -7873,17 +7879,22 @@ input:focus {
 }
 
 .hub-preview-msg {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   font-size: 13px;
   color: #555;
   padding: 3px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .hub-preview-msg b {
   color: var(--text);
-  margin-right: 6px;
+  flex: none;
+}
+
+.hub-preview-text {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ───── 알림함 ───── */

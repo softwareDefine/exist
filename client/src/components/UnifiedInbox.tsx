@@ -178,18 +178,18 @@ export default function UnifiedInbox({ scope }: { scope: DmScope }) {
                 <Marquee className="dm-item-name">{it.name}</Marquee>
                 {it.lastTs > 0 && <span className="dm-item-time">{relTime(it.lastTs)}</span>}
               </div>
-              <Marquee className="dm-item-preview">
+              <div className="dm-item-preview">
+                {it.lastMine && it.lastText && <span className="dm-item-me">나:</span>}
+                <Marquee className="dm-item-preview-text">
                 {it.lastText ? (
-                  <>
-                    {it.lastMine && <span className="dm-item-me">나: </span>}
-                    {it.lastText}
-                  </>
+                  it.lastText
                 ) : (
                   <span className="dm-item-muted">
                     {it.sub || (it.kind === 'group' ? '아직 메시지가 없어요' : '대화 시작하기')}
                   </span>
                 )}
-              </Marquee>
+                </Marquee>
+              </div>
             </div>
             {it.unread > 0 && <span className="dm-item-badge">{it.unread > 9 ? '9+' : it.unread}</span>}
           </button>

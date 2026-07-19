@@ -1026,9 +1026,10 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                       {messages.length > 0 ? (
                         <div className="hub-preview">
                           {messages.slice(-3).map((m, i) => (
-                            <Marquee key={i} className="hub-preview-msg">
-                              <b>{m.from}</b> {m.text}
-                            </Marquee>
+                            <div key={i} className="hub-preview-msg">
+                              <b>{m.from}</b>
+                              <Marquee className="hub-preview-text">{m.text}</Marquee>
+                            </div>
                           ))}
                         </div>
                       ) : (

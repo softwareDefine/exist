@@ -404,18 +404,18 @@ export default function DirectMessages({ scope }: { scope: DmScope }) {
                 <Marquee className="dm-item-name">{t.username}</Marquee>
                 {t.lastTs && <span className="dm-item-time">{relTime(t.lastTs)}</span>}
               </div>
-              <Marquee className="dm-item-preview">
+              <div className="dm-item-preview">
+                {t.lastMine && t.lastText && <span className="dm-item-me">나:</span>}
+                <Marquee className="dm-item-preview-text">
                 {t.lastText ? (
-                  <>
-                    {t.lastMine && <span className="dm-item-me">나: </span>}
-                    {t.lastText}
-                  </>
+                  t.lastText
                 ) : (
                   <span className="dm-item-muted">
                     {[t.department, t.position].filter(Boolean).join(' · ') || '대화 시작하기'}
                   </span>
                 )}
-              </Marquee>
+                </Marquee>
+              </div>
             </div>
             {t.unread > 0 && <span className="dm-item-badge">{t.unread > 9 ? '9+' : t.unread}</span>}
           </button>
