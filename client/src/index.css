@@ -10051,6 +10051,39 @@ input:focus {
   color: var(--text-sub);
 }
 
+/* 수신 확인 (회람 사인) — 대시보드 카드/원장 공용 */
+.hub-decision-ack,
+.ledger-ack {
+  flex: none;
+  border: 1px solid var(--green);
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hub-decision-ack:hover,
+.ledger-ack:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+.hub-decision-ack.done,
+.ledger-ack.done {
+  border-color: var(--border);
+  background: var(--surface-2);
+  color: var(--text-sub);
+  cursor: default;
+}
+
+.ledger-ack-list {
+  color: var(--green-dark);
+}
+
 /* ── 그룹 대시보드: 다음 회의 아젠다 카드 ── */
 .hub-agenda-badge {
   margin-left: auto;

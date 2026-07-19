@@ -636,15 +636,30 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   // 대시보드 카드 — 최근 결정(원장 상위 3) + 다음 회의 아젠다 제안
   interface LedgerEntry {
     recapId: number;
+    idx: number;
     decision: string;
     attendees: string[];
     ts: number;
+    acks: { username: string; ts: number }[];
   }
   interface AgendaItem {
     title: string;
     why: string;
   }
   const [recentDecisions, setRecentDecisions] = useState<LedgerEntry[]>([]);
+  async function ackDecisionRow(d: LedgerEntry) {
+    setRecentDecisions((prev) =>
+      prev.map((x) =>
+        x.recapId === d.recapId && x.idx === d.idx
+          ? { ...x, acks: [...x.acks, { username: user?.username ?? '', ts: Date.now() }] }
+          : x,
+      ),
+    );
+    await api(`/api/meetings/${code}/decisions/ack`, {
+      method: 'POST',
+      body: { recapId: d.recapId, idx: d.idx },
+    }).catch(() => {});
+  }
   const [agenda, setAgenda] = useState<AgendaItem[] | null>(null); // null = 로딩 중
   useEffect(() => {
     let alive = true;
@@ -913,20 +928,37 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                         </div>
                       ) : (
                         <div className="hub-decision-list">
-                          {recentDecisions.map((d, i) => (
-                            <div key={`${d.recapId}-${i}`} className="hub-decision-row">
-                              <span className="hub-decision-dot" aria-hidden>
-                                ✓
-                              </span>
-                              <Marquee className="hub-decision-text">{d.decision}</Marquee>
-                              <span className="hub-decision-when">
-                                {new Date(d.ts).toLocaleDateString('ko-KR', {
-                                  month: 'numeric',
-                                  day: 'numeric',
-                                })}
-                              </span>
-                            </div>
-                          ))}
+                          {recentDecisions.map((d, i) => {
+                            const acked = d.acks.some((a) => a.username === user?.username);
+                            return (
+                              <div key={`${d.recapId}-${i}`} className="hub-decision-row">
+                                <span className="hub-decision-dot" aria-hidden>
+                                  ✓
+                                </span>
+                                <Marquee className="hub-decision-text">{d.decision}</Marquee>
+                                <span className="hub-decision-when">
+                                  {new Date(d.ts).toLocaleDateString('ko-KR', {
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                  })}
+                                </span>
+                                {/* 수신 확인 (회람 사인) */}
+                                {acked ? (
+                                  <span className="hub-decision-ack done">
+                                    ✓ {d.acks.length}
+                                  </span>
+                                ) : (
+                                  <button
+                                    className="hub-decision-ack"
+                                    title="확인했음을 남기기 (회람 사인)"
+                                    onClick={() => void ackDecisionRow(d)}
+                                  >
+                                    확인
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </section>

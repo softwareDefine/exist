@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
+import { useAuthStore } from '../store';
 import { getSocket } from '../lib/socket';
 import { CheckMarkIcon, SparklesIcon } from './Icons';
 
 /*
  * 결정 원장 — 이 그룹의 모든 통화 결정이 시간순으로 쌓이는 타임라인.
  * "결정이 사람이 아니라 조직에 남는다." 새 recap이 생기면 실시간 갱신.
+ * 수신 확인(회람 사인): 각 결정에 "확인"을 남기면 누가 확인했는지 쌓인다.
  */
 
 interface LedgerEntry {
   recapId: number;
+  idx: number;
   decision: string;
   attendees: string[];
   ts: number;
+  acks: { username: string; ts: number }[];
 }
 
 function dateLabel(ts: number): string {
@@ -21,6 +25,7 @@ function dateLabel(ts: number): string {
 }
 
 export default function DecisionLedger({ code }: { code: string }) {
+  const user = useAuthStore((s) => s.user);
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [query, setQuery] = useState('');
 
@@ -29,6 +34,21 @@ export default function DecisionLedger({ code }: { code: string }) {
       .then(setEntries)
       .catch(() => {});
   }, [code]);
+
+  async function ack(e: LedgerEntry) {
+    // 낙관적 반영 후 서버 기록
+    setEntries((prev) =>
+      prev.map((x) =>
+        x.recapId === e.recapId && x.idx === e.idx
+          ? { ...x, acks: [...x.acks, { username: user?.username ?? '', ts: Date.now() }] }
+          : x,
+      ),
+    );
+    await api(`/api/meetings/${code}/decisions/ack`, {
+      method: 'POST',
+      body: { recapId: e.recapId, idx: e.idx },
+    }).catch(() => load());
+  }
 
   useEffect(load, [load]);
 
@@ -89,19 +109,39 @@ export default function DecisionLedger({ code }: { code: string }) {
           {groups.map((g) => (
             <div key={g.label} className="ledger-group">
               <div className="ledger-date">{g.label}</div>
-              {g.items.map((e, i) => (
-                <div key={`${e.recapId}-${i}`} className="ledger-item">
-                  <span className="ledger-check">
-                    <CheckMarkIcon size={14} />
-                  </span>
-                  <div className="ledger-body">
-                    <div className="ledger-decision">{e.decision}</div>
-                    <div className="ledger-meta">
-                      참석 {e.attendees.length ? e.attendees.join(', ') : '기록 없음'}
+              {g.items.map((e, i) => {
+                const acked = e.acks.some((a) => a.username === user?.username);
+                return (
+                  <div key={`${e.recapId}-${i}`} className="ledger-item">
+                    <span className="ledger-check">
+                      <CheckMarkIcon size={14} />
+                    </span>
+                    <div className="ledger-body">
+                      <div className="ledger-decision">{e.decision}</div>
+                      <div className="ledger-meta">
+                        참석 {e.attendees.length ? e.attendees.join(', ') : '기록 없음'}
+                        {e.acks.length > 0 && (
+                          <span
+                            className="ledger-ack-list"
+                            title={e.acks.map((a) => a.username).join(', ')}
+                          >
+                            {' '}
+                            · 확인 {e.acks.length}명 ({e.acks.map((a) => a.username).join(', ')})
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {/* 수신 확인 — 회람 사인. 이미 확인했으면 상태 뱃지 */}
+                    {acked ? (
+                      <span className="ledger-ack done">확인함 ✓</span>
+                    ) : (
+                      <button className="ledger-ack" onClick={() => void ack(e)}>
+                        확인
+                      </button>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>

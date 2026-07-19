@@ -320,6 +320,17 @@ db.exec(`
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_recaps_meeting ON meeting_recaps(meeting_id, id);
+
+  -- 결정 수신 확인 (회람 사인의 디지털화) — recap 안의 결정 idx 단위로 "확인했다"를 기록
+  CREATE TABLE IF NOT EXISTS decision_acks (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    recap_id     INTEGER NOT NULL REFERENCES meeting_recaps(id),
+    decision_idx INTEGER NOT NULL,
+    user_id      INTEGER NOT NULL REFERENCES users(id),
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(recap_id, decision_idx, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_decision_acks ON decision_acks(recap_id, decision_idx);
 `);
 
 // 마이그레이션: 개인 DM 지원 — 기존 테이블 org_id가 NOT NULL이면 NULL 허용으로 재생성

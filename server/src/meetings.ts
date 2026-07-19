@@ -10,7 +10,7 @@ import { emitToUser, notifyUser } from './notify.js';
 import { getRoomSize, getRoomPeers } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
-import { listRecaps, listDecisions } from './recap.js';
+import { listRecaps, listDecisions, ackDecision } from './recap.js';
 import { listChannels, ensureDefaultChannel, resolveChannel, cleanChannelName } from './channels.js';
 import { generateAgenda } from './steward.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
@@ -850,6 +850,25 @@ router.get('/:code/decisions', (req: AuthedRequest, res) => {
   const r = meetingForParticipant(req.params.code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   res.json(listDecisions(r.meeting.id));
+});
+
+/** 결정 수신 확인 — 회람 사인. recap이 이 회의 것인지 검증 후 기록 */
+router.post('/:code/decisions/ack', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const recapId = Number(req.body?.recapId);
+  const idx = Number(req.body?.idx);
+  if (!Number.isInteger(recapId) || !Number.isInteger(idx)) {
+    return res.status(400).json({ error: '잘못된 요청입니다' });
+  }
+  const owns = db
+    .prepare('SELECT 1 FROM meeting_recaps WHERE id = ? AND meeting_id = ?')
+    .get(recapId, r.meeting.id);
+  if (!owns) return res.status(404).json({ error: '존재하지 않는 결정입니다' });
+  if (!ackDecision(recapId, idx, req.userId!)) {
+    return res.status(404).json({ error: '존재하지 않는 결정입니다' });
+  }
+  res.json({ ok: true });
 });
 
 /** 다음 회의 아젠다 제안 — AI 총무가 미결 기록에서 안건 초안 (참가자만, 10분 캐시) */

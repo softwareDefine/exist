@@ -288,9 +288,13 @@ export async function runRecapForMeeting(
 
 export interface LedgerEntry {
   recapId: number;
+  /** recap 안에서의 결정 순번 — 수신 확인의 키 (recapId + idx) */
+  idx: number;
   decision: string;
   attendees: string[];
   ts: number;
+  /** 수신 확인한 사람들 (회람 사인) */
+  acks: { username: string; ts: number }[];
 }
 
 /** 결정 원장 — 이 그룹의 모든 recap 결정을 시간순(최신 먼저)으로 편다.
@@ -302,16 +306,45 @@ export function listDecisions(meetingId: number, limit = 100): LedgerEntry[] {
        WHERE meeting_id = ? ORDER BY id DESC LIMIT 50`,
     )
     .all(meetingId) as { id: number; decisions: string; attendees: string; created_at: string }[];
+  const ackStmt = db.prepare(
+    `SELECT a.decision_idx, u.username, a.created_at FROM decision_acks a
+     JOIN users u ON u.id = a.user_id WHERE a.recap_id = ? ORDER BY a.id`,
+  );
   const out: LedgerEntry[] = [];
   for (const r of rows) {
     const ts = new Date(r.created_at + 'Z').getTime();
     const attendees = JSON.parse(r.attendees) as string[];
-    for (const d of JSON.parse(r.decisions) as string[]) {
-      out.push({ recapId: r.id, decision: d, attendees, ts });
+    const ackRows = ackStmt.all(r.id) as { decision_idx: number; username: string; created_at: string }[];
+    const decisions = JSON.parse(r.decisions) as string[];
+    for (let idx = 0; idx < decisions.length; idx++) {
+      out.push({
+        recapId: r.id,
+        idx,
+        decision: decisions[idx],
+        attendees,
+        ts,
+        acks: ackRows
+          .filter((a) => a.decision_idx === idx)
+          .map((a) => ({ username: a.username, ts: new Date(a.created_at + 'Z').getTime() })),
+      });
       if (out.length >= limit) return out;
     }
   }
   return out;
+}
+
+/** 결정 수신 확인 — 참가자 검증은 라우트에서. 중복 확인은 무시(idempotent) */
+export function ackDecision(recapId: number, decisionIdx: number, userId: number): boolean {
+  const recap = db.prepare('SELECT decisions FROM meeting_recaps WHERE id = ?').get(recapId) as
+    | { decisions: string }
+    | undefined;
+  if (!recap) return false;
+  const count = (JSON.parse(recap.decisions) as string[]).length;
+  if (decisionIdx < 0 || decisionIdx >= count) return false;
+  db.prepare(
+    'INSERT OR IGNORE INTO decision_acks (recap_id, decision_idx, user_id) VALUES (?, ?, ?)',
+  ).run(recapId, decisionIdx, userId);
+  return true;
 }
 
 // ── 통화 종료 유예 스케줄러 — 방이 비워지면 GRACE_MS 후 실행, 재입장 시 취소 ──
