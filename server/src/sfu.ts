@@ -494,6 +494,19 @@ export function attachSfu(io: Server) {
       ack({ ok: true });
     });
 
+    /** 명시적 퇴장 — 대면 기록 모드처럼 소켓은 유지한 채 방만 나갈 때
+     *  (마지막 사람이 나가면 disconnect와 동일하게 recap 스케줄) */
+    socket.on('room:leave', () => {
+      if (!room || !peer) return;
+      for (const t of peer.transports.values()) t.close();
+      room.peers.delete(socket.id);
+      void socket.leave(`room:${room.code}`);
+      socket.to(`room:${room.code}`).emit('peer:left', { peerId: socket.id });
+      closeRoomIfEmpty(room);
+      room = null;
+      peer = null;
+    });
+
     socket.on('disconnect', () => {
       if (!room || !peer) return;
       for (const t of peer.transports.values()) t.close();

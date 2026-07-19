@@ -11079,6 +11079,7 @@ input:focus {
   .hub-hero-cta .hub-join.lg {
     flex: 1;
     justify-content: center;
+    white-space: nowrap;
   }
 
   /* 할 일 "추가" 버튼 — 40px 고정폭이면 글자가 세로로 깨짐 */
