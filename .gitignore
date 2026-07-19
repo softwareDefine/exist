@@ -16,3 +16,4 @@ server/rooms/
 server/uploads/
 server/ydocs/
 docs/outreach-hkinnoen.md
+*.tsbuildinfo
