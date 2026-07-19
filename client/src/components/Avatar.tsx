@@ -1,4 +1,6 @@
-/** 아바타 — 값이 이미지 URL이면 사진, 아니면 이모지. 크기·모양은 className으로 */
+import { SparklesIcon } from './Icons';
+
+/** 아바타 — 값이 이미지 URL이면 사진, '✦'(exist AI)면 별 아이콘, 아니면 이모지 */
 export default function Avatar({
   value,
   className = '',
@@ -7,6 +9,12 @@ export default function Avatar({
   className?: string;
 }) {
   const v = value || '🙂';
+  if (v === '✦')
+    return (
+      <span className={`avatar avatar-ai ${className}`}>
+        <SparklesIcon size={16} />
+      </span>
+    );
   const isImg = v.startsWith('/api') || v.startsWith('http') || v.startsWith('/uploads');
   return (
     <span className={`avatar ${className}`}>

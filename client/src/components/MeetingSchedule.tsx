@@ -45,6 +45,9 @@ function ymd(d: Date): string {
 }
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
+type ViewMode = 'day' | 'week' | 'month';
+const VIEW_LABEL: Record<ViewMode, string> = { day: '일', week: '주', month: '월' };
+
 /** 회의 일정 달력 — 이벤트를 날짜에 표시하고 추가·삭제로 관리 */
 export default function MeetingSchedule({
   code,
@@ -58,7 +61,8 @@ export default function MeetingSchedule({
 }: Props) {
   const userId = useAuthStore((s) => s.user?.id);
   const [events, setEvents] = useState<MEvent[]>([]);
-  const [offset, setOffset] = useState(0); // 월 이동
+  const [view, setView] = useState<ViewMode>('month');
+  const [cursor, setCursor] = useState<Date>(() => new Date()); // 뷰 기준 날짜
   const [selected, setSelected] = useState<string>(() => ymd(new Date()));
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
@@ -112,15 +116,14 @@ export default function MeetingSchedule({
     return m;
   }, [events]);
 
-  const base = new Date();
-  base.setDate(1);
-  base.setMonth(base.getMonth() + offset);
-  const year = base.getFullYear();
-  const month = base.getMonth();
-  const startDow = base.getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth();
   const todayKey = ymd(new Date());
 
+  // 월 뷰 셀
+  const first = new Date(year, month, 1);
+  const startDow = first.getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: { key: string; day: number; cur: boolean }[] = [];
   const prevDays = new Date(year, month, 0).getDate();
   for (let i = startDow - 1; i >= 0; i--) {
@@ -135,7 +138,58 @@ export default function MeetingSchedule({
     cells.push({ key: ymd(new Date(year, month + 1, d)), day: d, cur: false });
   }
 
+  // 주 뷰: cursor가 속한 주 (일요일 시작)
+  const weekDays = useMemo(() => {
+    const start = new Date(cursor);
+    start.setDate(start.getDate() - start.getDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  }, [cursor]);
+
   const dayEvents = byDate.get(selected) ?? [];
+
+  function nav(dir: -1 | 1) {
+    const c = new Date(cursor);
+    if (view === 'month') {
+      c.setDate(1);
+      c.setMonth(c.getMonth() + dir);
+    } else if (view === 'week') {
+      c.setDate(c.getDate() + 7 * dir);
+    } else {
+      c.setDate(c.getDate() + dir);
+    }
+    setCursor(c);
+    if (view === 'day') setSelected(ymd(c));
+  }
+
+  function goToday() {
+    const t = new Date();
+    setCursor(t);
+    setSelected(ymd(t));
+  }
+
+  function switchView(v: ViewMode) {
+    setView(v);
+    // 일 뷰는 커서=선택 날짜로 정렬
+    if (v === 'day') setCursor(new Date(selected + 'T00:00'));
+  }
+
+  function headLabel(): string {
+    if (view === 'month') return `${year}년 ${month + 1}월`;
+    if (view === 'week') {
+      const a = weekDays[0];
+      const b = weekDays[6];
+      const left = `${a.getMonth() + 1}월 ${a.getDate()}일`;
+      const right =
+        a.getMonth() === b.getMonth() ? `${b.getDate()}일` : `${b.getMonth() + 1}월 ${b.getDate()}일`;
+      return `${left} ~ ${right}`;
+    }
+    const d = new Date(selected + 'T00:00');
+    return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`;
+  }
 
   async function excludeOccurrence() {
     if (!window.confirm(`${selectedLabel()} 회차를 삭제할까요? 이 날 하나만 빠지고 나머지는 그대로예요.`))
@@ -205,20 +259,185 @@ export default function MeetingSchedule({
     return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`;
   }
 
+  // 일 뷰 타임라인 재료
+  const timed = [...dayEvents.filter((e) => e.time)].sort((a, b) =>
+    a.time!.localeCompare(b.time!),
+  );
+  const untimed = dayEvents.filter((e) => !e.time);
+  const meetingToday = isMeetingDayKey(selected);
+  const meetStart = startsAt ? new Date(startsAt) : null;
+  const meetHour = meetingToday && meetStart && !isNaN(meetStart.getTime()) ? meetStart.getHours() : null;
+  let hourFrom = 8;
+  let hourTo = 20;
+  for (const e of timed) {
+    const h = parseInt(e.time!.slice(0, 2), 10);
+    const eh = e.end_time ? parseInt(e.end_time.slice(0, 2), 10) + 1 : h + 1;
+    if (h < hourFrom) hourFrom = h;
+    if (eh > hourTo) hourTo = eh;
+  }
+  if (meetHour != null) {
+    if (meetHour < hourFrom) hourFrom = meetHour;
+    if (meetHour + 1 > hourTo) hourTo = meetHour + 1;
+  }
+  const hours = Array.from({ length: hourTo - hourFrom + 1 }, (_, i) => hourFrom + i);
+
+  const eventRow = (ev: MEvent, compact = false) => (
+    <div key={ev.id} className={'msched-event' + (compact ? ' compact' : '')}>
+      {ev.time && (
+        <span className="msched-event-time">
+          {ev.time}
+          {ev.end_time ? `~${ev.end_time}` : ''}
+        </span>
+      )}
+      <Marquee className="msched-event-title">
+        {ev.is_call ? (
+          <span className="msched-call-ic">
+            <PhoneIcon size={12} />
+          </span>
+        ) : null}
+        {ev.title}
+      </Marquee>
+      <span className="msched-event-author">{ev.author}</span>
+      {(ev.created_by === userId || isHost) && (
+        <>
+          <button
+            className={`msched-event-edit${editingId === ev.id ? ' on' : ''}`}
+            title="수정"
+            onClick={() => startEdit(ev)}
+          >
+            ✎
+          </button>
+          <button className="msched-event-del" title="삭제" onClick={() => void removeEvent(ev.id)}>
+            ×
+          </button>
+        </>
+      )}
+    </div>
+  );
+
   return (
-    <div className="msched">
+    <div className={`msched msched-view-${view}`}>
       <div className="msched-cal">
         <div className="msched-cal-head">
-          <button onClick={() => setOffset((o) => o - 1)} aria-label="이전 달">
+          <button onClick={() => nav(-1)} aria-label="이전">
             ‹
           </button>
-          <span>
-            {year}년 {month + 1}월
-          </span>
-          <button onClick={() => setOffset((o) => o + 1)} aria-label="다음 달">
+          <span className="msched-head-label">{headLabel()}</span>
+          <button onClick={() => nav(1)} aria-label="다음">
             ›
           </button>
+          <button type="button" className="msched-today-btn" onClick={goToday}>
+            오늘
+          </button>
+          <div className="msched-seg" role="tablist" aria-label="일정 보기 단위">
+            {(['day', 'week', 'month'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={view === v ? 'on' : ''}
+                onClick={() => switchView(v)}
+              >
+                {VIEW_LABEL[v]}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {view === 'week' && (
+          <div className="msched-week">
+            {weekDays.map((d) => {
+              const key = ymd(d);
+              const evs = [...(byDate.get(key) ?? [])].sort((a, b) =>
+                (a.time ?? '').localeCompare(b.time ?? ''),
+              );
+              const meet = isMeetingDayKey(key);
+              return (
+                <button
+                  key={key}
+                  className={
+                    'msched-wcol' + (key === selected ? ' sel' : '') + (key === todayKey ? ' today' : '')
+                  }
+                  onClick={() => setSelected(key)}
+                >
+                  <span className="msched-wcol-head">
+                    <span className="msched-wcol-dow">{DOW[d.getDay()]}</span>
+                    <span className={'msched-wcol-num' + (key === todayKey ? ' today' : '')}>
+                      {d.getDate()}
+                    </span>
+                  </span>
+                  <span className="msched-wcol-events">
+                    {meet && (
+                      <span className="msched-chip meeting">
+                        <i className="msched-chip-dot" />이 그룹
+                      </span>
+                    )}
+                    {evs.map((e) => (
+                      <span key={e.id} className="msched-chip" title={e.title}>
+                        {e.time && <b className="msched-chip-time">{e.time}</b>}
+                        {e.title}
+                      </span>
+                    ))}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {view === 'day' && (
+          <div className="msched-dayview">
+            {untimed.length > 0 && (
+              <div className="msched-allday">
+                <span className="msched-hour-label">종일</span>
+                <div className="msched-allday-list">{untimed.map((e) => eventRow(e, true))}</div>
+              </div>
+            )}
+            <div className="msched-hours">
+              {hours.map((h) => (
+                <div
+                  key={h}
+                  className="msched-hour"
+                  onClick={() => {
+                    setTime(`${pad(h)}:00`);
+                    setEndTime('');
+                  }}
+                  title="이 시간으로 일정 추가"
+                >
+                  <span className="msched-hour-label">{pad(h)}:00</span>
+                  <div className="msched-hour-slot">
+                    {meetHour === h && meetStart && (
+                      <div className="msched-event compact meeting">
+                        <span className="msched-event-time">
+                          {meetStart.getHours()}:{pad(meetStart.getMinutes())}
+                          {endsAt &&
+                            `~${new Date(endsAt).getHours()}:${pad(new Date(endsAt).getMinutes())}`}
+                        </span>
+                        <span className="msched-event-title">📌 이 그룹 일정</span>
+                        {isHost && recur !== 'none' && (
+                          <button
+                            type="button"
+                            className="msched-occ-del"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void excludeOccurrence();
+                            }}
+                          >
+                            이 회차 삭제
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {timed
+                      .filter((e) => parseInt(e.time!.slice(0, 2), 10) === h)
+                      .map((e) => eventRow(e, true))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {view === 'month' && (
         <div className="msched-grid">
           {DOW.map((w) => (
             <span key={w} className="msched-dow">
@@ -267,13 +486,14 @@ export default function MeetingSchedule({
             );
           })}
         </div>
+        )}
       </div>
 
       <div className="msched-day-panel">
-        <div className="msched-day-title">{selectedLabel()}</div>
+        {view !== 'day' && <div className="msched-day-title">{selectedLabel()}</div>}
 
-        {/* 회의 본 일정이 이 날이면 표시 */}
-        {isMeetingDayKey(selected) && (
+        {/* 회의 본 일정이 이 날이면 표시 (일 뷰는 타임라인에 이미 있음) */}
+        {view !== 'day' && isMeetingDayKey(selected) && (
           <div className="msched-main-event">
             <span className="msched-main-event-text">
               📌 이 그룹 일정
@@ -300,49 +520,18 @@ export default function MeetingSchedule({
           </div>
         )}
 
-        <div className="msched-events">
-          {dayEvents.length === 0 ? (
-            <div className="msched-empty">이 날 일정이 없어요</div>
-          ) : (
-            dayEvents.map((ev) => (
-              <div key={ev.id} className="msched-event">
-                {ev.time && (
-                  <span className="msched-event-time">
-                    {ev.time}
-                    {ev.end_time ? `~${ev.end_time}` : ''}
-                  </span>
-                )}
-                <Marquee className="msched-event-title">
-                  {ev.is_call ? (
-                    <span className="msched-call-ic">
-                      <PhoneIcon size={12} />
-                    </span>
-                  ) : null}
-                  {ev.title}
-                </Marquee>
-                <span className="msched-event-author">{ev.author}</span>
-                {(ev.created_by === userId || isHost) && (
-                  <>
-                    <button
-                      className={`msched-event-edit${editingId === ev.id ? ' on' : ''}`}
-                      title="수정"
-                      onClick={() => startEdit(ev)}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      className="msched-event-del"
-                      title="삭제"
-                      onClick={() => void removeEvent(ev.id)}
-                    >
-                      ×
-                    </button>
-                  </>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+        {view !== 'day' && (
+          <div className="msched-events">
+            {dayEvents.length === 0 ? (
+              <div className="msched-empty">이 날 일정이 없어요</div>
+            ) : (
+              dayEvents.map((ev) => eventRow(ev))
+            )}
+          </div>
+        )}
+        {view === 'day' && dayEvents.length === 0 && !meetingToday && (
+          <div className="msched-empty">이 날 일정이 없어요 — 시간을 눌러 바로 추가할 수 있어요</div>
+        )}
 
         <form className="msched-add" onSubmit={addEvent}>
           <input

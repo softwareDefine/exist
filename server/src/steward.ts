@@ -16,15 +16,22 @@ export const AGENT_NAME = 'exist AI';
 /** @AI, @ai, @총무 멘션 감지 — 문장 처음이나 공백 뒤의 독립 토큰만 (이메일 주소 오탐 방지) */
 export const AGENT_MENTION = /(^|\s)@(ai|총무)(?=\s|$)/i;
 
+/** AI 아바타 — 클라이언트 Avatar가 이 값을 별(SparklesIcon)로 렌더 */
+export const AGENT_AVATAR = '✦';
+
 /** 시스템 유저(exist AI) 확보 — 채팅 메시지의 발신자로 쓴다 (로그인 불가 더미 해시) */
 export function ensureAgentUser(): number {
-  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(AGENT_NAME) as
-    | { id: number }
+  const existing = db.prepare('SELECT id, avatar FROM users WHERE username = ?').get(AGENT_NAME) as
+    | { id: number; avatar: string | null }
     | undefined;
-  if (existing) return existing.id;
+  if (existing) {
+    if (existing.avatar !== AGENT_AVATAR)
+      db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(AGENT_AVATAR, existing.id);
+    return existing.id;
+  }
   const info = db
-    .prepare("INSERT INTO users (username, pw_hash, pw_salt, avatar) VALUES (?, 'x', 'x', '🤖')")
-    .run(AGENT_NAME);
+    .prepare("INSERT INTO users (username, pw_hash, pw_salt, avatar) VALUES (?, 'x', 'x', ?)")
+    .run(AGENT_NAME, AGENT_AVATAR);
   return info.lastInsertRowid as number;
 }
 
@@ -257,7 +264,7 @@ export async function handleAgentQuery(
   io.to(`chat:${args.code.toUpperCase()}`).emit('chat:message', {
     code: args.code.toUpperCase(),
     from: AGENT_NAME,
-    avatar: '🤖',
+    avatar: AGENT_AVATAR,
     text: answer,
     channelId: args.channelId,
     ts: Date.now(),

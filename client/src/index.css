@@ -166,6 +166,10 @@ input:focus {
   border-radius: 4px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #3a3f46;
+}
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
@@ -1106,6 +1110,12 @@ input:focus {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* exist AI 아바타 — 모든 AI 표시는 별(SparklesIcon)로 통일 */
+.avatar-ai {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  color: var(--green);
 }
 
 .nowbar-avatar {
@@ -3128,13 +3138,14 @@ input:focus {
 .msched-cal-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 2px;
   margin-bottom: 14px;
   font-size: 16px;
   font-weight: 900;
+  flex-wrap: wrap;
 }
 
-.msched-cal-head button {
+.msched-cal-head > button {
   border: none;
   background: none;
   font-size: 22px;
@@ -3142,8 +3153,197 @@ input:focus {
   padding: 0 10px;
 }
 
-.msched-cal-head button:hover {
+.msched-cal-head > button:hover {
   color: var(--green);
+}
+
+.msched-head-label {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.msched-today-btn {
+  margin-left: auto;
+  font-size: 12px !important;
+  font-weight: 700;
+  padding: 4px 10px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  color: var(--text) !important;
+}
+
+.msched-today-btn:hover {
+  border-color: var(--green) !important;
+}
+
+/* 일/주/월 세그먼트 (애플 캘린더식) */
+.msched-seg {
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 2px;
+  margin-left: 8px;
+}
+
+.msched-seg button {
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  padding: 3px 12px;
+  border-radius: 7px;
+}
+
+.msched-seg button.on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* ── 주 뷰 ── */
+.msched-week {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+  min-height: 0;
+}
+
+.msched-wcol {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  border: none;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  padding: 6px 4px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  text-align: center;
+}
+
+.msched-wcol:first-child {
+  border-left: none;
+}
+
+.msched-wcol:hover {
+  background: color-mix(in srgb, var(--green) 5%, transparent);
+}
+
+.msched-wcol.sel {
+  background: color-mix(in srgb, var(--green) 9%, transparent);
+}
+
+.msched-wcol.sel .msched-wcol-num:not(.today) {
+  box-shadow: inset 0 0 0 2px var(--green);
+}
+
+.msched-wcol-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.msched-wcol-dow {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-sub);
+}
+
+.msched-wcol-num {
+  font-size: 14px;
+  font-weight: 800;
+  width: 26px;
+  height: 26px;
+  line-height: 26px;
+  border-radius: 50%;
+}
+
+.msched-wcol-num.today {
+  background: var(--green);
+  color: #fff;
+}
+
+.msched-wcol-events {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── 일 뷰 (시간 타임라인) ── */
+.msched-dayview {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.msched-allday {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.msched-allday-list {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.msched-hour {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+.msched-hour:hover .msched-hour-label {
+  color: var(--green);
+}
+
+.msched-hour-label {
+  flex: none;
+  width: 42px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-sub);
+  padding-top: 2px;
+  text-align: right;
+}
+
+.msched-hour-slot {
+  flex: 1;
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding: 3px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.msched-event.compact {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+
+.msched-event.compact.meeting {
+  border-color: var(--green);
 }
 
 .msched-grid {

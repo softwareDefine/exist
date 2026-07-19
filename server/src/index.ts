@@ -6,12 +6,16 @@ import { startMediasoup, attachSfu } from './sfu.js';
 import { getUserContext } from './agent.js';
 import { attachYjs } from './ydoc.js';
 import { initNotifier, notifyUser } from './notify.js';
+import { ensureAgentUser } from './steward.js';
 import { createApp } from './app.js';
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
 
 const app = createApp();
 const server = http.createServer(app);
+
+// AI 유저 확보 + 아바타 마이그레이션(🤖→✦)이 부팅 시 바로 적용되게
+ensureAgentUser();
 
 // Socket.IO — SFU 시그널링 + presence + nowbar 알림 push
 const io = new Server(server, {

@@ -685,7 +685,7 @@ export default function NowBar({
         <SidebarToggle onToggle={onToggleSidebar} />
         <div className="nowbar-pill" onClick={onPillTap}>
           <div className="nowbar-card front nb-onboard">
-            ✨ 일정이나 할 일을 추가해 <b>nowbar</b>를 사용해보세요
+            <SparklesIcon size={13} /> 일정이나 할 일을 추가해 <b>nowbar</b>를 사용해보세요
           </div>
         </div>
         {shadeOpen && <button className="nb-shade-scrim" onClick={() => setShadeOpen(false)} />}
