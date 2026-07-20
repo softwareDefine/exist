@@ -3376,11 +3376,11 @@ input:focus {
   border-top-color: color-mix(in srgb, #ff453a 22%, transparent);
 }
 
-/* 오늘 선 앞머리 점 */
+/* 오늘 선 앞머리 점 — 선(2px)의 세로 중앙에 정렬 */
 .msched-nowline-dot {
   position: absolute;
   left: -3px;
-  top: -5px;
+  top: -3px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
