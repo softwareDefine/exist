@@ -10335,8 +10335,7 @@ input:focus {
 .org-menu-scrim,
 .hub-m-menu,
 .hub-m-back,
-.m-orgbar,
-.rail-orgs {
+.m-orgbar {
   display: none;
 }
 
@@ -10750,42 +10749,22 @@ input:focus {
     display: none;
   }
 
-  /* 조직 전환 버튼은 레일에서 숨김 — 조직은 rail-orgs 타일로 나열, 생성·가입은 상단 바 탭 */
+  /* 조직 전환 — 아이콘만 (이름·화살표 숨김), 메뉴는 레일 옆에 고정 팝업 */
   .dashboard > aside .org-switcher {
-    margin-bottom: 0;
+    margin-bottom: 0; /* 데스크톱용 16px — 레일에선 aside gap(10px)으로 통일 */
   }
 
   .dashboard > aside .org-switcher-btn {
-    display: none;
-  }
-
-  /* ── 디스코드식 조직 타일 나열 ── */
-  .rail-orgs {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .rail-org {
     width: 48px;
     height: 48px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-sub);
-    font-size: 18px;
-    font-weight: 900;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    transition: border-radius 0.15s ease;
+    padding: 0;
+    border-radius: 14px;
   }
 
-  .rail-org.on {
-    border: 2px solid var(--green);
-    color: var(--green);
-    border-radius: 16px;
+  .dashboard > aside .org-switcher-name,
+  .dashboard > aside .org-switcher-btn > svg {
+    display: none;
   }
 
   /* 조직 메뉴 — 모바일에선 화면 중앙 팝업 + 스크림 */

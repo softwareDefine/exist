@@ -16,7 +16,6 @@ export default function DashboardPage() {
   const location = useLocation();
   const orgCurrent = useOrgStore((s) => s.current);
   const orgs = useOrgStore((s) => s.orgs);
-  const setOrgCurrent = useOrgStore((s) => s.setCurrent);
   // 모바일 상단 얇은 바 — 지금 어느 조직 컨텍스트인지
   const currentOrgName =
     orgCurrent === 'personal' ? null : orgs.find((o) => o.id === orgCurrent)?.name ?? null;
@@ -277,27 +276,6 @@ export default function DashboardPage() {
             <HomeIcon size={20} />
             <span className="drawer-home-label">홈 대시보드</span>
           </button>
-
-          {/* 모바일 레일 전용 — 디스코드식 조직 아이콘 나열 (데스크톱·태블릿은 OrgSwitcher) */}
-          <div className="rail-orgs">
-            <button
-              className={`rail-org${orgCurrent === 'personal' ? ' on' : ''}`}
-              onClick={() => setOrgCurrent('personal')}
-              title="개인"
-            >
-              <UsersIcon size={18} />
-            </button>
-            {orgs.map((o) => (
-              <button
-                key={o.id}
-                className={`rail-org${orgCurrent === o.id ? ' on' : ''}`}
-                onClick={() => setOrgCurrent(o.id)}
-                title={o.name}
-              >
-                {o.name.slice(0, 1).toUpperCase()}
-              </button>
-            ))}
-          </div>
 
           <OrgSwitcher />
 
