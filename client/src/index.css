@@ -3450,9 +3450,10 @@ input:focus {
   cursor: pointer;
 }
 
-/* 첫 눈금 라벨(오전 12시)이 위로 잘리지 않게 */
+/* 첫 눈금 라벨(오전 12시)이 위로 잘리지 않게 + 아래 자정 선 뒤 작은 여백 */
 .msched-hours {
   padding-top: 8px;
+  padding-bottom: 4px;
 }
 
 /* 현재 시각 선 (애플 캘린더식) */
