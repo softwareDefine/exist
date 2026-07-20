@@ -3310,6 +3310,11 @@ input:focus {
   transform: translateY(-7px);
 }
 
+/* 마지막(다음날 자정) 라벨은 칸 높이를 차지하지 않음 */
+.msched-week-hlabel:last-of-type {
+  height: 0;
+}
+
 .msched-week-col {
   position: relative;
   border-left: 1px solid var(--border);
