@@ -3361,9 +3361,14 @@ input:focus {
 }
 
 .msched-nowline.week {
+  left: -4px;
+  right: -4px;
+  z-index: 3;
+}
+
+.msched-nowline.week.dim {
   left: 0;
   right: 0;
-  z-index: 3;
 }
 
 /* 오늘이 아닌 요일은 같은 굵기, 색만 흐릿하게 */
