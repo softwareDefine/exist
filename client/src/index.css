@@ -11041,7 +11041,7 @@ input:focus {
     padding: 8px 0 0 4px;
   }
 
-  /* ── 상단 얇은 조직 컨텍스트 바 — 지금 어느 조직인지, 탭하면 전환 메뉴 ── */
+  /* ── 상단 얇은 조직 컨텍스트 바 — 디스코드식: 초록 바탕, 조직명 중앙 ── */
   .m-orgbar {
     display: flex;
     position: absolute;
@@ -11051,24 +11051,22 @@ input:focus {
     height: 28px;
     z-index: 3;
     align-items: center;
+    justify-content: center;
     gap: 5px;
     padding: 0 12px;
-    background: var(--surface);
+    background: var(--green);
     border: none;
-    border-bottom: 1px solid var(--border);
-    font-size: 11.5px;
-    font-weight: 700;
-    color: var(--text-sub);
-    text-align: left;
+    font-size: 12px;
+    font-weight: 800;
+    color: #fff;
   }
 
   .m-orgbar svg {
-    color: var(--green);
+    color: #fff;
     flex: none;
   }
 
   .m-orgbar-name {
-    color: var(--text);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
