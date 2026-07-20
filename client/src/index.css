@@ -3458,7 +3458,7 @@ input:focus {
 }
 
 .msched-nowline-time.week {
-  right: 0;
+  right: 8px;
   top: auto;
   transform: translateY(-50%);
   z-index: 3;
