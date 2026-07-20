@@ -19,6 +19,8 @@ export default function DashboardPage() {
   // 모바일 상단 얇은 바 — 지금 어느 조직 컨텍스트인지
   const currentOrgName =
     orgCurrent === 'personal' ? null : orgs.find((o) => o.id === orgCurrent)?.name ?? null;
+  // 가입 승인 대기 총합 — 레일의 전환 버튼을 없애서 배지를 상단 바가 대신 보여줌
+  const totalPending = orgs.reduce((s, o) => s + o.pendingCount, 0);
   const [sidebarOpen, setSidebarOpen] = useState(
     () => localStorage.getItem('exist:sidebar') !== 'closed',
   );
@@ -353,6 +355,7 @@ export default function DashboardPage() {
         >
           {currentOrgName ? <BuildingIcon size={12} /> : <UsersIcon size={12} />}
           <span className="m-orgbar-name">{currentOrgName ?? '개인'}</span>
+          {totalPending > 0 && <span className="m-orgbar-badge">{totalPending}</span>}
           <ChevronIcon size={11} />
         </button>
 
