@@ -3408,7 +3408,7 @@ input:focus {
 /* 현재 시각 선 (애플 캘린더식) */
 .msched-nowline {
   position: absolute;
-  left: 64px;
+  left: 56px;
   right: 0;
   height: 0;
   border-top: 2px solid #ff453a;
