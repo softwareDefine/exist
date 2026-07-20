@@ -3368,7 +3368,18 @@ input:focus {
 
 /* 오늘이 아닌 요일은 같은 굵기, 색만 흐릿하게 */
 .msched-nowline.week.dim {
-  border-top-color: color-mix(in srgb, #ff453a 35%, transparent);
+  border-top-color: color-mix(in srgb, #ff453a 22%, transparent);
+}
+
+/* 오늘 선 앞머리 점 */
+.msched-nowline-dot {
+  position: absolute;
+  left: -3px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff453a;
 }
 
 /* ── 일 뷰 (시간 타임라인) ── */

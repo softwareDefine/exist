@@ -498,7 +498,9 @@ export default function MeetingSchedule({
                         <div
                           className={'msched-nowline week' + (key === todayKey ? '' : ' dim')}
                           style={{ top: (nowMin / 60) * WEEK_ROWH }}
-                        />
+                        >
+                          {key === todayKey && <i className="msched-nowline-dot" />}
+                        </div>
                       )}
                     </div>
                   );
