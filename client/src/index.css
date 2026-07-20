@@ -3379,7 +3379,7 @@ input:focus {
 /* 오늘 선 앞머리 점 — 선(2px)의 세로 중앙에 정렬 (스케일 무관하게 transform으로) */
 .msched-nowline-dot {
   position: absolute;
-  left: -3px;
+  left: -5px;
   top: -1px;
   width: 8px;
   height: 8px;
