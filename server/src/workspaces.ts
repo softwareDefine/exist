@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
+import { isMember } from './orgs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'uploads');
@@ -22,20 +23,50 @@ router.get('/uploads/:filename', (req, res) => {
 
 router.use(requireAuth);
 
-router.get('/', (_req: AuthedRequest, res) => {
-  // MVP: 로그인한 모든 사용자가 모든 작업공간 공유 (팀 단위 분리는 추후)
-  const rows = db
-    .prepare('SELECT id, name, created_by, created_at FROM workspaces ORDER BY id')
-    .all();
+/** ?ctx=personal|<orgId> — meetings.org_id와 같은 규약. 개인=내가 만든 것만, 조직=활성 멤버만 */
+function parseCtx(
+  req: AuthedRequest,
+): { ok: false; status: 400 | 403; error: string } | { ok: true; orgId: number | null } {
+  const raw = String((req.query.ctx ?? req.body?.ctx ?? 'personal') as string);
+  if (raw === 'personal') return { ok: true, orgId: null };
+  const orgId = Number(raw);
+  if (!Number.isInteger(orgId)) return { ok: false, status: 400, error: '잘못된 컨텍스트예요' };
+  if (!isMember(orgId, req.userId!))
+    return { ok: false, status: 403, error: '조직 멤버만 쓸 수 있어요' };
+  return { ok: true, orgId };
+}
+
+/** 이 사용자가 만질 수 있는 작업공간인가 — 개인은 만든 사람, 조직은 활성 멤버 */
+function canTouch(ws: { created_by: number; org_id: number | null }, userId: number): boolean {
+  return ws.org_id == null ? ws.created_by === userId : isMember(ws.org_id, userId);
+}
+
+router.get('/', (req: AuthedRequest, res) => {
+  const ctx = parseCtx(req);
+  if (!ctx.ok) return res.status(ctx.status).json({ error: ctx.error });
+  const rows =
+    ctx.orgId == null
+      ? db
+          .prepare(
+            'SELECT id, name, created_by, created_at FROM workspaces WHERE org_id IS NULL AND created_by = ? ORDER BY id',
+          )
+          .all(req.userId)
+      : db
+          .prepare(
+            'SELECT id, name, created_by, created_at FROM workspaces WHERE org_id = ? ORDER BY id',
+          )
+          .all(ctx.orgId);
   res.json(rows);
 });
 
 router.post('/', (req: AuthedRequest, res) => {
   const { name } = req.body ?? {};
   if (!name) return res.status(400).json({ error: '작업공간 이름을 입력하세요' });
+  const ctx = parseCtx(req);
+  if (!ctx.ok) return res.status(ctx.status).json({ error: ctx.error });
   const info = db
-    .prepare('INSERT INTO workspaces (name, created_by) VALUES (?, ?)')
-    .run(name, req.userId);
+    .prepare('INSERT INTO workspaces (name, created_by, org_id) VALUES (?, ?, ?)')
+    .run(name, req.userId, ctx.orgId);
   res.json({ id: info.lastInsertRowid, name });
 });
 
@@ -68,16 +99,22 @@ router.post('/uploads', (req: AuthedRequest, res) => {
 router.patch('/:id', (req: AuthedRequest, res) => {
   const { name } = req.body ?? {};
   if (!name?.trim()) return res.status(400).json({ error: '이름을 입력하세요' });
-  const ws = db.prepare('SELECT id FROM workspaces WHERE id = ?').get(req.params.id);
+  const ws = db
+    .prepare('SELECT id, created_by, org_id FROM workspaces WHERE id = ?')
+    .get(req.params.id) as { id: number; created_by: number; org_id: number | null } | undefined;
   if (!ws) return res.status(404).json({ error: '없는 작업공간입니다' });
+  if (!canTouch(ws, req.userId!)) return res.status(403).json({ error: '권한이 없어요' });
   db.prepare('UPDATE workspaces SET name = ? WHERE id = ?').run(name.trim(), req.params.id);
   res.json({ ok: true });
 });
 
 /** 작업공간 삭제 (캔버스 스냅샷은 보존 — 복구 여지) */
 router.delete('/:id', (req: AuthedRequest, res) => {
-  const ws = db.prepare('SELECT id FROM workspaces WHERE id = ?').get(req.params.id);
+  const ws = db
+    .prepare('SELECT id, created_by, org_id FROM workspaces WHERE id = ?')
+    .get(req.params.id) as { id: number; created_by: number; org_id: number | null } | undefined;
   if (!ws) return res.status(404).json({ error: '없는 작업공간입니다' });
+  if (!canTouch(ws, req.userId!)) return res.status(403).json({ error: '권한이 없어요' });
   db.prepare('DELETE FROM workspaces WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });

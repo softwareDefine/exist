@@ -144,6 +144,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 작업공간 조직 소속 — meetings.org_id와 같은 규약 (null = 만든 사람 개인)
+try {
+  db.exec(`ALTER TABLE workspaces ADD COLUMN org_id INTEGER REFERENCES organizations(id)`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 조직 멤버의 직급(position)·부서(department) — 한국 회사 조직도
 try {
   db.exec(`ALTER TABLE organization_members ADD COLUMN position TEXT`);

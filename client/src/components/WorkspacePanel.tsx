@@ -191,16 +191,27 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [expanded]);
 
-  async function refresh() {
-    const list = await api<Workspace[]>('/api/workspaces');
+  async function refresh(initial = false) {
+    const ctx = useOrgStore.getState().contextParam();
+    const list = await api<Workspace[]>(`/api/workspaces?ctx=${ctx}`);
     setWorkspaces(list);
-    if (list.length > 0 && active === null) setActive({ kind: 'ws', id: list[0].id });
+    setActive((cur) => {
+      // 첫 로드만 첫 작업공간 자동 선택 — 이후의 null은 홈 탭이므로 유지
+      if (cur === null) return initial && list.length > 0 ? { kind: 'ws', id: list[0].id } : null;
+      // 컨텍스트가 바뀌어 활성 작업공간이 목록에서 사라졌으면 보이는 것으로 이동
+      if (cur.kind === 'ws' && !list.some((w) => w.id === cur.id))
+        return list.length > 0 ? { kind: 'ws', id: list[0].id } : null;
+      return cur;
+    });
   }
 
+  const didInitWs = useRef(false);
   useEffect(() => {
-    void refresh();
+    const initial = !didInitWs.current;
+    didInitWs.current = true;
+    void refresh(initial);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [orgCurrent]);
 
   // 회의 탭 열기 요청 처리
   useEffect(() => {
@@ -258,7 +269,9 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     if (!window.confirm('작업공간을 삭제할까요? 캔버스 내용은 서버에 보존돼요.')) return;
     await api(`/api/workspaces/${id}`, { method: 'DELETE' });
     setActive((cur) => (cur?.kind === 'ws' && cur.id === id ? null : cur));
-    const list = await api<Workspace[]>('/api/workspaces');
+    const list = await api<Workspace[]>(
+      `/api/workspaces?ctx=${useOrgStore.getState().contextParam()}`,
+    );
     setWorkspaces(list);
     setActive((cur) => cur ?? (list.length > 0 ? { kind: 'ws', id: list[0].id } : null));
   }

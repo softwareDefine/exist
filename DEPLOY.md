@@ -24,7 +24,12 @@ cd ../server && npm ci && npm run build  # → server/dist
 | `PORT` | HTTP 포트 | `4000` |
 | `ANNOUNCED_IP` | **필수(배포 시)** — mediasoup이 클라이언트에 알려줄 서버 공인 IP | `203.0.113.10` |
 | `RTC_MIN_PORT` / `RTC_MAX_PORT` | WebRTC UDP/TCP 포트 범위 | `40000` / `40100` |
-| `ANTHROPIC_API_KEY` | AI 브리핑용 Claude API 키 (없으면 규칙 기반 폴백) | `sk-ant-...` |
+| `OPENAI_API_KEY` | AI(브리핑·recap·총무·인사이트)용 OpenAI 키 (없으면 규칙 기반 폴백) | `sk-...` |
+| `OPENAI_MODEL` | AI 모델 (기본 `gpt-4o-mini`) | `gpt-4o-mini` |
+| `LOCAL_IP` | 같은 LAN 통화용 사설 IP (헤어핀 NAT 회피) | `192.168.0.82` |
+| `MEDIA_PREFER_TCP` | `1`이면 ICE 우선순위를 TCP로 (Docker/Colima 등 UDP 차단 환경) | `1` |
+| `DATA_DIR` | DB·ydocs·uploads 저장 루트 (미설정 시 `server/`) | `/data` |
+| `RUNNER_URL` / `CODE_EXEC_ENABLED` | 격리 코드실행 컨테이너 주소 / git push 게이트 | `http://runner:5000` / `0` |
 | `CLIENT_ORIGIN` | 개발 모드 CORS 오리진 (프로덕션 동일 오리진이면 불필요) | — |
 
 ## 방화벽
@@ -55,12 +60,13 @@ nginx 사용 시 `proxy_set_header Upgrade $http_upgrade; proxy_set_header Conne
 
 ## 데이터 (백업 대상)
 
-- `server/exist.sqlite` — 사용자/회의/투두/작업공간 메타
-- `server/rooms/` — tldraw 캔버스 스냅샷
-- `server/uploads/` — 캔버스 업로드 에셋
+`DATA_DIR`(도커는 `/data` 볼륨, 기본은 `server/`) 아래 전부:
+
+- `exist.sqlite` — 사용자/회의/투두/작업공간 메타
+- `ydocs/` — Yjs 문서 상태 (문서/코드/시트/슬라이드/캔버스)
+- `uploads/` — 업로드 에셋
 
 ## 알려진 제약
 
-- tldraw 무료 사용 시 "Get a license" 워터마크 — 상용 판매 시 라이선스 구매 또는 Excalidraw(MIT) 전환 필요
 - SQLite 단일 파일 DB — 동시 사용자 수백 명 규모까지는 충분, 그 이상은 Postgres 전환
 - mediasoup 워커 1개 — CPU 코어당 1워커로 확장 가능 (sfu.ts)

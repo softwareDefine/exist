@@ -17,7 +17,7 @@ AI agent가 일정·알림·작업 진척도·to-do를 **nowbar**(상단 고정 
   - 통화: mediasoup SFU 화상회의. 다른 서브탭으로 가도 끊기지 않고 우하단 미니 PiP로 유지,
     전체화면 확대/축소도 재연결 없이 동작
   - 채팅: DB 영속, 통화 채팅과 같은 스트림, 비활성 탭엔 안읽음 배지
-  - 캔버스: 회의마다 자동으로 생기는 tldraw 실시간 공동편집 보드
+  - 캔버스: 회의마다 자동으로 생기는 Excalidraw 실시간 공동편집 보드
 - **다이렉트 메시지(DM)** — 대시보드 홈 화면의 1:1 메시지.
   조직 컨텍스트면 멤버 목록에서 바로, 개인이면 이름 검색으로 새 대화를 시작한다.
   실시간 송수신(Socket.IO `dm:message`)·안읽음 배지·읽음 처리, 우하단 플로팅 대화창.
@@ -40,8 +40,8 @@ docs/     기획 PDF, 디자인 렌더링 (git 제외)
 | 프론트 | React, Vite, TypeScript, zustand, react-router |
 | 백엔드 | Express 5, Socket.IO, better-sqlite3 (→ Postgres 예정) |
 | 화상회의 | mediasoup (SFU 직접 구현) — 카메라/다중 화면공유/호스트 잠금·강퇴 |
-| 동시편집 | tldraw + @tldraw/sync (TLSocketRoom, 스냅샷 영속화) |
-| AI agent | Claude API (`claude-opus-4-8`, adaptive thinking) + 규칙 기반 폴백 |
+| 동시편집 | Yjs + 커스텀 y-websocket 서버 (`/yjs/<room>`) — TipTap 문서·CodeMirror 코드·시트·슬라이드·Excalidraw 캔버스 |
+| AI agent | OpenAI API (`gpt-4o-mini` 기본, `OPENAI_MODEL`로 교체) + 규칙 기반 폴백 |
 | 인증 | scrypt 해시, Bearer 세션(30일), 복구 코드 방식 비밀번호 재설정 |
 
 ## 개발
@@ -59,8 +59,9 @@ cd client && npm run dev   # http://localhost:5173 (API·WS는 4000으로 프록
 
 ## AI agent
 
-`server/.env`에 `ANTHROPIC_API_KEY`를 넣으면 Claude가 일정·투두·라이브 통화 상황을
+`server/.env`에 `OPENAI_API_KEY`를 넣으면 AI가 일정·투두·라이브 통화 상황을
 분석해 nowbar 브리핑을 생성한다. 키가 없으면 규칙 기반 폴백으로 동작한다.
+브리핑 외에도 통화 recap(결정·할 일 추출), `@AI` 총무 응답, 팀 인사이트가 같은 키를 쓴다.
 
 - 브리핑: `GET /api/agent/brief` — 2분 캐시, 통화 인원 변동 시 즉시 재생성
 - 리마인더: 회의 30분/10분 전 Socket.IO 푸시(`agent:notify`) → 토스트
@@ -81,7 +82,7 @@ NODE_ENV=production node server/dist/index.js   # 정적 서빙 + SPA 폴백 포
 2. ✅ 투두/일정 CRUD + nowbar 카운트다운
 3. ✅ SFU 화상회의 (다자 중계, 다중 화면공유, 카메라 꺼짐 플레이스홀더, 호스트 잠금·강퇴)
 4. ✅ AI agent (브리핑 + 리마인더 + 라이브 통화 인지)
-5. ✅ 동시편집 (tldraw sync, 워크스페이스·회의 캔버스)
+5. ✅ 동시편집 (Yjs — 문서/코드/시트/슬라이드/캔버스, 워크스페이스·회의)
 6. ✅ 회의 허브 (대시보드/통화/채팅/캔버스 서브탭, 미니 PiP, 무중단 전체화면)
 7. ✅ 계정 (가입, 복구 코드 재설정, 아바타, 비밀번호 변경, rate limit)
 8. ✅ 프로덕션 빌드·보안 헤더·모바일 반응형
@@ -89,4 +90,4 @@ NODE_ENV=production node server/dist/index.js   # 정적 서빙 + SPA 폴백 포
 
 ## 남은 백로그
 
-tldraw 상용 라이선스(워터마크), 녹화, Postgres 전환, 강퇴자 재입장 방지, 실서버 배포
+녹화, Postgres 전환

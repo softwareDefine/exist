@@ -66,6 +66,8 @@ interface Room {
   locked: boolean;
   /** 이번 통화 세션에 들어왔던 모든 userId — 종료 후 recap의 참석/불참 구분에 사용 */
   sessionUserIds: Set<number>;
+  /** 이번 세션에서 강퇴된 userId — 방이 살아 있는 동안 재입장 차단 (방 닫히면 초기화) */
+  kickedUserIds: Set<number>;
 }
 
 let worker: Worker;
@@ -97,6 +99,7 @@ async function getOrCreateRoom(code: string): Promise<Room> {
       hostUserId: meeting?.host_id ?? null,
       locked: false,
       sessionUserIds: new Set(),
+      kickedUserIds: new Set(),
     };
     rooms.set(code, room);
     cancelScheduledRecap(code); // 유예 중 재입장이면 같은 세션으로 이어붙임
@@ -181,6 +184,10 @@ export function attachSfu(io: Server) {
         if (room.locked && userId !== room.hostUserId) {
           room = null;
           return ack({ error: '호스트가 회의를 잠갔습니다' });
+        }
+        if (room.kickedUserIds.has(userId) && userId !== room.hostUserId) {
+          room = null;
+          return ack({ error: '호스트가 내보낸 통화입니다 — 이번 통화에는 다시 들어올 수 없어요' });
         }
         peer = {
           socketId: socket.id,
@@ -331,7 +338,9 @@ export function attachSfu(io: Server) {
       if (!room || !peer) return ack?.({ error: '방에 입장하지 않았습니다' });
       if (peer.userId !== room.hostUserId) return ack?.({ error: '호스트만 가능합니다' });
       const target = io.sockets.sockets.get(peerId);
-      if (!target || !room.peers.has(peerId)) return ack?.({ error: '대상이 없습니다' });
+      const targetPeer = room.peers.get(peerId);
+      if (!target || !targetPeer) return ack?.({ error: '대상이 없습니다' });
+      room.kickedUserIds.add(targetPeer.userId); // 방이 닫힐 때까지 재입장 차단
       target.emit('room:kicked');
       // 알림 패킷 플러시 후 끊기 — disconnect 핸들러가 transport 정리 + peer:left 전파
       setTimeout(() => target.disconnect(true), 200);
