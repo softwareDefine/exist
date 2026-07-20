@@ -3311,6 +3311,18 @@ input:focus {
   min-width: 0;
 }
 
+/* 오전 12시 위 여백에서도 컬럼 선·배경이 끊기지 않고 이어지게 */
+.msched-week-col::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -1px;
+  right: 0;
+  height: 8px;
+  background: inherit;
+  border-left: 1px solid var(--border);
+}
+
 .msched-week-col.sel {
   background: color-mix(in srgb, var(--green) 6%, transparent);
 }
