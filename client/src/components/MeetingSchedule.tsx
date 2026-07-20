@@ -316,6 +316,10 @@ export default function MeetingSchedule({
   // 오전 12시(0시) ~ 밤 11시 — 하루 전체 시간선
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const isToday = selected === todayKey;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  // 지금 배지와 겹치는 눈금 라벨은 숨김 (정각 ±20분)
+  const labelHidden = (h: number) => Math.abs(nowMin - h * 60) < 20;
+  const todayInWeek = weekDays.some((d) => ymd(d) === todayKey);
 
   const eventRow = (ev: MEvent, compact = false) => (
     <div key={ev.id} className={'msched-event' + (compact ? ' compact' : '')}>
@@ -413,11 +417,11 @@ export default function MeetingSchedule({
               <div className="msched-week-gutter">
                 {hours.map((h) => (
                   <span key={h} className="msched-week-hlabel">
-                    {hourLabel(h)}
+                    {todayInWeek && labelHidden(h) ? '' : hourLabel(h)}
                   </span>
                 ))}
                 <span className="msched-week-hlabel">{hourLabel(24)}</span>
-                {weekDays.some((d) => ymd(d) === todayKey) && (
+                {todayInWeek && (
                   <span
                     className="msched-nowline-time week"
                     style={{ top: ((now.getHours() * 60 + now.getMinutes()) / 60) * WEEK_ROWH }}
@@ -494,9 +498,7 @@ export default function MeetingSchedule({
                         <div
                           className="msched-nowline week"
                           style={{ top: ((now.getHours() * 60 + now.getMinutes()) / 60) * WEEK_ROWH }}
-                        >
-                          <i className="msched-nowline-dot" />
-                        </div>
+                        />
                       )}
                     </div>
                   );
@@ -526,7 +528,9 @@ export default function MeetingSchedule({
                   }}
                   title="이 시간으로 일정 추가"
                 >
-                  <span className="msched-hour-label">{hourLabel(h)}</span>
+                  <span className="msched-hour-label">
+                    {isToday && labelHidden(h) ? '' : hourLabel(h)}
+                  </span>
                   {isToday && now.getHours() === h && (
                     <div
                       className="msched-nowline"
@@ -535,7 +539,6 @@ export default function MeetingSchedule({
                       <span className="msched-nowline-time">
                         {pad(now.getHours())}:{pad(now.getMinutes())}
                       </span>
-                      <i className="msched-nowline-dot" />
                     </div>
                   )}
                   <div className="msched-hour-slot">
