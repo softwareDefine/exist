@@ -3285,6 +3285,7 @@ input:focus {
   display: grid;
   grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .msched-week-gutter {
@@ -3315,16 +3316,24 @@ input:focus {
   min-width: 0;
 }
 
-/* 오전 12시 위 여백에서도 컬럼 선·배경이 끊기지 않고 이어지게 */
-.msched-week-col::before {
+/* 오전 12시 위·아래 여백에서도 컬럼 선·배경이 끊기지 않고 이어지게 */
+.msched-week-col::before,
+.msched-week-col::after {
   content: '';
   position: absolute;
-  top: -8px;
   left: -1px;
   right: 0;
   height: 8px;
   background: inherit;
   border-left: 1px solid var(--border);
+}
+
+.msched-week-col::before {
+  top: -8px;
+}
+
+.msched-week-col::after {
+  bottom: -8px;
 }
 
 .msched-week-col.sel {
