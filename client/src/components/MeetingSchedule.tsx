@@ -494,10 +494,10 @@ export default function MeetingSchedule({
                           </button>
                         );
                       })}
-                      {key === todayKey && (
+                      {todayInWeek && (
                         <div
-                          className="msched-nowline week"
-                          style={{ top: ((now.getHours() * 60 + now.getMinutes()) / 60) * WEEK_ROWH }}
+                          className={'msched-nowline week' + (key === todayKey ? '' : ' dim')}
+                          style={{ top: (nowMin / 60) * WEEK_ROWH }}
                         />
                       )}
                     </div>

@@ -3366,6 +3366,11 @@ input:focus {
   z-index: 3;
 }
 
+/* 오늘이 아닌 요일은 같은 굵기, 색만 흐릿하게 */
+.msched-nowline.week.dim {
+  border-top-color: color-mix(in srgb, #ff453a 35%, transparent);
+}
+
 /* ── 일 뷰 (시간 타임라인) ── */
 .msched-dayview {
   flex: 1;
