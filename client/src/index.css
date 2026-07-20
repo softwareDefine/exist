@@ -3361,14 +3361,14 @@ input:focus {
 }
 
 .msched-nowline.week {
-  left: -4px;
-  right: -4px;
+  left: 0;
+  right: 0;
   z-index: 3;
 }
 
-.msched-nowline.week.dim {
-  left: 0;
-  right: 0;
+/* 배지에서 시작하는 첫 컬럼 선은 거터 쪽으로 살짝 연장 */
+.msched-week-col:first-child .msched-nowline.week {
+  left: -8px;
 }
 
 /* 오늘이 아닌 요일은 같은 굵기, 색만 흐릿하게 */
