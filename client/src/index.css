@@ -11009,7 +11009,7 @@ input:focus {
    * 디스코드식 아이콘 레일: 홈 / 조직전환 / 그룹 아이콘들 / + — 항상 고정 표시 */
   .dashboard > aside {
     position: absolute;
-    top: 0;
+    top: 28px; /* 상단 조직 바 아래부터 */
     bottom: 0;
     left: 0;
     width: 64px;
@@ -11041,12 +11041,12 @@ input:focus {
     padding: 8px 0 0 4px;
   }
 
-  /* ── 상단 얇은 조직 컨텍스트 바 — 디스코드식: 초록 바탕, 조직명 중앙 ── */
+  /* ── 상단 얇은 조직 컨텍스트 바 — 디스코드식: 초록 바탕, 조직명 중앙, 레일 위까지 풀폭 ── */
   .m-orgbar {
     display: flex;
     position: absolute;
     top: 0;
-    left: 64px;
+    left: 0;
     right: 0;
     height: 28px;
     z-index: 3;
