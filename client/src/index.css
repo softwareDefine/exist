@@ -3376,15 +3376,16 @@ input:focus {
   border-top-color: color-mix(in srgb, #ff453a 22%, transparent);
 }
 
-/* 오늘 선 앞머리 점 — 선(2px)의 세로 중앙에 정렬 */
+/* 오늘 선 앞머리 점 — 선(2px)의 세로 중앙에 정렬 (스케일 무관하게 transform으로) */
 .msched-nowline-dot {
   position: absolute;
   left: -3px;
-  top: -3px;
+  top: -1px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: #ff453a;
+  transform: translateY(-50%);
 }
 
 /* ── 일 뷰 (시간 타임라인) ── */
