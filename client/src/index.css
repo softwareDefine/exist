@@ -3291,7 +3291,7 @@ input:focus {
   display: grid;
   grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   padding-top: 8px;
-  padding-bottom: 1px;
+  padding-bottom: 8px;
 }
 
 .msched-week-gutter {
@@ -3343,10 +3343,10 @@ input:focus {
   top: -8px;
 }
 
-/* 다음날 자정 아래 — 최소한만 */
+/* 다음날 자정 아래 — 위쪽과 같은 이어짐 */
 .msched-week-col::after {
-  bottom: -1px;
-  height: 1px;
+  bottom: -8px;
+  height: 8px;
 }
 
 /* 다음날 자정(24:00) 가로선 — 마지막 시간 칸의 아래 보더로 */
