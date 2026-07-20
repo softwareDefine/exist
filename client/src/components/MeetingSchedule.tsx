@@ -48,6 +48,18 @@ const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 type ViewMode = 'day' | 'week' | 'month';
 const VIEW_LABEL: Record<ViewMode, string> = { day: '일', week: '주', month: '월' };
 
+/** 주 뷰 한 시간 행 높이(px) — CSS .msched-week-cell 높이와 일치해야 함 */
+const WEEK_ROWH = 40;
+
+/** 분 단위 시작·종료 → 주 뷰 블록 top/height (종료 없으면 1시간) */
+function blockPos(startMin: number, endMin: number | null) {
+  const dur = Math.max((endMin ?? startMin + 60) - startMin, 20);
+  return {
+    top: (startMin / 60) * WEEK_ROWH,
+    height: (dur / 60) * WEEK_ROWH,
+  };
+}
+
 /** 회의 일정 달력 — 이벤트를 날짜에 표시하고 추가·삭제로 관리 */
 export default function MeetingSchedule({
   code,
@@ -69,12 +81,13 @@ export default function MeetingSchedule({
   const [endTime, setEndTime] = useState('');
   const [isCall, setIsCall] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [now, setNow] = useState<Date>(() => new Date()); // 일 뷰 "지금" 선
+  const [now, setNow] = useState<Date>(() => new Date()); // 일·주 뷰 "지금" 선
   const dayviewRef = useRef<HTMLDivElement | null>(null);
+  const weekRef = useRef<HTMLDivElement | null>(null);
 
-  // 일 뷰일 때만 30초마다 현재 시각 갱신
+  // 일·주 뷰일 때만 30초마다 현재 시각 갱신
   useEffect(() => {
-    if (view !== 'day') return;
+    if (view === 'month') return;
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 30_000);
     return () => clearInterval(t);
@@ -86,6 +99,15 @@ export default function MeetingSchedule({
     const el = dayviewRef.current?.querySelector<HTMLElement>(`[data-hour="${new Date().getHours()}"]`);
     el?.scrollIntoView({ block: 'center' });
   }, [view, selected]);
+
+  // 주 뷰 진입 시 지금 시각 근처로 스크롤
+  useEffect(() => {
+    if (view !== 'week') return;
+    const box = weekRef.current;
+    if (!box) return;
+    const nowTop = ((new Date().getHours() * 60 + new Date().getMinutes()) / 60) * WEEK_ROWH;
+    box.scrollTop = Math.max(0, nowTop - box.clientHeight / 2);
+  }, [view]);
 
   const load = useCallback(async () => {
     try {
@@ -351,43 +373,121 @@ export default function MeetingSchedule({
         </div>
 
         {view === 'week' && (
-          <div className="msched-week">
-            {weekDays.map((d) => {
-              const key = ymd(d);
-              const evs = [...(byDate.get(key) ?? [])].sort((a, b) =>
-                (a.time ?? '').localeCompare(b.time ?? ''),
-              );
-              const meet = isMeetingDayKey(key);
-              return (
-                <button
-                  key={key}
-                  className={
-                    'msched-wcol' + (key === selected ? ' sel' : '') + (key === todayKey ? ' today' : '')
-                  }
-                  onClick={() => setSelected(key)}
-                >
-                  <span className="msched-wcol-head">
+          <div className="msched-weekwrap">
+            <div className="msched-week-head">
+              <span className="msched-week-gutter-spacer" />
+              {weekDays.map((d) => {
+                const key = ymd(d);
+                const dayUntimed = (byDate.get(key) ?? []).filter((e) => !e.time);
+                return (
+                  <button
+                    key={key}
+                    className={
+                      'msched-wday-btn' +
+                      (key === selected ? ' sel' : '') +
+                      (key === todayKey ? ' today' : '')
+                    }
+                    onClick={() => setSelected(key)}
+                  >
                     <span className="msched-wcol-dow">{DOW[d.getDay()]}</span>
                     <span className={'msched-wcol-num' + (key === todayKey ? ' today' : '')}>
                       {d.getDate()}
                     </span>
-                  </span>
-                  <span className="msched-wcol-events">
-                    {meet && (
-                      <span className="msched-chip meeting">
-                        <i className="msched-chip-dot" />이 그룹
+                    {dayUntimed.length > 0 && (
+                      <span className="msched-wday-untimed" title="시간 미정 일정">
+                        {dayUntimed.length}
                       </span>
                     )}
-                    {evs.map((e) => (
-                      <span key={e.id} className="msched-chip" title={e.title}>
-                        {e.time && <b className="msched-chip-time">{e.time}</b>}
-                        {e.title}
-                      </span>
-                    ))}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="msched-week-body" ref={weekRef}>
+              <div className="msched-week-gutter">
+                {hours.map((h) => (
+                  <span key={h} className="msched-week-hlabel">
+                    {pad(h)}:00
                   </span>
-                </button>
-              );
-            })}
+                ))}
+                <span className="msched-week-hlabel">24:00</span>
+              </div>
+              <div className="msched-week-grid">
+                {weekDays.map((d) => {
+                  const key = ymd(d);
+                  const dayTimed = (byDate.get(key) ?? [])
+                    .filter((e) => e.time)
+                    .sort((a, b) => a.time!.localeCompare(b.time!));
+                  const meet = isMeetingDayKey(key);
+                  return (
+                    <div
+                      key={key}
+                      className={
+                        'msched-week-col' +
+                        (key === selected ? ' sel' : '') +
+                        (key === todayKey ? ' today' : '')
+                      }
+                    >
+                      {hours.map((h) => (
+                        <div
+                          key={h}
+                          className="msched-week-cell"
+                          onClick={() => {
+                            setSelected(key);
+                            setTime(`${pad(h)}:00`);
+                            setEndTime('');
+                          }}
+                          title="이 시간으로 일정 추가"
+                        />
+                      ))}
+                      {meet && meetStart && !isNaN(meetStart.getTime()) && (
+                        <div
+                          className="msched-wblock meeting"
+                          style={blockPos(
+                            meetStart.getHours() * 60 + meetStart.getMinutes(),
+                            endsAt
+                              ? new Date(endsAt).getHours() * 60 + new Date(endsAt).getMinutes()
+                              : null,
+                          )}
+                          title="이 그룹 일정"
+                        >
+                          📌 이 그룹
+                        </div>
+                      )}
+                      {dayTimed.map((e) => {
+                        const sm =
+                          parseInt(e.time!.slice(0, 2), 10) * 60 + parseInt(e.time!.slice(3, 5), 10);
+                        const em = e.end_time
+                          ? parseInt(e.end_time.slice(0, 2), 10) * 60 +
+                            parseInt(e.end_time.slice(3, 5), 10)
+                          : null;
+                        return (
+                          <button
+                            key={e.id}
+                            className={'msched-wblock' + (e.is_call ? ' call' : '')}
+                            style={blockPos(sm, em)}
+                            title={`${e.time} ${e.title}`}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              setSelected(key);
+                            }}
+                          >
+                            <b>{e.time}</b> {e.title}
+                          </button>
+                        );
+                      })}
+                      {key === todayKey && (
+                        <div
+                          className="msched-nowline week"
+                          style={{ top: ((now.getHours() * 60 + now.getMinutes()) / 60) * WEEK_ROWH }}
+                        >
+                          <i className="msched-nowline-dot" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 

@@ -3202,52 +3202,42 @@ input:focus {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-/* ── 주 뷰 ── */
-.msched-week {
+/* ── 주 뷰 (시간 그리드) ── */
+.msched-weekwrap {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0;
   min-height: 0;
-}
-
-.msched-wcol {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  border: none;
-  border-left: 1px solid var(--border);
-  border-radius: 0;
-  background: none;
-  padding: 6px 4px;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  text-align: center;
 }
 
-.msched-wcol:first-child {
-  border-left: none;
+.msched-week-head {
+  display: grid;
+  grid-template-columns: 48px repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border);
 }
 
-.msched-wcol:hover {
-  background: color-mix(in srgb, var(--green) 5%, transparent);
-}
-
-.msched-wcol.sel {
-  background: color-mix(in srgb, var(--green) 9%, transparent);
-}
-
-.msched-wcol.sel .msched-wcol-num:not(.today) {
-  box-shadow: inset 0 0 0 2px var(--green);
-}
-
-.msched-wcol-head {
+.msched-wday-btn {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  border: none;
+  background: none;
+  padding: 4px 0 6px;
+  min-width: 0;
+}
+
+.msched-wday-btn:hover {
+  background: color-mix(in srgb, var(--green) 5%, transparent);
+}
+
+.msched-wday-btn.sel {
+  background: color-mix(in srgb, var(--green) 9%, transparent);
+}
+
+.msched-wday-btn.sel .msched-wcol-num:not(.today) {
+  box-shadow: inset 0 0 0 2px var(--green);
 }
 
 .msched-wcol-dow {
@@ -3263,6 +3253,7 @@ input:focus {
   height: 26px;
   line-height: 26px;
   border-radius: 50%;
+  text-align: center;
 }
 
 .msched-wcol-num.today {
@@ -3270,12 +3261,107 @@ input:focus {
   color: #fff;
 }
 
-.msched-wcol-events {
+.msched-wday-untimed {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--text-sub);
+  border-radius: 8px;
+  padding: 0 4px;
+  line-height: 13px;
+}
+
+.msched-week-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 48px repeat(7, minmax(0, 1fr));
+}
+
+.msched-week-gutter {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  min-height: 0;
+}
+
+/* 래퍼가 그리드 트랙을 잡아먹지 않게 — 7컬럼이 body 그리드에 직접 배치 */
+.msched-week-grid {
+  display: contents;
+}
+
+.msched-week-hlabel {
+  height: 40px;
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-sub);
+  text-align: right;
+  padding-right: 6px;
+  transform: translateY(-6px);
+}
+
+.msched-week-col {
+  position: relative;
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+
+.msched-week-col.sel {
+  background: color-mix(in srgb, var(--green) 6%, transparent);
+}
+
+.msched-week-cell {
+  height: 40px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.msched-week-cell:hover {
+  background: color-mix(in srgb, var(--green) 7%, transparent);
+}
+
+.msched-wblock {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border: none;
+  border-left: 3px solid var(--green);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--green) 16%, var(--surface));
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+  text-align: left;
+  padding: 2px 4px;
   overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.msched-wblock b {
+  font-weight: 800;
+  margin-right: 2px;
+}
+
+.msched-wblock.call {
+  border-left-color: #4f8df7;
+  background: color-mix(in srgb, #4f8df7 16%, var(--surface));
+}
+
+.msched-wblock.meeting {
+  border-left-color: var(--green);
+  background: color-mix(in srgb, var(--green) 28%, var(--surface));
+}
+
+.msched-nowline.week {
+  left: 0;
+  right: 0;
+  z-index: 3;
 }
 
 /* ── 일 뷰 (시간 타임라인) ── */
