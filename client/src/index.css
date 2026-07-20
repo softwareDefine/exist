@@ -3371,6 +3371,15 @@ input:focus {
   gap: 4px;
 }
 
+.msched-hour-end {
+  min-height: 0;
+  cursor: default;
+}
+
+.msched-hour-end .msched-hour-slot {
+  padding: 0;
+}
+
 .msched-event.compact {
   background: var(--bg);
   border: 1px solid var(--border);

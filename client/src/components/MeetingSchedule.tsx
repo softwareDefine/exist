@@ -452,6 +452,11 @@ export default function MeetingSchedule({
                   </div>
                 </div>
               ))}
+              {/* 하루 끝 경계선 */}
+              <div className="msched-hour msched-hour-end" aria-hidden>
+                <span className="msched-hour-label">24:00</span>
+                <div className="msched-hour-slot" />
+              </div>
             </div>
           </div>
         )}
