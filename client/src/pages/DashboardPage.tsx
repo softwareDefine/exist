@@ -4,7 +4,7 @@ import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import Logo from '../components/Logo';
 import WorkspacePanel, { type MeetingTabRequest } from '../components/WorkspacePanel';
-import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, HistoryIcon, PinIcon, HomeIcon } from '../components/Icons';
+import { PhoneIcon, ChatIcon, CalendarIcon, GearIcon, HistoryIcon, PinIcon, HomeIcon, BuildingIcon, UsersIcon, ChevronIcon } from '../components/Icons';
 import CreateMeetingModal from '../components/CreateMeetingModal';
 import MeetingSettingsModal from '../components/MeetingSettingsModal';
 import MeetingThumb from '../components/MeetingThumb';
@@ -15,6 +15,10 @@ import { readPins, PINS_EVENT } from '../lib/pins';
 export default function DashboardPage() {
   const location = useLocation();
   const orgCurrent = useOrgStore((s) => s.current);
+  const orgs = useOrgStore((s) => s.orgs);
+  // 모바일 상단 얇은 바 — 지금 어느 조직 컨텍스트인지
+  const currentOrgName =
+    orgCurrent === 'personal' ? null : orgs.find((o) => o.id === orgCurrent)?.name ?? null;
   const [sidebarOpen, setSidebarOpen] = useState(
     () => localStorage.getItem('exist:sidebar') !== 'closed',
   );
@@ -341,6 +345,16 @@ export default function DashboardPage() {
           </button>
 
         </aside>
+
+        {/* 모바일 전용 — 상단 얇은 조직 컨텍스트 바 (탭하면 조직 전환 메뉴) */}
+        <button
+          className="m-orgbar"
+          onClick={() => window.dispatchEvent(new Event('exist:open-org-menu'))}
+        >
+          {currentOrgName ? <BuildingIcon size={12} /> : <UsersIcon size={12} />}
+          <span className="m-orgbar-name">{currentOrgName ?? '개인'}</span>
+          <ChevronIcon size={11} />
+        </button>
 
         <div className="workspace-col">
           {message && <div className="dash-message">{message}</div>}

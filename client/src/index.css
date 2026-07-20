@@ -10334,7 +10334,8 @@ input:focus {
 .drawer-add,
 .org-menu-scrim,
 .hub-m-menu,
-.hub-m-back {
+.hub-m-back,
+.m-orgbar {
   display: none;
 }
 
@@ -11029,7 +11030,7 @@ input:focus {
 
   .dashboard .workspace-col {
     position: absolute;
-    top: 0;
+    top: 28px; /* 상단 조직 컨텍스트 바 높이 */
     right: 0;
     bottom: 0;
     left: 64px; /* 레일 옆 고정 — 스와이프로 밀리지 않음 */
@@ -11038,6 +11039,40 @@ input:focus {
     overflow-y: auto;
     /* 오른쪽·아래는 화면 끝까지 꽉 채움 — 여백은 위·레일 쪽만 살짝 */
     padding: 8px 0 0 4px;
+  }
+
+  /* ── 상단 얇은 조직 컨텍스트 바 — 지금 어느 조직인지, 탭하면 전환 메뉴 ── */
+  .m-orgbar {
+    display: flex;
+    position: absolute;
+    top: 0;
+    left: 64px;
+    right: 0;
+    height: 28px;
+    z-index: 3;
+    align-items: center;
+    gap: 5px;
+    padding: 0 12px;
+    background: var(--surface);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text-sub);
+    text-align: left;
+  }
+
+  .m-orgbar svg {
+    color: var(--green);
+    flex: none;
+  }
+
+  .m-orgbar-name {
+    color: var(--text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* 콘텐츠 컨테이너 — 좌우 다이어트 + 하단 플로팅 바에 마지막 항목이 안 가리게 바닥 여유 */

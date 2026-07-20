@@ -22,6 +22,13 @@ export default function OrgSwitcher() {
     void load();
   }, [load]);
 
+  // 모바일 상단 조직 바에서 메뉴 열기
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener('exist:open-org-menu', onOpen);
+    return () => window.removeEventListener('exist:open-org-menu', onOpen);
+  }, []);
+
   // 바깥 클릭 닫기
   useEffect(() => {
     if (!open) return;
