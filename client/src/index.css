@@ -3304,11 +3304,47 @@ input:focus {
 }
 
 .msched-hour {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 8px;
   min-height: 40px;
   cursor: pointer;
+}
+
+/* 현재 시각 선 (애플 캘린더식) */
+.msched-nowline {
+  position: absolute;
+  left: 50px;
+  right: 0;
+  height: 0;
+  border-top: 2px solid #ff453a;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.msched-nowline-dot {
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff453a;
+}
+
+.msched-nowline-time {
+  position: absolute;
+  right: 100%;
+  top: -8px;
+  margin-right: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #ff453a;
+  background: var(--surface);
+  padding: 0 2px;
+  border-radius: 4px;
+  line-height: 14px;
 }
 
 .msched-hour:hover .msched-hour-label {

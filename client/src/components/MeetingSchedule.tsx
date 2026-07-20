@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { PhoneIcon } from './Icons';
@@ -69,6 +69,23 @@ export default function MeetingSchedule({
   const [endTime, setEndTime] = useState('');
   const [isCall, setIsCall] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [now, setNow] = useState<Date>(() => new Date()); // 일 뷰 "지금" 선
+  const dayviewRef = useRef<HTMLDivElement | null>(null);
+
+  // 일 뷰일 때만 30초마다 현재 시각 갱신
+  useEffect(() => {
+    if (view !== 'day') return;
+    setNow(new Date());
+    const t = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(t);
+  }, [view]);
+
+  // 일 뷰 진입 시 지금 시각 근처로 스크롤
+  useEffect(() => {
+    if (view !== 'day') return;
+    const el = dayviewRef.current?.querySelector<HTMLElement>(`[data-hour="${new Date().getHours()}"]`);
+    el?.scrollIntoView({ block: 'center' });
+  }, [view, selected]);
 
   const load = useCallback(async () => {
     try {
@@ -267,19 +284,9 @@ export default function MeetingSchedule({
   const meetingToday = isMeetingDayKey(selected);
   const meetStart = startsAt ? new Date(startsAt) : null;
   const meetHour = meetingToday && meetStart && !isNaN(meetStart.getTime()) ? meetStart.getHours() : null;
-  let hourFrom = 8;
-  let hourTo = 20;
-  for (const e of timed) {
-    const h = parseInt(e.time!.slice(0, 2), 10);
-    const eh = e.end_time ? parseInt(e.end_time.slice(0, 2), 10) + 1 : h + 1;
-    if (h < hourFrom) hourFrom = h;
-    if (eh > hourTo) hourTo = eh;
-  }
-  if (meetHour != null) {
-    if (meetHour < hourFrom) hourFrom = meetHour;
-    if (meetHour + 1 > hourTo) hourTo = meetHour + 1;
-  }
-  const hours = Array.from({ length: hourTo - hourFrom + 1 }, (_, i) => hourFrom + i);
+  // 오전 12시(0시) ~ 밤 11시 — 하루 전체 시간선
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const isToday = selected === todayKey;
 
   const eventRow = (ev: MEvent, compact = false) => (
     <div key={ev.id} className={'msched-event' + (compact ? ' compact' : '')}>
@@ -385,7 +392,7 @@ export default function MeetingSchedule({
         )}
 
         {view === 'day' && (
-          <div className="msched-dayview">
+          <div className="msched-dayview" ref={dayviewRef}>
             {untimed.length > 0 && (
               <div className="msched-allday">
                 <span className="msched-hour-label">종일</span>
@@ -396,6 +403,7 @@ export default function MeetingSchedule({
               {hours.map((h) => (
                 <div
                   key={h}
+                  data-hour={h}
                   className="msched-hour"
                   onClick={() => {
                     setTime(`${pad(h)}:00`);
@@ -403,6 +411,17 @@ export default function MeetingSchedule({
                   }}
                   title="이 시간으로 일정 추가"
                 >
+                  {isToday && now.getHours() === h && (
+                    <div
+                      className="msched-nowline"
+                      style={{ top: `${(now.getMinutes() / 60) * 100}%` }}
+                    >
+                      <span className="msched-nowline-time">
+                        {pad(now.getHours())}:{pad(now.getMinutes())}
+                      </span>
+                      <i className="msched-nowline-dot" />
+                    </div>
+                  )}
                   <span className="msched-hour-label">{pad(h)}:00</span>
                   <div className="msched-hour-slot">
                     {meetHour === h && meetStart && (
