@@ -340,6 +340,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_decision_acks ON decision_acks(recap_id, decision_idx);
 `);
 
+// 마이그레이션: recap의 다음 회의 제안 (JSON {title,date,time,registered?} 또는 null)
+// — meeting_recaps CREATE 뒤에 있어야 새 DB에도 적용됨 (ALTER가 먼저면 조용히 스킵)
+try {
+  db.exec(`ALTER TABLE meeting_recaps ADD COLUMN next_meeting TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 개인 DM 지원 — 기존 테이블 org_id가 NOT NULL이면 NULL 허용으로 재생성
 try {
   const col = db

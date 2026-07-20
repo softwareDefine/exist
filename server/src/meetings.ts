@@ -10,7 +10,7 @@ import { emitToUser, notifyUser } from './notify.js';
 import { getRoomSize, getRoomPeers } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
-import { listRecaps, listDecisions, ackDecision } from './recap.js';
+import { listRecaps, listDecisions, ackDecision, markNextMeetingRegistered } from './recap.js';
 import { listChannels, ensureDefaultChannel, resolveChannel, cleanChannelName } from './channels.js';
 import { generateAgenda } from './steward.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
@@ -843,6 +843,22 @@ router.get('/:code/recaps', (req: AuthedRequest, res) => {
     .get(meeting.id, req.userId);
   if (!isParticipant) return res.status(403).json({ error: '회의 참가자만 볼 수 있어요' });
   res.json(listRecaps(meeting.id));
+});
+
+/** recap의 다음 회의 제안을 등록됨으로 표시 — 클라가 events POST 성공 후 호출 (참가자만) */
+router.post('/:code/recaps/:recapId/next-registered', (req: AuthedRequest, res) => {
+  const meeting = db
+    .prepare('SELECT id FROM meetings WHERE code = ?')
+    .get(String(req.params.code ?? '').toUpperCase()) as { id: number } | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  const isParticipant = db
+    .prepare('SELECT 1 FROM meeting_participants WHERE meeting_id = ? AND user_id = ?')
+    .get(meeting.id, req.userId);
+  if (!isParticipant) return res.status(403).json({ error: '회의 참가자만 쓸 수 있어요' });
+  if (!markNextMeetingRegistered(Number(req.params.recapId), meeting.id)) {
+    return res.status(404).json({ error: '다음 회의 제안이 없는 정리예요' });
+  }
+  res.json({ ok: true });
 });
 
 /** 결정 원장 — 이 그룹의 모든 recap 결정 시간순 (참가자만) */

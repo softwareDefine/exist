@@ -13,14 +13,29 @@ interface RecapAction {
   title: string;
 }
 
+interface NextMeeting {
+  title: string;
+  date: string; // YYYY-MM-DD
+  time: string | null; // HH:MM
+  registered?: boolean;
+}
+
 interface Recap {
   id: number;
   summary: string;
   decisions: string[];
   actions: RecapAction[];
   attendees: string[];
+  nextMeeting: NextMeeting | null;
   source: string;
   ts: number;
+}
+
+/** "7/23 (수) 15:00" — 다음 회의 제안 표시용 */
+function fmtNext(nm: NextMeeting): string {
+  const dt = new Date(`${nm.date}T${nm.time ?? '00:00'}:00`);
+  const wd = '일월화수목금토'[dt.getDay()];
+  return `${dt.getMonth() + 1}/${dt.getDate()} (${wd})${nm.time ? ` ${nm.time}` : ''}`;
 }
 
 function relTime(ts: number): string {
@@ -35,6 +50,7 @@ function relTime(ts: number): string {
 export default function RecapPanel({ code }: { code: string }) {
   const [recaps, setRecaps] = useState<Recap[]>([]);
   const [expanded, setExpanded] = useState(false); // 기본은 최신 1건만
+  const [registering, setRegistering] = useState<number | null>(null); // 등록 중인 recap id
 
   const load = useCallback(() => {
     void api<Recap[]>(`/api/meetings/${code}/recaps`)
@@ -55,6 +71,23 @@ export default function RecapPanel({ code }: { code: string }) {
       socket.off('agent:notify', onNotify);
     };
   }, [code, load]);
+
+  /** AI 제안 → 사람이 확정 — 기존 일정 API로 등록하고 제안에 등록됨 표시 */
+  async function registerNext(r: Recap) {
+    const nm = r.nextMeeting;
+    if (!nm || nm.registered || registering !== null) return;
+    setRegistering(r.id);
+    try {
+      await api(`/api/meetings/${code}/events`, {
+        method: 'POST',
+        body: { title: nm.title, date: nm.date, time: nm.time, is_call: true },
+      });
+      await api(`/api/meetings/${code}/recaps/${r.id}/next-registered`, { method: 'POST' });
+      load();
+    } finally {
+      setRegistering(null);
+    }
+  }
 
   const shown = expanded ? recaps : recaps.slice(0, 1);
 
@@ -103,6 +136,28 @@ export default function RecapPanel({ code }: { code: string }) {
                       {a.title}
                     </div>
                   ))}
+                </div>
+              )}
+
+              {r.nextMeeting && (
+                <div className="hub-recap-next">
+                  <span className="hub-recap-next-label">다음 회의 제안</span>
+                  <span className="hub-recap-next-when">
+                    {fmtNext(r.nextMeeting)} — {r.nextMeeting.title}
+                  </span>
+                  {r.nextMeeting.registered ? (
+                    <span className="hub-recap-next-done">
+                      <CheckMarkIcon size={12} /> 등록됨
+                    </span>
+                  ) : (
+                    <button
+                      className="hub-recap-next-btn"
+                      disabled={registering === r.id}
+                      onClick={() => void registerNext(r)}
+                    >
+                      {registering === r.id ? '등록 중…' : '일정 등록'}
+                    </button>
+                  )}
                 </div>
               )}
 
