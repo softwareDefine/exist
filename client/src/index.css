@@ -3429,15 +3429,29 @@ input:focus {
 .msched-nowline-time {
   position: absolute;
   right: 100%;
-  top: -8px;
+  top: -9px;
   margin-right: 6px;
   font-size: 10px;
   font-weight: 800;
-  color: #ff453a;
-  background: var(--surface);
-  padding: 0 2px;
-  border-radius: 4px;
+  color: #fff;
+  background: #ff453a;
+  padding: 1px 6px;
+  border-radius: 9px;
   line-height: 14px;
+  white-space: nowrap;
+}
+
+/* 주 뷰 — 거터에 현재 시각 배지 */
+.msched-week-gutter {
+  position: relative;
+}
+
+.msched-nowline-time.week {
+  right: 4px;
+  top: auto;
+  margin-right: 0;
+  transform: translateY(-50%);
+  z-index: 3;
 }
 
 .msched-hour:hover .msched-hour-label {

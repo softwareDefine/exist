@@ -417,6 +417,14 @@ export default function MeetingSchedule({
                   </span>
                 ))}
                 <span className="msched-week-hlabel">{hourLabel(24)}</span>
+                {weekDays.some((d) => ymd(d) === todayKey) && (
+                  <span
+                    className="msched-nowline-time week"
+                    style={{ top: ((now.getHours() * 60 + now.getMinutes()) / 60) * WEEK_ROWH }}
+                  >
+                    {pad(now.getHours())}:{pad(now.getMinutes())}
+                  </span>
+                )}
               </div>
               <div className="msched-week-grid">
                 {weekDays.map((d) => {
