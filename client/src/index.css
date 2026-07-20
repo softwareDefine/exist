@@ -3135,6 +3135,12 @@ input:focus {
   min-height: 0;
 }
 
+/* 시간선 뷰(일·주)는 표가 컨테이너 바닥까지 — 아래 여백 제거 */
+.msched-view-week .msched-cal,
+.msched-view-day .msched-cal {
+  padding-bottom: 0;
+}
+
 .msched-cal-head {
   display: flex;
   align-items: center;
