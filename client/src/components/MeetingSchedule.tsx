@@ -421,7 +421,7 @@ export default function MeetingSchedule({
                     {todayInWeek && labelHidden(h) ? '' : hourLabel(h)}
                   </span>
                 ))}
-                <span className="msched-week-hlabel">{hourLabel(24)}</span>
+                <span className="msched-week-hlabel end">{hourLabel(24)}</span>
                 {todayInWeek && (
                   <span
                     className="msched-nowline-time week"
