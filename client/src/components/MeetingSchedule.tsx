@@ -51,6 +51,13 @@ const VIEW_LABEL: Record<ViewMode, string> = { day: '일', week: '주', month: '
 /** 주 뷰 한 시간 행 높이(px) — CSS .msched-week-cell 높이와 일치해야 함 */
 const WEEK_ROWH = 40;
 
+/** 시간 눈금 라벨 — 0→오전 12시, 13→오후 1시, 24→오전 12시 */
+function hourLabel(h: number): string {
+  const ampm = h % 24 < 12 ? '오전' : '오후';
+  const hh = h % 12 === 0 ? 12 : h % 12;
+  return `${ampm} ${hh}시`;
+}
+
 /** 분 단위 시작·종료 → 주 뷰 블록 top/height (종료 없으면 1시간) */
 function blockPos(startMin: number, endMin: number | null) {
   const dur = Math.max((endMin ?? startMin + 60) - startMin, 20);
@@ -406,10 +413,10 @@ export default function MeetingSchedule({
               <div className="msched-week-gutter">
                 {hours.map((h) => (
                   <span key={h} className="msched-week-hlabel">
-                    {pad(h)}:00
+                    {hourLabel(h)}
                   </span>
                 ))}
-                <span className="msched-week-hlabel">24:00</span>
+                <span className="msched-week-hlabel">{hourLabel(24)}</span>
               </div>
               <div className="msched-week-grid">
                 {weekDays.map((d) => {
@@ -511,6 +518,7 @@ export default function MeetingSchedule({
                   }}
                   title="이 시간으로 일정 추가"
                 >
+                  <span className="msched-hour-label">{hourLabel(h)}</span>
                   {isToday && now.getHours() === h && (
                     <div
                       className="msched-nowline"
@@ -522,7 +530,6 @@ export default function MeetingSchedule({
                       <i className="msched-nowline-dot" />
                     </div>
                   )}
-                  <span className="msched-hour-label">{pad(h)}:00</span>
                   <div className="msched-hour-slot">
                     {meetHour === h && meetStart && (
                       <div className="msched-event compact meeting">
@@ -554,7 +561,7 @@ export default function MeetingSchedule({
               ))}
               {/* 하루 끝 경계선 */}
               <div className="msched-hour msched-hour-end" aria-hidden>
-                <span className="msched-hour-label">24:00</span>
+                <span className="msched-hour-label">{hourLabel(24)}</span>
                 <div className="msched-hour-slot" />
               </div>
             </div>

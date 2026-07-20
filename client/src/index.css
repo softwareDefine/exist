@@ -3212,7 +3212,7 @@ input:focus {
 
 .msched-week-head {
   display: grid;
-  grid-template-columns: 48px repeat(7, minmax(0, 1fr));
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid var(--border);
 }
 
@@ -3279,7 +3279,8 @@ input:focus {
   min-height: 0;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: 48px repeat(7, minmax(0, 1fr));
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
+  padding-top: 8px;
 }
 
 .msched-week-gutter {
@@ -3300,7 +3301,8 @@ input:focus {
   color: var(--text-sub);
   text-align: right;
   padding-right: 6px;
-  transform: translateY(-6px);
+  line-height: 14px;
+  transform: translateY(-7px);
 }
 
 .msched-week-col {
@@ -3398,10 +3400,15 @@ input:focus {
   cursor: pointer;
 }
 
+/* 첫 눈금 라벨(오전 12시)이 위로 잘리지 않게 */
+.msched-hours {
+  padding-top: 8px;
+}
+
 /* 현재 시각 선 (애플 캘린더식) */
 .msched-nowline {
   position: absolute;
-  left: 50px;
+  left: 64px;
   right: 0;
   height: 0;
   border-top: 2px solid #ff453a;
@@ -3439,12 +3446,16 @@ input:focus {
 
 .msched-hour-label {
   flex: none;
-  width: 42px;
+  width: 56px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-sub);
-  padding-top: 2px;
   text-align: right;
+}
+
+/* 시간 눈금 라벨은 해당 시각 선과 수평 정렬 (선 위에 세로 중앙) */
+.msched-hour > .msched-hour-label {
+  transform: translateY(-50%);
 }
 
 .msched-hour-slot {
