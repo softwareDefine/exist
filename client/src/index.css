@@ -3285,7 +3285,7 @@ input:focus {
   display: grid;
   grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   padding-top: 8px;
-  padding-bottom: 8px;
+  padding-bottom: 4px;
 }
 
 .msched-week-gutter {
@@ -3332,8 +3332,11 @@ input:focus {
   top: -8px;
 }
 
+/* 다음날 자정 경계 — 24:00 선을 긋고, 이어지는 칸은 위쪽보다 작게 */
 .msched-week-col::after {
-  bottom: -8px;
+  bottom: -4px;
+  height: 4px;
+  border-top: 1px solid var(--border);
 }
 
 .msched-week-col.sel {
