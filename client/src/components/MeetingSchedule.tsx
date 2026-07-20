@@ -112,8 +112,9 @@ export default function MeetingSchedule({
     if (view !== 'week') return;
     const box = weekRef.current;
     if (!box) return;
+    const headH = box.querySelector('.msched-week-head')?.clientHeight ?? 0;
     const nowTop = ((new Date().getHours() * 60 + new Date().getMinutes()) / 60) * WEEK_ROWH;
-    box.scrollTop = Math.max(0, nowTop - box.clientHeight / 2);
+    box.scrollTop = Math.max(0, headH + nowTop - box.clientHeight / 2);
   }, [view]);
 
   const load = useCallback(async () => {
@@ -384,7 +385,7 @@ export default function MeetingSchedule({
         </div>
 
         {view === 'week' && (
-          <div className="msched-weekwrap">
+          <div className="msched-weekwrap" ref={weekRef}>
             <div className="msched-week-head">
               <span className="msched-week-gutter-spacer" />
               {weekDays.map((d) => {
@@ -413,7 +414,7 @@ export default function MeetingSchedule({
                 );
               })}
             </div>
-            <div className="msched-week-body" ref={weekRef}>
+            <div className="msched-week-body">
               <div className="msched-week-gutter">
                 {hours.map((h) => (
                   <span key={h} className="msched-week-hlabel">

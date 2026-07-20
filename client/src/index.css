@@ -3208,9 +3208,15 @@ input:focus {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
+/* 헤더가 본문과 같은 스크롤 컨테이너 안에 있어야 컬럼 폭이 정확히 일치 (스크롤바 어긋남 방지) */
 .msched-week-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface);
   display: grid;
   grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid var(--border);
@@ -3275,9 +3281,7 @@ input:focus {
 }
 
 .msched-week-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex: none;
   display: grid;
   grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   padding-top: 8px;
