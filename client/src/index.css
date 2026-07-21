@@ -1321,19 +1321,18 @@ input:focus {
   margin: 2px 0 13px;
 }
 
-/* 히어로 통계 타일 — 라벨 위 / 값 아래 */
+/* 히어로 통계 뱃지 — 데스크톱은 가로 직사각형(라벨·값 나란히), 모바일은 세로 타일 */
 .pd-chip {
   flex: 0 1 auto;
-  min-width: 92px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 8px;
   background: rgba(255, 255, 255, 0.16);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border-radius: 11px;
+  padding: 8px 14px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .pd-chip-label {
@@ -1348,13 +1347,19 @@ input:focus {
   line-height: 1.15;
 }
 
-/* 다음 일정처럼 값이 텍스트인 타일 — 넘치면 말줄임 */
+/* 다음 일정처럼 값이 텍스트인 뱃지 — 넘치면 말줄임 */
 .pd-chip-val.text {
   font-size: 13px;
-  max-width: 100%;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .pd-chip-val.text {
+    max-width: 100%;
+  }
 }
 
 /* 내 지표 카드 */
@@ -11505,6 +11510,7 @@ input:focus {
   .pd-chip {
     flex: 1 1 0;
     min-width: 0;
+    flex-direction: column; /* 모바일은 라벨 위/값 아래 정사각 타일 */
     padding: 7px 5px;
     gap: 2px;
     border-radius: 10px;
