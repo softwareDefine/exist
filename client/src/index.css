@@ -11461,7 +11461,7 @@ input:focus {
     grid-template-columns: auto 1fr;
     column-gap: 14px;
     row-gap: 0; /* 데스크톱 gap:22px가 행 간격으로 상속돼 히어로를 늘리던 것 차단 */
-    align-items: center;
+    align-items: start; /* 텍스트 열이 아바타와 같은 높이(12px)에서 시작 — 위만 비어 보이는 착시 제거 */
     border-radius: 16px;
     padding: 12px; /* 상하좌우 동일 */
     margin-bottom: 12px; /* 프로필 아래 공백 12px 고정 */
@@ -11487,7 +11487,7 @@ input:focus {
   /* 인사말 — 한 줄 말줄임으로 이름과 함께 아바타 밴드(56px) 안에 수직 정렬 */
   .pd-hero > div > div:first-child {
     grid-column: 2;
-    align-self: end;
+    align-self: start; /* 아바타와 같은 y에서 시작 — end면 텍스트 열이 5px 밀려 위가 비어 보임 */
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
