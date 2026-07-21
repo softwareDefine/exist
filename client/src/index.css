@@ -2760,12 +2760,20 @@ input:focus {
   font-weight: 600;
   line-height: 1.2;
   color: #fff;
-  /* 코드 칩이 이름 옆에 붙음 */
+  /* 코드 칩이 이름 옆에 붙음 — 좁아도 줄바꿈 없이 제목이 Marquee로 흐름 */
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
   min-width: 0;
+}
+
+.hub-hero-title-text {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.hub-hero-title .hub-hero-code {
+  flex: none;
 }
 
 .hub-hero-sub {
@@ -11330,8 +11338,8 @@ input:focus {
     z-index: 2;
     background: var(--bg);
     overflow-y: auto;
-    /* 오른쪽·아래는 화면 끝까지 꽉 채움 — 레일 쪽 여백은 레일 내부 8px로 통일 */
-    padding: 8px 0 0;
+    /* 오른쪽·아래는 화면 끝까지 꽉 채움 — 여백은 위·레일 쪽만 살짝 */
+    padding: 8px 0 0 4px;
   }
 
   /* ── 상단 얇은 조직 컨텍스트 바 — 디스코드식: 초록 바탕, 조직명 중앙, 레일 위까지 풀폭 ── */
@@ -11391,9 +11399,8 @@ input:focus {
 
   /* 콘텐츠 컨테이너 — 좌우 다이어트 + 하단 플로팅 바에 마지막 항목이 안 가리게 바닥 여유 */
   .pd-wrap {
-    /* 왼쪽 0 — 레일 내부 여백(8px)이 그대로 타일↔콘텐츠 간격이 되어 양쪽 마진 일치 */
-    padding: 12px 10px 100px 0;
-    /* 데스크톱형 스크롤바(8px)가 오른쪽 여백을 먹어 좌우가 어긋나 보임 — 모바일은 숨김 */
+    /* 좌우 합계 10px 대칭 — 왼쪽은 workspace-col 4px와 합산(4+6), 오른쪽 스크롤바는 아래서 숨김 */
+    padding: 12px 10px 100px 6px;
     scrollbar-width: none;
   }
 

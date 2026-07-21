@@ -902,8 +902,8 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                   />
                   <div className="hub-hero-main">
                     <h2 className="hub-hero-title">
-                      {detail.title}
-                      {/* 그룹 코드 — 이름 바로 옆에서 복사 */}
+                      {/* 제목이 길면 줄바꿈 대신 Marquee로 흘려서 코드 칩 자리를 확보 */}
+                      <Marquee className="hub-hero-title-text">{detail.title}</Marquee>
                       <button className="hub-hero-code" onClick={copyCode} title="클릭해서 복사">
                         {detail.code}{' '}
                         {copied ? <CheckMarkIcon size={13} /> : <CopyIcon size={13} />}
