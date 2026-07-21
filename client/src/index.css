@@ -11388,6 +11388,26 @@ input:focus {
     padding: 12px 10px 100px;
   }
 
+  /* 프로필 히어로 — 좁은 폭에선 가로 배치가 뒤엉킴 → 아바타 위, 텍스트 풀폭 세로 배치 */
+  .pd-hero {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 18px 16px;
+  }
+
+  .pd-hero .pd-hero-avatar {
+    width: 56px;
+    height: 56px;
+    font-size: 28px;
+    align-self: flex-start;
+  }
+
+  .pd-hero-name {
+    font-size: 21px;
+    margin: 2px 0 10px;
+  }
+
   .hub-dash {
     padding: 14px 10px 100px;
   }
