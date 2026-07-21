@@ -133,6 +133,9 @@
 body {
   margin: 0;
   background: var(--bg);
+  /* 한글 단어 중간 줄바꿈 방지("예/측" 같은 꺾임) — 긴 영문·URL은 overflow-wrap이 처리 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 button {
@@ -11325,6 +11328,12 @@ input:focus {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* 빠른 시작 버튼 — 모바일에선 좌우 꽉 차게 (인라인 스타일이라 !important 필요) */
+  .pd-actions button {
+    flex: 1 1 0 !important;
+    justify-content: center !important;
   }
 
   /* 가입 승인 대기 배지 — 24px 바 안에 맞는 축소판 */

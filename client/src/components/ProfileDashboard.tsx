@@ -130,7 +130,7 @@ export default function ProfileDashboard() {
 
         <div style={section}>
           <div style={sectionHead}>⚡ 빠른 시작</div>
-          <div style={actionRow}>
+          <div className="pd-actions" style={actionRow}>
             <button style={actionBtn} onClick={newMeeting}>
               <span style={{ fontSize: 20 }}>＋</span> 새 그룹 만들기
             </button>
