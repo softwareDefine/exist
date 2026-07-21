@@ -566,11 +566,53 @@ router.get('/overview', (req: AuthedRequest, res) => {
   const u = db.prepare('SELECT avatar FROM users WHERE id = ?').get(req.userId!) as
     | { avatar?: string }
     | undefined;
+
+  // 히어로 뱃지 — 안 읽은 합계(DM+그룹 채팅, catchup과 같은 기준)
+  const dmUnread = (
+    db.prepare('SELECT COUNT(*) AS n FROM dm_messages WHERE to_id = ? AND read = 0').get(
+      req.userId,
+    ) as { n: number }
+  ).n;
+  const chatUnread = (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM messages msg
+         JOIN meeting_participants mp ON mp.meeting_id = msg.meeting_id AND mp.user_id = ?
+         LEFT JOIN chat_reads cr ON cr.meeting_id = msg.meeting_id AND cr.user_id = ?
+         WHERE msg.user_id != ? AND msg.id > COALESCE(cr.last_read, 0)`,
+      )
+      .get(req.userId, req.userId, req.userId) as { n: number }
+  ).n;
+
+  // 히어로 뱃지 — 수신확인 대기 결정 (내 그룹의 결정 중 내가 ack 안 한 것)
+  const recapRows = db
+    .prepare(
+      `SELECT r.decisions FROM meeting_recaps r
+       JOIN meeting_participants mp ON mp.meeting_id = r.meeting_id AND mp.user_id = ?`,
+    )
+    .all(req.userId) as { decisions: string }[];
+  const totalDecisions = recapRows.reduce(
+    (s, r) => s + (JSON.parse(r.decisions) as string[]).length,
+    0,
+  );
+  const myAcks = (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM decision_acks a
+         JOIN meeting_recaps r ON r.id = a.recap_id
+         JOIN meeting_participants mp ON mp.meeting_id = r.meeting_id AND mp.user_id = a.user_id
+         WHERE a.user_id = ?`,
+      )
+      .get(req.userId) as { n: number }
+  ).n;
+
   res.json({
     avatar: u?.avatar ?? '🐧',
     meetingCount: ctx.meetings.length,
     todoUndone: undone.length,
     todoOverdue: overdue.length,
+    unreadTotal: dmUnread + chatUnread,
+    pendingAcks: Math.max(0, totalDecisions - myAcks),
     liveCalls: ctx.meetings
       .filter((m) => m.in_call > 0)
       .map((m) => ({ title: m.title, code: m.code, inCall: m.in_call })),

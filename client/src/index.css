@@ -11470,9 +11470,15 @@ input:focus {
     display: contents;
   }
 
+  /* 인사말 — 한 줄 말줄임으로 이름과 함께 아바타 밴드(56px) 안에 수직 정렬 */
   .pd-hero > div > div:first-child {
     grid-column: 2;
     align-self: end;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px !important;
   }
 
   .pd-hero-name {
@@ -11484,7 +11490,7 @@ input:focus {
 
   .pd-hero > div > div:last-child {
     grid-column: 1 / -1;
-    margin-top: 12px;
+    margin-top: 8px;
     gap: 7px !important;
   }
 

@@ -20,6 +20,10 @@ interface Overview {
   meetingCount: number;
   todoUndone: number;
   todoOverdue: number;
+  /** 안 읽은 합계 (DM + 그룹 채팅) — 히어로 뱃지 */
+  unreadTotal: number;
+  /** 수신확인 대기 결정 수 — 히어로 뱃지 */
+  pendingAcks: number;
   liveCalls: { title: string; code: string; inCall: number }[];
   recentMeetings: { title: string; code: string; inCall: number }[];
   nextMeeting: { title: string; code: string; startsAt: string | null } | null;
@@ -190,14 +194,14 @@ export default function ProfileDashboard() {
           <div style={heroGreeting}>👤 개인 워크스페이스 · {greeting()}</div>
           <div className="pd-hero-name">{user?.username ?? '게스트'}님 👋</div>
           <div style={heroChips}>
-            {/* 정사각 타일 — 라벨 위 / 값 아래, 한 줄 배치 */}
+            {/* 정사각 타일 — 지금 반응할 것 중심 (누적 통계는 내 지표 카드가 담당) */}
             <span className="pd-chip">
-              <span className="pd-chip-label">참여 그룹</span>
-              <b className="pd-chip-val">{ov?.meetingCount ?? '–'}</b>
+              <span className="pd-chip-label">확인할 결정</span>
+              <b className="pd-chip-val">{ov?.pendingAcks ?? '–'}</b>
             </span>
             <span className="pd-chip">
-              <span className="pd-chip-label">미완료 할 일</span>
-              <b className="pd-chip-val">{ov?.todoUndone ?? '–'}</b>
+              <span className="pd-chip-label">안 읽은 메시지</span>
+              <b className="pd-chip-val">{ov?.unreadTotal ?? '–'}</b>
             </span>
             {!!ov?.todoOverdue && (
               <span className="pd-chip">
