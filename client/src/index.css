@@ -11459,7 +11459,7 @@ input:focus {
     align-items: center;
     border-radius: 16px;
     padding: 12px 12px 10px;
-    margin-bottom: 10px; /* 다음 카드와의 간격 다이어트 (데스크톱 20px) */
+    margin-bottom: 12px; /* 프로필 아래 공백 12px 고정 */
   }
 
   .pd-hero > .pd-hero-avatar {
