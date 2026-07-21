@@ -135,7 +135,10 @@ export default function ProfileDashboard() {
         <div className="pd-hero org">
           <div className="pd-hero-avatar">👥</div>
           <div>
-            <div style={heroGreeting}>🏢 {orgName} · {greeting()}</div>
+            <div style={heroGreeting}>
+              <span className="pd-ws-tag">🏢 {orgName} · </span>
+              {greeting()}
+            </div>
             <div className="pd-hero-name">{orgName} 팀</div>
             <div style={heroChips}>
               <span style={heroChip}>📊 팀 협업 현황을 아래에서 한눈에</span>
@@ -191,7 +194,11 @@ export default function ProfileDashboard() {
           </span>
         </button>
         <div>
-          <div style={heroGreeting}>👤 개인 워크스페이스 · {greeting()}</div>
+          <div style={heroGreeting}>
+            {/* 워크스페이스 표기는 모바일에선 숨김 — 상단 조직 바가 이미 보여줌 */}
+            <span className="pd-ws-tag">👤 개인 워크스페이스 · </span>
+            {greeting()}
+          </div>
           <div className="pd-hero-name">{user?.username ?? '게스트'}님 👋</div>
           <div style={heroChips}>
             {/* 정사각 타일 — 지금 반응할 것 중심 (누적 통계는 내 지표 카드가 담당) */}

@@ -11478,6 +11478,11 @@ input:focus {
     display: contents;
   }
 
+  /* 워크스페이스 표기 — 상단 조직 바가 이미 보여주므로 모바일 인사말에선 숨김 */
+  .pd-ws-tag {
+    display: none;
+  }
+
   /* 인사말 — 한 줄 말줄임으로 이름과 함께 아바타 밴드(56px) 안에 수직 정렬 */
   .pd-hero > div > div:first-child {
     grid-column: 2;
