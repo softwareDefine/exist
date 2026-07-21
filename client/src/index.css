@@ -10940,16 +10940,30 @@ input:focus {
     box-shadow: var(--shadow-md);
   }
 
-  /* DM 플로팅 창 — 하단 nowbar 바 위로. z 60이라 바(400)에 깔려 입력줄이 클릭 불가였음 */
+  /* DM — 모바일에선 전체 화면 (플로팅이면 nowbar와 겹치고 좁음). 대화 중엔 대화만 보이게 */
   .dm-window {
-    left: 10px;
-    right: 10px;
+    inset: 0;
     width: auto;
-    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
     height: auto;
-    max-height: min(460px, calc(100dvh - 160px));
-    min-height: 300px;
-    z-index: 450; /* nowbar(400) 위, 서브 화면 오버레이(500) 아래 */
+    max-height: none;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 600; /* 서브 화면 오버레이(500)·nowbar(400) 위 */
+    animation: dm-slide-up 0.2s ease-out;
+  }
+
+  @keyframes dm-slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 
   .nowbar-clock,

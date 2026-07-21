@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store';
@@ -182,7 +183,8 @@ export function DmWindow({
     }
   }
 
-  return (
+  // body 포털 — 조상 transform(스와이프 레이어 등)이 fixed를 가두는 stacking context 함정 회피
+  return createPortal(
     <div className="dm-window">
       <div className="dm-window-head">
         <Avatar value={peer.avatar} className="dm-head-avatar" />
@@ -251,7 +253,8 @@ export function DmWindow({
           전송
         </button>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
