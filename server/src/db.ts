@@ -137,6 +137,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 표시 이름 (실명 등 — 아이디와 별개, null이면 아이디로 표시)
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN name TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 회의 조직 소속 (기존 DB에 컬럼 없으면 추가, null = 개인 회의)
 try {
   db.exec(`ALTER TABLE meetings ADD COLUMN org_id INTEGER REFERENCES organizations(id)`);

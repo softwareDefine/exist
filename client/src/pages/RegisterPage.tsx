@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [username, setUsername] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -30,7 +31,7 @@ export default function RegisterPage() {
     try {
       const data = await api<{ token: string; user: User; recoveryCode: string }>(
         '/api/auth/register',
-        { method: 'POST', body: { username, password } },
+        { method: 'POST', body: { username, password, name } },
       );
       // 복구 코드 화면을 보여준 뒤에 로그인 처리 (시작하기 클릭 시)
       setRecoveryCode(data.recoveryCode);
@@ -68,6 +69,12 @@ export default function RegisterPage() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           autoFocus
+        />
+        <input
+          placeholder="이름 (선택 — 비우면 아이디로 표시)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={20}
         />
         <input
           type="password"

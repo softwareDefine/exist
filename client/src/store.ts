@@ -5,6 +5,8 @@ export interface User {
   id: number;
   username: string;
   avatar?: string;
+  /** 표시 이름 (실명 등) — 없으면 아이디로 표시 */
+  name?: string | null;
 }
 
 interface AuthState {

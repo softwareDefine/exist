@@ -199,7 +199,7 @@ export default function ProfileDashboard() {
             <span className="pd-ws-tag">👤 개인 워크스페이스 · </span>
             {greeting()}
           </div>
-          <div className="pd-hero-name">{user?.username ?? '게스트'}님 👋</div>
+          <div className="pd-hero-name">{user?.name || user?.username || '게스트'}님 👋</div>
           <div style={heroChips}>
             {/* 정사각 타일 — 지금 반응할 것 중심 (누적 통계는 내 지표 카드가 담당) */}
             <span className="pd-chip">

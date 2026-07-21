@@ -25,6 +25,30 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // 표시 이름
+  const [nameInput, setNameInput] = useState(user?.name ?? '');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameSaved, setNameSaved] = useState(false);
+
+  async function saveName() {
+    setNameSaving(true);
+    setNameSaved(false);
+    try {
+      const r = await api<{ ok: boolean; name: string | null }>('/api/auth/me', {
+        method: 'PATCH',
+        body: { name: nameInput },
+      });
+      const u = useAuthStore.getState().user;
+      if (u) useAuthStore.setState({ user: { ...u, name: r.name } });
+      setNameInput(r.name ?? '');
+      setNameSaved(true);
+    } catch {
+      /* 전역 토스트 */
+    } finally {
+      setNameSaving(false);
+    }
+  }
+
   // 다크모드 — 모바일에선 헤더 토글이 없어서 여기서 변경 (.settings-theme는 모바일에서만 노출)
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   function toggleTheme() {
@@ -41,6 +65,8 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
     setConfirm('');
     setPwError('');
     setPwDone(false);
+    setNameInput(useAuthStore.getState().user?.name ?? '');
+    setNameSaved(false);
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
@@ -111,12 +137,32 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
         <div className="modal-head">설정</div>
         <div className="settings-user">
           <Avatar value={avatar} className="settings-avatar" />
-          <b>{user?.username}</b>
+          <b>{user?.name || user?.username}</b>
+          {user?.name && <span className="settings-username">@{user.username}</span>}
           {/* 모바일 전용 — 헤더 프로필 메뉴가 없어서 로그아웃이 여기 */}
           <button className="settings-logout" onClick={logout}>
             로그아웃
           </button>
         </div>
+
+        <div className="settings-section">이름</div>
+        <form
+          className="settings-name"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void saveName();
+          }}
+        >
+          <input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder="표시할 이름 (비우면 아이디로 표시)"
+            maxLength={20}
+          />
+          <button type="submit" disabled={nameSaving || nameInput.trim() === (user?.name ?? '')}>
+            {nameSaved ? '✓ 저장됨' : nameSaving ? '저장 중…' : '저장'}
+          </button>
+        </form>
 
         <div className="settings-theme">
           <div className="settings-section">화면 테마</div>

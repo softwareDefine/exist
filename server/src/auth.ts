@@ -68,8 +68,14 @@ function rateLimited(key: string): boolean {
   return entry.count > MAX_ATTEMPTS;
 }
 
+/** 표시 이름 정규화 — 빈 값은 null(아이디로 표시), 최대 20자 */
+function cleanDisplayName(v: unknown): string | null {
+  const name = String(v ?? '').trim().slice(0, 20);
+  return name.length > 0 ? name : null;
+}
+
 router.post('/register', (req, res) => {
-  const { username, password } = req.body ?? {};
+  const { username, password, name } = req.body ?? {};
   if (!username || !password) {
     return res.status(400).json({ error: '아이디와 비밀번호를 입력하세요' });
   }
@@ -82,12 +88,13 @@ router.post('/register', (req, res) => {
   if (db.prepare('SELECT id FROM users WHERE username = ?').get(username)) {
     return res.status(409).json({ error: '이미 존재하는 아이디입니다' });
   }
+  const displayName = cleanDisplayName(name);
   const salt = crypto.randomBytes(16).toString('hex');
   const recoveryCode = generateRecoveryCode();
   const recoverySalt = crypto.randomBytes(16).toString('hex');
   const info = db
     .prepare(
-      'INSERT INTO users (username, pw_hash, pw_salt, recovery_hash, recovery_salt) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO users (username, pw_hash, pw_salt, recovery_hash, recovery_salt, name) VALUES (?, ?, ?, ?, ?, ?)',
     )
     .run(
       username,
@@ -95,12 +102,17 @@ router.post('/register', (req, res) => {
       salt,
       hashPassword(recoveryCode, recoverySalt),
       recoverySalt,
+      displayName,
     );
 
   const token = crypto.randomUUID();
   db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, info.lastInsertRowid);
   // recoveryCode는 이 응답에서 단 한 번만 노출 — 서버는 해시만 보관
-  res.json({ token, user: { id: info.lastInsertRowid, username }, recoveryCode });
+  res.json({
+    token,
+    user: { id: info.lastInsertRowid, username, name: displayName },
+    recoveryCode,
+  });
 });
 
 /** 비밀번호 재설정 — 아이디 + 복구 코드 검증 후 새 비밀번호 + 새 복구 코드 발급 */
@@ -160,7 +172,7 @@ router.post('/login', (req, res) => {
     return res.status(429).json({ error: '시도가 너무 많습니다. 15분 뒤에 다시 해보세요' });
   }
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as
-    | { id: number; username: string; pw_hash: string; pw_salt: string }
+    | { id: number; username: string; pw_hash: string; pw_salt: string; name: string | null }
     | undefined;
   if (!user || hashPassword(password ?? '', user.pw_salt) !== user.pw_hash) {
     return res.status(401).json({ error: '아이디 또는 비밀번호가 틀렸습니다' });
@@ -168,7 +180,7 @@ router.post('/login', (req, res) => {
   attempts.delete(key); // 성공 시 카운터 리셋
   const token = crypto.randomUUID();
   db.prepare('INSERT INTO sessions (token, user_id) VALUES (?, ?)').run(token, user.id);
-  res.json({ token, user: { id: user.id, username: user.username } });
+  res.json({ token, user: { id: user.id, username: user.username, name: user.name ?? null } });
 });
 
 router.post('/logout', requireAuth, (req: AuthedRequest, res) => {
@@ -180,18 +192,28 @@ router.post('/logout', requireAuth, (req: AuthedRequest, res) => {
 /** 내 정보 */
 router.get('/me', requireAuth, (req: AuthedRequest, res) => {
   const me = db
-    .prepare('SELECT id, username, avatar FROM users WHERE id = ?')
-    .get(req.userId) as { id: number; username: string; avatar: string };
+    .prepare('SELECT id, username, avatar, name FROM users WHERE id = ?')
+    .get(req.userId) as { id: number; username: string; avatar: string; name: string | null };
   res.json(me);
 });
 
-/** 프로필 수정 — 아바타 이모지 */
+/** 프로필 수정 — 아바타 이모지·표시 이름 (있는 필드만 갱신) */
 router.patch('/me', requireAuth, (req: AuthedRequest, res) => {
-  const { avatar } = req.body ?? {};
-  if (typeof avatar !== 'string' || avatar.length === 0 || avatar.length > 8) {
-    return res.status(400).json({ error: '올바르지 않은 아바타입니다' });
+  const { avatar, name } = req.body ?? {};
+  if (avatar === undefined && name === undefined) {
+    return res.status(400).json({ error: '변경할 항목이 없어요' });
   }
-  db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar, req.userId);
+  if (avatar !== undefined) {
+    if (typeof avatar !== 'string' || avatar.length === 0 || avatar.length > 8) {
+      return res.status(400).json({ error: '올바르지 않은 아바타입니다' });
+    }
+    db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar, req.userId);
+  }
+  if (name !== undefined) {
+    const displayName = cleanDisplayName(name);
+    db.prepare('UPDATE users SET name = ? WHERE id = ?').run(displayName, req.userId);
+    return res.json({ ok: true, name: displayName });
+  }
   res.json({ ok: true });
 });
 

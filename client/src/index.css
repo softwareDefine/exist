@@ -1683,6 +1683,43 @@ input:focus {
 }
 
 /* 설정 모달 */
+/* 표시 이름 입력 */
+.settings-name {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-name input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.settings-name button {
+  border: none;
+  border-radius: 10px;
+  padding: 0 14px;
+  background: var(--green);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.settings-name button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.settings-username {
+  font-size: 12.5px;
+  color: var(--text-sub);
+}
+
 .settings-user {
   display: flex;
   align-items: center;
