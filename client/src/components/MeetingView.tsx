@@ -5,6 +5,7 @@ import { getSocket, request } from '../lib/socket';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import Logo from './Logo';
+import MentionInput, { type MentionCandidate } from './MentionInput';
 import { MicIcon, CamIcon, ScreenIcon, ChatIcon, SlashIcon, ExpandIcon, ShrinkIcon } from './Icons';
 
 interface RemotePeer {
@@ -129,6 +130,8 @@ interface MeetingViewProps {
   onJoined?: () => void;
   /** 현재 통화 중인 사람 이름 (프리뷰에 표시) */
   onlinePeers?: string[];
+  /** 채팅 @멘션 후보 — 허브가 회의 전체 명단을 내려줌 (없으면 통화 피어로 폴백) */
+  mentionCandidates?: MentionCandidate[];
 }
 
 export default function MeetingView({
@@ -139,6 +142,7 @@ export default function MeetingView({
   onLeave,
   onJoined,
   onlinePeers = [],
+  mentionCandidates,
 }: MeetingViewProps) {
   const user = useAuthStore((s) => s.user);
 
@@ -891,9 +895,15 @@ export default function MeetingView({
               <div ref={chatEndRef} />
             </div>
             <form className="chat-input" onSubmit={sendChat}>
-              <input
+              <MentionInput
                 value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
+                onChange={setChatInput}
+                candidates={
+                  mentionCandidates ?? [
+                    { username: 'AI', avatar: '✦', sub: 'AI 총무' },
+                    ...peers.map((p) => ({ username: p.username, avatar: null })),
+                  ]
+                }
                 placeholder="메시지 입력"
               />
               <button type="submit">전송</button>

@@ -12,6 +12,7 @@ import Marquee from './Marquee';
 import MeetingSchedule from './MeetingSchedule';
 import RecapPanel from './RecapPanel';
 import { DmWindow, type DmScope, type Thread } from './DirectMessages';
+import MentionInput, { type MentionCandidate } from './MentionInput';
 import { togglePin, isPinned, PINS_EVENT } from '../lib/pins';
 import {
   PhoneIcon,
@@ -185,6 +186,18 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [inCall, setInCall] = useState(false);
   // 참가자 명함에서 연 1:1 DM 창 (홈의 통합 메시지는 회의 탭에서 언마운트라 여기서 직접 띄움)
   const [dm, setDm] = useState<{ scope: DmScope; peer: Thread } | null>(null);
+
+  // @멘션 후보 — AI 총무 + 나를 뺀 참가자 전원 (채팅·통화 채팅 공용)
+  const mentionCandidates: MentionCandidate[] = [
+    { username: 'AI', avatar: '✦', sub: 'AI 총무' },
+    ...(detail?.participants ?? [])
+      .filter((p) => p.username !== user?.username)
+      .map((p) => ({
+        username: p.username,
+        avatar: p.avatar,
+        sub: [p.position, p.department].filter(Boolean).join(' · ') || null,
+      })),
+  ];
 
   /** 조직 회의 + 나·상대 둘 다 활성 멤버면 조직 스코프(홈 통합 메시지와 같은 방), 아니면 개인 DM */
   function openDm(p: Participant) {
@@ -1455,6 +1468,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               onToggleExpand={onToggleExpand}
               onJoined={() => setInCall(true)}
               onlinePeers={detail?.callPeers ?? []}
+              mentionCandidates={mentionCandidates}
               onLeave={(message) => {
                 setInCall(false);
                 setSubtab('dash');
@@ -1628,9 +1642,10 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               >
                 {uploadingFile ? '…' : '📎'}
               </button>
-              <input
+              <MentionInput
                 value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
+                onChange={setChatInput}
+                candidates={mentionCandidates}
                 placeholder={`#${channels.find((c) => c.id === activeChannel)?.name ?? '일반'}에 메시지 입력`}
               />
               <button type="submit">전송</button>
