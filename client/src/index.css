@@ -11388,24 +11388,42 @@ input:focus {
     padding: 12px 10px 100px;
   }
 
-  /* 프로필 히어로 — 좁은 폭에선 가로 배치가 뒤엉킴 → 아바타 위, 텍스트 풀폭 세로 배치 */
+  /* 프로필 히어로 — 아바타+인사/닉네임은 가로로, 칩 줄만 아래 풀폭
+   * (inner div를 contents로 풀어 그리드 셀로 재배치 — DOM 변경 없음) */
   .pd-hero {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 14px;
+    align-items: center;
     padding: 18px 16px;
   }
 
-  .pd-hero .pd-hero-avatar {
+  .pd-hero > .pd-hero-avatar {
+    grid-row: 1 / span 2;
     width: 56px;
     height: 56px;
     font-size: 28px;
-    align-self: flex-start;
+  }
+
+  .pd-hero > div {
+    display: contents;
+  }
+
+  .pd-hero > div > div:first-child {
+    grid-column: 2;
+    align-self: end;
   }
 
   .pd-hero-name {
+    grid-column: 2;
+    align-self: start;
     font-size: 21px;
-    margin: 2px 0 10px;
+    margin: 2px 0 0;
+  }
+
+  .pd-hero > div > div:last-child {
+    grid-column: 1 / -1;
+    margin-top: 12px;
   }
 
   .hub-dash {
