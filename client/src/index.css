@@ -11463,7 +11463,7 @@ input:focus {
     row-gap: 0; /* 데스크톱 gap:22px가 행 간격으로 상속돼 히어로를 늘리던 것 차단 */
     align-items: center;
     border-radius: 16px;
-    padding: 12px 12px 10px;
+    padding: 12px; /* 상하좌우 동일 */
     margin-bottom: 12px; /* 프로필 아래 공백 12px 고정 */
   }
 
@@ -11474,7 +11474,8 @@ input:focus {
     font-size: 28px;
   }
 
-  .pd-hero > div {
+  /* 텍스트 래퍼만 그리드에 풀어놓음 — 조직 히어로 아바타(div)는 제외해야 박스가 유지됨 */
+  .pd-hero > div:not(.pd-hero-avatar) {
     display: contents;
   }
 
@@ -11505,6 +11506,20 @@ input:focus {
     grid-column: 1 / -1;
     margin-top: 6px;
     gap: 6px !important;
+  }
+
+  /* 조직 히어로 — 장식 칩은 모바일에서 숨기고(정보 없음) 아바타+인사+팀명 한 밴드로.
+   * 인라인 display:flex를 이겨야 해서 !important */
+  .pd-hero.org > div > div:last-child {
+    display: none !important;
+  }
+
+  .pd-hero.org .pd-hero-name {
+    font-size: 19px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
 
   /* 히어로 통계 타일 — 모바일에선 3개(+마감 지남)가 정확히 한 줄에 나눠 들어감 */
