@@ -11,6 +11,7 @@ import MeetingThumb from './MeetingThumb';
 import Marquee from './Marquee';
 import MeetingSchedule from './MeetingSchedule';
 import RecapPanel from './RecapPanel';
+import { DmWindow, type DmScope, type Thread } from './DirectMessages';
 import { togglePin, isPinned, PINS_EVENT } from '../lib/pins';
 import {
   PhoneIcon,
@@ -28,6 +29,7 @@ import {
 } from './Icons';
 
 interface Participant {
+  userId: number;
   username: string;
   avatar: string | null;
   role: 'owner' | 'admin' | 'member' | null;
@@ -181,6 +183,30 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
   const [subtab, setSubtab] = useState<SubTab>('dash');
   const [inCall, setInCall] = useState(false);
+  // 참가자 명함에서 연 1:1 DM 창 (홈의 통합 메시지는 회의 탭에서 언마운트라 여기서 직접 띄움)
+  const [dm, setDm] = useState<{ scope: DmScope; peer: Thread } | null>(null);
+
+  /** 조직 회의 + 나·상대 둘 다 활성 멤버면 조직 스코프(홈 통합 메시지와 같은 방), 아니면 개인 DM */
+  function openDm(p: Participant) {
+    if (!detail || p.username === user?.username) return;
+    const meRole = detail.participants.find((x) => x.username === user?.username)?.role ?? null;
+    const scope: DmScope =
+      detail.orgId != null && p.role != null && meRole != null ? detail.orgId : 'personal';
+    setDm({
+      scope,
+      peer: {
+        userId: p.userId,
+        username: p.username,
+        avatar: p.avatar,
+        position: p.position,
+        department: p.department,
+        lastText: null,
+        lastTs: null,
+        lastMine: false,
+        unread: 0,
+      },
+    });
+  }
 
   // 모바일 — 서브 화면이 대시보드 위 오버레이로 뜨고, 드래그하면 아래 대시보드가 보인다
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches);
@@ -1136,6 +1162,16 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                                       )}
                                     </Marquee>
                                   </span>
+                                  {p.username !== user?.username && (
+                                    <button
+                                      type="button"
+                                      className="hub-pcard-dm"
+                                      title={`${p.username}님에게 메시지`}
+                                      onClick={() => openDm(p)}
+                                    >
+                                      <ChatIcon size={14} />
+                                    </button>
+                                  )}
                                   <i
                                     className="presence-dot"
                                     title={presence.has(p.username) ? '접속 중' : '오프라인'}
@@ -1604,6 +1640,16 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
         )}
         </div>
       </div>
+
+      {/* 참가자 명함에서 연 1:1 DM — 우하단 플로팅 (홈과 같은 창) */}
+      {dm && (
+        <DmWindow
+          scope={dm.scope}
+          peer={dm.peer}
+          onClose={() => setDm(null)}
+          onActivity={() => {}}
+        />
+      )}
     </div>
   );
 }

@@ -8217,6 +8217,26 @@ input:focus {
   font-weight: 600;
 }
 
+/* 명함의 1:1 메시지 버튼 — 평소엔 흐리게, hover/터치에 초록 */
+.hub-pcard-dm {
+  border: none;
+  background: none;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--text-sub);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+
+.hub-pcard-dm:hover {
+  opacity: 1;
+  color: var(--green);
+  background: rgba(33, 200, 24, 0.08);
+}
+
 .hub-pcard .presence-dot {
   width: 8px;
   height: 8px;
@@ -10737,6 +10757,18 @@ input:focus {
 
   .nb-mini {
     box-shadow: var(--shadow-md);
+  }
+
+  /* DM 플로팅 창 — 하단 nowbar 바 위로. z 60이라 바(400)에 깔려 입력줄이 클릭 불가였음 */
+  .dm-window {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    height: auto;
+    max-height: min(460px, calc(100dvh - 160px));
+    min-height: 300px;
+    z-index: 450; /* nowbar(400) 위, 서브 화면 오버레이(500) 아래 */
   }
 
   .nowbar-clock,

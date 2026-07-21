@@ -454,7 +454,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
   // 조직 회의면 그 조직 기준 직급·부서를 함께 (개인 회의면 null)
   const participants = db
     .prepare(
-      `SELECT u.username, u.avatar, om.role, om.position, om.department
+      `SELECT u.id AS userId, u.username, u.avatar, om.role, om.position, om.department
        FROM meeting_participants mp
        JOIN users u ON u.id = mp.user_id
        LEFT JOIN organization_members om
@@ -462,6 +462,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
        WHERE mp.meeting_id = ? ORDER BY mp.joined_at`,
     )
     .all(meeting.org_id, meeting.id) as {
+    userId: number;
     username: string;
     avatar: string | null;
     role: string | null;
@@ -500,6 +501,7 @@ router.get('/:code', (req: AuthedRequest, res) => {
     online: getRoomSize(meeting.code),
     callPeers: getRoomPeers(meeting.code),
     participants: participants.map((p) => ({
+      userId: p.userId,
       username: p.username,
       avatar: p.avatar,
       role: p.role,
