@@ -11456,7 +11456,9 @@ input:focus {
     grid-template-columns: auto 1fr;
     column-gap: 14px;
     align-items: center;
-    padding: 18px 16px;
+    border-radius: 16px;
+    padding: 14px 14px 12px;
+    margin-bottom: 12px; /* 다음 카드와의 간격 다이어트 (데스크톱 20px) */
   }
 
   .pd-hero > .pd-hero-avatar {
@@ -11905,26 +11907,7 @@ input:focus {
     white-space: nowrap;
   }
 
-  /* 홈 대시보드 — 히어로·지표를 모바일 크기로 */
-  .pd-hero {
-    gap: 14px;
-    border-radius: 16px;
-    padding: 18px 16px;
-    margin-bottom: 14px;
-  }
-
-  .pd-hero-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    font-size: 24px;
-  }
-
-  .pd-hero-name {
-    font-size: 20px;
-    margin-bottom: 10px;
-  }
-
+  /* 홈 대시보드 — 히어로 배치·크기는 위쪽 그리드 규칙(.pd-hero display:grid)이 담당 */
   .pd-stat {
     gap: 10px;
   }
