@@ -2760,6 +2760,12 @@ input:focus {
   font-weight: 600;
   line-height: 1.2;
   color: #fff;
+  /* 코드 칩이 이름 옆에 붙음 */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .hub-hero-sub {
@@ -11387,6 +11393,17 @@ input:focus {
   .pd-wrap {
     /* 왼쪽 0 — 레일 내부 여백(8px)이 그대로 타일↔콘텐츠 간격이 되어 양쪽 마진 일치 */
     padding: 12px 10px 100px 0;
+    /* 데스크톱형 스크롤바(8px)가 오른쪽 여백을 먹어 좌우가 어긋나 보임 — 모바일은 숨김 */
+    scrollbar-width: none;
+  }
+
+  .pd-wrap::-webkit-scrollbar,
+  .dashboard .workspace-col::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dashboard .workspace-col {
+    scrollbar-width: none;
   }
 
   /* 프로필 히어로 — 아바타+인사/닉네임은 가로로, 칩 줄만 아래 풀폭

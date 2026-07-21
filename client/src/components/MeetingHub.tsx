@@ -901,17 +901,20 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                     className="hub-hero-thumb"
                   />
                   <div className="hub-hero-main">
-                    <h2 className="hub-hero-title">{detail.title}</h2>
+                    <h2 className="hub-hero-title">
+                      {detail.title}
+                      {/* 그룹 코드 — 이름 바로 옆에서 복사 */}
+                      <button className="hub-hero-code" onClick={copyCode} title="클릭해서 복사">
+                        {detail.code}{' '}
+                        {copied ? <CheckMarkIcon size={13} /> : <CopyIcon size={13} />}
+                      </button>
+                    </h2>
                     <div className="hub-hero-sub">
                       호스트 <b>{detail.host}</b>
                       {detail.isHost && ' (나)'}
                       {detail.orgName && <span className="hub-sub-org"> · {detail.orgName}</span>}
                     </div>
                     <div className="hub-hero-chips">
-                      <button className="hub-hero-code" onClick={copyCode} title="클릭해서 복사">
-                        {detail.code}{' '}
-                        {copied ? <CheckMarkIcon size={13} /> : <CopyIcon size={13} />}
-                      </button>
                       {range && (
                         <span className="hub-hero-when">
                           <CalendarIcon size={13} /> {range}
