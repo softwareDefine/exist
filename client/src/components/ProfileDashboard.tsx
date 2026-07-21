@@ -190,19 +190,28 @@ export default function ProfileDashboard() {
           <div style={heroGreeting}>👤 개인 워크스페이스 · {greeting()}</div>
           <div className="pd-hero-name">{user?.username ?? '게스트'}님 👋</div>
           <div style={heroChips}>
-            <span style={heroChip}>
-              <b style={heroChipVal}>{ov?.meetingCount ?? '–'}</b> 참여 그룹
+            {/* 정사각 타일 — 라벨 위 / 값 아래, 한 줄 배치 */}
+            <span className="pd-chip">
+              <span className="pd-chip-label">참여 그룹</span>
+              <b className="pd-chip-val">{ov?.meetingCount ?? '–'}</b>
             </span>
-            <span style={heroChip}>
-              <b style={heroChipVal}>{ov?.todoUndone ?? '–'}</b> 미완료 할 일
+            <span className="pd-chip">
+              <span className="pd-chip-label">미완료 할 일</span>
+              <b className="pd-chip-val">{ov?.todoUndone ?? '–'}</b>
             </span>
             {!!ov?.todoOverdue && (
-              <span style={heroChip}>
-                <b style={heroChipVal}>{ov.todoOverdue}</b> 마감 지남
+              <span className="pd-chip">
+                <span className="pd-chip-label">마감 지남</span>
+                <b className="pd-chip-val">{ov.todoOverdue}</b>
               </span>
             )}
-            <span style={heroChip}>
-              📅 {ov?.nextMeeting ? `${ov.nextMeeting.title}${nextStr ? ` · ${nextStr}` : ''}` : '다음 일정 없음'}
+            <span className="pd-chip">
+              <span className="pd-chip-label">다음 일정</span>
+              <b className="pd-chip-val text">
+                {ov?.nextMeeting
+                  ? `${ov.nextMeeting.title}${nextStr ? ` · ${nextStr}` : ''}`
+                  : '없음'}
+              </b>
             </span>
           </div>
         </div>
@@ -381,7 +390,6 @@ const heroChip: CSSProperties = {
   gap: 7,
   whiteSpace: 'nowrap',
 };
-const heroChipVal: CSSProperties = { fontSize: 17, fontWeight: 700 };
 const section: CSSProperties = {
   background: 'var(--surface)',
   border: '1px solid var(--border)',

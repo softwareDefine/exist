@@ -1321,6 +1321,42 @@ input:focus {
   margin: 2px 0 13px;
 }
 
+/* 히어로 통계 타일 — 라벨 위 / 값 아래 */
+.pd-chip {
+  flex: 0 1 auto;
+  min-width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.pd-chip-label {
+  font-size: 12px;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.pd-chip-val {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+/* 다음 일정처럼 값이 텍스트인 타일 — 넘치면 말줄임 */
+.pd-chip-val.text {
+  font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 내 지표 카드 */
 .pd-stat {
   display: flex;
@@ -11338,8 +11374,8 @@ input:focus {
     z-index: 2;
     background: var(--bg);
     overflow-y: auto;
-    /* 오른쪽·아래는 화면 끝까지 꽉 채움 — 여백은 위·레일 쪽만 살짝 */
-    padding: 8px 0 0 4px;
+    /* 좌우 여백은 각 화면(pd-wrap 등)이 대칭으로 관리 — 여기선 위쪽만 */
+    padding: 8px 0 0;
   }
 
   /* ── 상단 얇은 조직 컨텍스트 바 — 디스코드식: 초록 바탕, 조직명 중앙, 레일 위까지 풀폭 ── */
@@ -11399,8 +11435,8 @@ input:focus {
 
   /* 콘텐츠 컨테이너 — 좌우 다이어트 + 하단 플로팅 바에 마지막 항목이 안 가리게 바닥 여유 */
   .pd-wrap {
-    /* 좌우 합계 10px 대칭 — 왼쪽은 workspace-col 4px와 합산(4+6), 오른쪽 스크롤바는 아래서 숨김 */
-    padding: 12px 10px 100px 6px;
+    /* 좌우 10px 동일 (workspace-col 좌 4px 제거로 중첩 없음), 스크롤바는 아래서 숨김 */
+    padding: 12px 10px 100px;
     scrollbar-width: none;
   }
 
@@ -11452,15 +11488,19 @@ input:focus {
     gap: 7px !important;
   }
 
-  /* 히어로 통계 칩 — 모바일에선 컴팩트하게 (인라인 스타일이라 !important) */
-  .pd-hero > div > div:last-child > span {
-    padding: 4px 10px !important;
-    font-size: 12px !important;
-    border-radius: 8px !important;
+  /* 히어로 통계 타일 — 모바일에선 3개(+마감 지남)가 정확히 한 줄에 나눠 들어감 */
+  .pd-hero > div > div:last-child {
+    flex-wrap: nowrap !important;
   }
 
-  .pd-hero > div > div:last-child > span > b {
-    font-size: 14px !important;
+  .pd-chip {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 9px 6px;
+  }
+
+  .pd-chip-val {
+    font-size: 17px;
   }
 
   .hub-dash {
