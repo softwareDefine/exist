@@ -382,23 +382,26 @@ input:focus {
 }
 
 /* 펼쳐진 동안 앞 카드 아래 모서리를 직각으로 — 한 몸처럼 */
-.nowbar-pill:hover .nowbar-card.front {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  box-shadow: none;
-}
+/* hover 부속 변형들도 진짜 hover 기기만 — 모바일 탭의 sticky hover가 radius·뒤 카드를 건드리지 않게 */
+@media (hover: hover) and (pointer: fine) {
+  .nowbar-pill:hover .nowbar-card.front {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    box-shadow: none;
+  }
 
-/* 빈 상태(온보딩 카드) — 확장 박스가 없으니 모서리 각지게 X, 테두리 색만 바뀜 */
-.nowbar-pill:hover .nowbar-card.front.nb-onboard {
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  border-color: #ccc;
-}
+  /* 빈 상태(온보딩 카드) — 확장 박스가 없으니 모서리 각지게 X, 테두리 색만 바뀜 */
+  .nowbar-pill:hover .nowbar-card.front.nb-onboard {
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    border-color: #ccc;
+  }
 
-/* 펼쳐진 동안 뒤 카드 겹침은 숨김 (확장과 충돌 방지) */
-.nowbar-pill:hover .nowbar-card.next {
-  opacity: 0;
+  /* 펼쳐진 동안 뒤 카드 겹침은 숨김 (확장과 충돌 방지) */
+  .nowbar-pill:hover .nowbar-card.next {
+    opacity: 0;
+  }
 }
 
 /* 카드 전환 시 확장 내용도 함께 끌려나오는 모션 */
