@@ -63,6 +63,17 @@ export default function ProfileDashboard() {
   const [daily, setDaily] = useState('');
   const [catchup, setCatchup] = useState<Catchup | null>(null);
 
+  /** 홈에서 바로 완료 토글 — 낙관적 갱신, 실패 시 원복 */
+  async function toggleTodo(t: Todo) {
+    const next = t.done ? 0 : 1;
+    setTodos((prev) => prev.map((x) => (x.id === t.id ? { ...x, done: next } : x)));
+    try {
+      await api(`/api/todos/${t.id}`, { method: 'PATCH', body: { done: !!next } });
+    } catch {
+      setTodos((prev) => prev.map((x) => (x.id === t.id ? { ...x, done: t.done } : x)));
+    }
+  }
+
   useEffect(() => {
     let alive = true;
     api<Overview>('/api/agent/overview').then((d) => alive && setOv(d)).catch(() => {});
@@ -283,39 +294,32 @@ export default function ProfileDashboard() {
           {todos.length === 0 ? (
             <div style={emptyRow}>할 일이 없어요</div>
           ) : (
-            todos.slice(0, 8).map((t) => (
-              <div key={t.id} style={listRow}>
-                <span style={{ color: t.done ? 'var(--green)' : 'var(--border)', fontSize: 15 }}>
-                  {t.done ? '●' : '○'}
-                </span>
-                <span
-                  style={{
-                    textDecoration: t.done ? 'line-through' : 'none',
-                    color: t.done ? 'var(--text-sub)' : 'var(--text)',
-                  }}
-                >
-                  {t.title}
-                </span>
-                {t.meeting_title && (
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      flexShrink: 0,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: 6,
-                      background: 'var(--green-soft)',
-                      color: 'var(--green)',
-                      whiteSpace: 'nowrap',
-                    }}
-                    title={`"${t.meeting_title}" 회의에서 배정됨`}
-                  >
-                    {t.meeting_title}
-                  </span>
-                )}
-              </div>
-            ))
+            <div className="hub-todos">
+              {/* 회의 대시보드의 할 일과 같은 컴포넌트 언어(.hub-todo) — 체크로 완료 토글 */}
+              {[...todos]
+                .sort((a, b) => a.done - b.done)
+                .slice(0, 8)
+                .map((t) => (
+                  <div key={t.id} className={`hub-todo${t.done ? ' done' : ''}`}>
+                    <label className="hub-todo-label">
+                      <input
+                        type="checkbox"
+                        checked={!!t.done}
+                        onChange={() => void toggleTodo(t)}
+                      />
+                      <span className="hub-todo-check" aria-hidden>
+                        <CheckMarkIcon size={16} />
+                      </span>
+                      <Marquee className="hub-todo-text">{t.title}</Marquee>
+                    </label>
+                    {t.meeting_title && (
+                      <span className="hub-todo-meet" title={`"${t.meeting_title}" 회의에서 배정됨`}>
+                        {t.meeting_title}
+                      </span>
+                    )}
+                  </div>
+                ))}
+            </div>
           )}
         </div>
 
