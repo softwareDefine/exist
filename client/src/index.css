@@ -11455,10 +11455,11 @@ input:focus {
     display: grid;
     grid-template-columns: auto 1fr;
     column-gap: 14px;
+    row-gap: 0; /* 데스크톱 gap:22px가 행 간격으로 상속돼 히어로를 늘리던 것 차단 */
     align-items: center;
     border-radius: 16px;
-    padding: 14px 14px 12px;
-    margin-bottom: 12px; /* 다음 카드와의 간격 다이어트 (데스크톱 20px) */
+    padding: 12px 12px 10px;
+    margin-bottom: 10px; /* 다음 카드와의 간격 다이어트 (데스크톱 20px) */
   }
 
   .pd-hero > .pd-hero-avatar {
@@ -11492,8 +11493,8 @@ input:focus {
 
   .pd-hero > div > div:last-child {
     grid-column: 1 / -1;
-    margin-top: 8px;
-    gap: 7px !important;
+    margin-top: 6px;
+    gap: 6px !important;
   }
 
   /* 히어로 통계 타일 — 모바일에선 3개(+마감 지남)가 정확히 한 줄에 나눠 들어감 */
@@ -11504,11 +11505,17 @@ input:focus {
   .pd-chip {
     flex: 1 1 0;
     min-width: 0;
-    padding: 9px 6px;
+    padding: 7px 5px;
+    gap: 2px;
+    border-radius: 10px;
+  }
+
+  .pd-chip-label {
+    font-size: 11px;
   }
 
   .pd-chip-val {
-    font-size: 17px;
+    font-size: 16px;
   }
 
   .hub-dash {
