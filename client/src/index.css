@@ -11424,6 +11424,18 @@ input:focus {
   .pd-hero > div > div:last-child {
     grid-column: 1 / -1;
     margin-top: 12px;
+    gap: 7px !important;
+  }
+
+  /* 히어로 통계 칩 — 모바일에선 컴팩트하게 (인라인 스타일이라 !important) */
+  .pd-hero > div > div:last-child > span {
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
+  }
+
+  .pd-hero > div > div:last-child > span > b {
+    font-size: 14px !important;
   }
 
   .hub-dash {
