@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { getSocket, request } from '../lib/socket';
 import { usePresence } from '../lib/usePresence';
@@ -186,6 +187,36 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [inCall, setInCall] = useState(false);
   // 참가자 명함에서 연 1:1 DM 창 (홈의 통합 메시지는 회의 탭에서 언마운트라 여기서 직접 띄움)
   const [dm, setDm] = useState<{ scope: DmScope; peer: Thread } | null>(null);
+  const navigate = useNavigate();
+
+  // 채팅 프로필 hover 카드 — 정보(조직도)·채팅(DM) 선택
+  const [pcard, setPcard] = useState<{ p: Participant; x: number; y: number } | null>(null);
+  const pcardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showProfileCard(username: string, el: HTMLElement) {
+    const p = detail?.participants.find((x) => x.username === username);
+    if (!p || username === user?.username) return; // 명단에 없거나(AI 등) 본인이면 카드 없음
+    if (pcardTimer.current) clearTimeout(pcardTimer.current);
+    const r = el.getBoundingClientRect();
+    setPcard({ p, x: r.left, y: r.top });
+  }
+  /** 트리거→카드로 마우스가 건너갈 틈을 주고 닫기 (카드 진입 시 keep이 취소) */
+  function hideProfileCardSoon() {
+    if (pcardTimer.current) clearTimeout(pcardTimer.current);
+    pcardTimer.current = setTimeout(() => setPcard(null), 200);
+  }
+  function keepProfileCard() {
+    if (pcardTimer.current) clearTimeout(pcardTimer.current);
+  }
+  // 터치(hover 없음) 대비 — 카드 밖 아무 데나 누르면 닫힘
+  useEffect(() => {
+    if (!pcard) return;
+    function onDown(e: MouseEvent) {
+      if (!(e.target as HTMLElement).closest('.profile-card')) setPcard(null);
+    }
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [pcard]);
 
   // @멘션 후보 — AI 총무 + 나를 뺀 참가자 전원 (채팅·통화 채팅 공용)
   const mentionCandidates: MentionCandidate[] = [
@@ -1580,10 +1611,24 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                         (grouped ? (
                           <span className="chat-avatar-gap" />
                         ) : (
-                          <Avatar value={m.avatar} className="chat-avatar" />
+                          <span
+                            className="chat-user-hover"
+                            onMouseEnter={(e) => showProfileCard(m.from, e.currentTarget)}
+                            onMouseLeave={hideProfileCardSoon}
+                          >
+                            <Avatar value={m.avatar} className="chat-avatar" />
+                          </span>
                         ))}
                       <div className="chat-content">
-                        {!mine && !grouped && <span className="chat-name">{m.from}</span>}
+                        {!mine && !grouped && (
+                          <span
+                            className="chat-name chat-user-hover"
+                            onMouseEnter={(e) => showProfileCard(m.from, e.currentTarget)}
+                            onMouseLeave={hideProfileCardSoon}
+                          >
+                            {m.from}
+                          </span>
+                        )}
                         <div className="chat-line">
                           {mine && <span className="chat-time">{chatTime(m.ts)}</span>}
                           <div className={`chat-bubble${m.file ? ' has-file' : ''}`}>
@@ -1655,6 +1700,51 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
         )}
         </div>
       </div>
+
+      {/* 채팅 프로필 hover 카드 — 정보(조직도) / 채팅(DM) */}
+      {pcard && (
+        <div
+          className="profile-card"
+          style={{ left: pcard.x, top: pcard.y }}
+          onMouseEnter={keepProfileCard}
+          onMouseLeave={hideProfileCardSoon}
+        >
+          <div className="profile-card-head">
+            <Avatar value={pcard.p.avatar} className="profile-card-avatar" />
+            <div className="profile-card-meta">
+              <b>
+                {pcard.p.username}
+                {pcard.p.isHost && <span className="profile-card-host">호스트</span>}
+              </b>
+              <span>
+                {[pcard.p.position, pcard.p.department].filter(Boolean).join(' · ') ||
+                  (detail?.orgName ? '부서 미지정' : '')}
+              </span>
+            </div>
+            <i
+              className={`presence-dot${presence.has(pcard.p.username) ? ' on' : ''}`}
+              title={presence.has(pcard.p.username) ? '접속 중' : '오프라인'}
+            />
+          </div>
+          <div className="profile-card-actions">
+            {detail?.orgId != null && (
+              <button type="button" onClick={() => navigate(`/org/${detail.orgId}`)}>
+                <UsersIcon size={14} /> 정보
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                const p = pcard.p;
+                setPcard(null);
+                openDm(p);
+              }}
+            >
+              <ChatIcon size={14} /> 채팅
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 참가자 명함에서 연 1:1 DM — 우하단 플로팅 (홈과 같은 창) */}
       {dm && (

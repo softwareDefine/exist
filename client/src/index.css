@@ -1984,6 +1984,110 @@ input:focus {
   color: var(--text-sub);
 }
 
+/* ── 채팅 프로필 hover 카드 — 정보(조직도)/채팅(DM) 선택 ── */
+.chat-user-hover {
+  cursor: pointer;
+}
+
+.profile-card {
+  position: fixed;
+  transform: translateY(calc(-100% - 8px)); /* 트리거(아바타/이름) 위로 */
+  min-width: 210px;
+  max-width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  padding: 12px;
+  z-index: 500;
+}
+
+.profile-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-card-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px; /* 아바타 규칙 — 정사각 + 살짝 radius */
+  font-size: 22px;
+  flex: none;
+}
+
+.profile-card-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-card-meta b {
+  font-size: 14.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-card-host {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--green);
+  border: 1px solid rgba(33, 200, 24, 0.4);
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+.profile-card-meta span {
+  font-size: 12px;
+  color: var(--text-sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-card .presence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cfcfcf;
+  flex: none;
+  margin-left: auto;
+}
+
+.profile-card .presence-dot.on {
+  background: var(--green);
+}
+
+.profile-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.profile-card-actions button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 9px;
+  padding: 7px 0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-card-actions button:hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(33, 200, 24, 0.06);
+}
+
 /* 개인 DM — 이름 검색 */
 .dm-search {
   position: relative;
