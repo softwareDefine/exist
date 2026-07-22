@@ -1430,6 +1430,15 @@ input:focus {
   }
 }
 
+/* 좁은 데스크톱(≤1500px, 시계 2줄 구간) — 사이드바도 다이어트해 본문 폭 확보
+ * ⚠️ base .dashboard(위쪽)보다 뒤에 있어야 이김 (동일 특이도) */
+@media (min-width: 1024px) and (max-width: 1500px) {
+  .dashboard {
+    grid-template-columns: 264px 1fr;
+    gap: 22px;
+  }
+}
+
 /* 1536px 이상(외장 모니터): 사이드바·여백을 넓혀 비율 유지 */
 @media (min-width: 1536px) {
   .nowbar {
