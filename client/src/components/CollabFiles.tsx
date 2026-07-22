@@ -16,6 +16,7 @@ import {
   PenIcon,
   ChevronIcon,
   PlusIcon,
+  CopyIcon,
 } from './Icons';
 
 /*
@@ -35,6 +36,7 @@ interface CollabFile {
   type: FileType;
   room: string | null;
   author: string;
+  created_at?: string;
 }
 
 const TYPE_LABEL: Record<Exclude<FileType, 'folder'>, string> = {
@@ -535,7 +537,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
             disabled={disabledSel}
             onClick={() => selected && setClipboard({ op: 'copy', id: selected.id })}
           >
-            ⧉ 복사
+            <CopyIcon size={13} /> 복사
           </button>
           <button className="cf-tool" disabled={!clipboard} onClick={() => void paste()}>
             📋 붙여넣기
@@ -609,7 +611,8 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
           </button>
         </div>
 
-        {/* 본문 — 현재 폴더 내용 */}
+        {/* 본문 — 현재 폴더 내용 (+ 선택 시 오른쪽 세부 정보) */}
+        <div className="cf-body">
         <div className={`cf-main ${view}`} onClick={() => setSelectedId(null)}>
           {creating && (
             <form className="cf-new cf-main-new" onSubmit={createEntry} onClick={(e) => e.stopPropagation()}>
@@ -676,6 +679,61 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
             ))
           )}
         </div>
+
+        {/* 세부 정보 패널 — 윈도우 탐색기의 오른쪽 정보창 */}
+        {selected && (
+          <aside className="cf-details">
+            <div className={`cf-details-icon cf-icon ${selected.type}`}>
+              <TypeIcon type={selected.type} size={42} />
+            </div>
+            <div className="cf-details-name">{selected.name}</div>
+            <div className="cf-details-sub">
+              {selected.type === 'folder' ? '폴더' : `${TYPE_LABEL[selected.type]} 파일`}
+            </div>
+            <div className="cf-details-rows">
+              <div className="cf-details-row">
+                <span>위치</span>
+                <b>
+                  {['공동편집', ...crumbs.map((c) => c.name)].join(' › ')}
+                </b>
+              </div>
+              <div className="cf-details-row">
+                <span>만든 사람</span>
+                <b>{selected.author || '—'}</b>
+              </div>
+              {selected.created_at && (
+                <div className="cf-details-row">
+                  <span>만든 날짜</span>
+                  <b>
+                    {new Date(selected.created_at + 'Z').toLocaleString('ko-KR', {
+                      year: 'numeric',
+                      month: 'numeric',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </b>
+                </div>
+              )}
+              {selected.type === 'folder' && (
+                <div className="cf-details-row">
+                  <span>포함 항목</span>
+                  <b>{(byParent.get(selected.id) ?? []).length}개</b>
+                </div>
+              )}
+            </div>
+            {selected.type !== 'folder' ? (
+              <button className="cf-details-open" onClick={() => openFile(selected)}>
+                열기
+              </button>
+            ) : (
+              <button className="cf-details-open" onClick={() => navigate(selected.id)}>
+                폴더 열기
+              </button>
+            )}
+          </aside>
+        )}
+        </div>
       </div>
     );
   }
@@ -729,11 +787,25 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
       <div className="cf-editor" style={{ display: active ? undefined : 'none' }}>
         {active && (
           <div className="cf-editor-bar">
-            <button className="cf-back" onClick={() => setActiveId(null)}>
-              <ChevronIcon size={13} /> 파일 목록
+            <button className="cf-back" title="파일 목록으로" onClick={() => setActiveId(null)}>
+              ←
             </button>
             <span className={`cf-icon ${active.type}`}>
               <TypeIcon type={active.type} />
+            </span>
+            {/* 경로 › 파일명 */}
+            <span className="cf-editor-path">
+              {(() => {
+                const parts: string[] = [];
+                let cur = active.parent_id;
+                while (cur != null) {
+                  const p = byId.get(cur);
+                  if (!p) break;
+                  parts.unshift(p.name);
+                  cur = p.parent_id;
+                }
+                return ['공동편집', ...parts].map((s) => `${s} › `).join('');
+              })()}
             </span>
             <Marquee className="cf-editor-name">{active.name}</Marquee>
           </div>

@@ -120,7 +120,7 @@ router.get('/', (req: AuthedRequest, res) => {
   ensureLegacyFiles(r.meeting.id, r.meeting.code, req.userId!);
   const rows = db
     .prepare(
-      `SELECT f.id, f.parent_id, f.name, f.type, f.room, u.username AS author
+      `SELECT f.id, f.parent_id, f.name, f.type, f.room, f.created_at, u.username AS author
        FROM collab_files f JOIN users u ON u.id = f.created_by
        WHERE f.meeting_id = ? ORDER BY f.type = 'folder' DESC, f.name`,
     )
