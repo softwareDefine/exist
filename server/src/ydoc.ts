@@ -102,6 +102,20 @@ export function ydocExists(name: string): boolean {
   return docs.has(name) || fs.existsSync(filePath(name));
 }
 
+/** 룸 상태 복사 — 파일 복제용. 열려 있는 문서는 현재 메모리 상태를, 아니면 .bin을 복사 */
+export function copyYdoc(src: string, dst: string) {
+  const open = docs.get(src);
+  try {
+    if (open) {
+      fs.writeFileSync(filePath(dst), Buffer.from(Y.encodeStateAsUpdate(open)));
+    } else if (fs.existsSync(filePath(src))) {
+      fs.copyFileSync(filePath(src), filePath(dst));
+    }
+  } catch {
+    /* 내용 없는 복제는 빈 문서로 시작 */
+  }
+}
+
 /** 룸 완전 삭제 — 접속 종료 + 메모리 해제 + .bin 제거 (파일 삭제 시) */
 export function deleteYdoc(name: string) {
   const doc = docs.get(name);
