@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 클라이언트 빌드 (Vite → 정적)
 COPY client/package.json client/package-lock.json ./client/
 RUN cd client && npm ci
+# 윈도우에서 만든 lockfile엔 리눅스용 optional 네이티브 바이너리가 빠짐(npm 고질병)
+# → vite(rollup)·lightningcss의 현재 아키텍처 바이너리를 명시 보강
+RUN cd client && npm i --no-save --force \
+      lightningcss-linux-arm64-gnu @rollup/rollup-linux-arm64-gnu || true
 COPY client ./client
 RUN cd client && npm run build
 
