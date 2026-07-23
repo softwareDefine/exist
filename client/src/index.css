@@ -3913,8 +3913,13 @@ input:focus {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 4px 0 8px;
+  padding: 6px 0; /* 위아래 대칭 — 한쪽만 두꺼워 보이던 공백 정리 */
   border-bottom: 1px solid var(--border);
+}
+
+/* 종일 라벨을 첫 일정 행(높이 30px)과 세로 중앙 정렬 */
+.msched-allday > .msched-hour-label {
+  line-height: 30px;
 }
 
 .msched-allday-list {
