@@ -10,6 +10,9 @@ import Marquee from './Marquee';
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const ymd = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
+/** 그룹(회의)별 고유색 — 황금각 회전으로 id마다 안정적인 색 (애플 캘린더의 캘린더 색 느낌) */
+const groupColor = (id: number) => `hsl(${(id * 137.508) % 360} 62% 45%)`;
+
 export default function ScheduleWidget({
   schedule,
   onOpen,
@@ -21,14 +24,15 @@ export default function ScheduleWidget({
   const [view, setView] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [sel, setSel] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
 
-  // 현재 보고 있는 달에서 일정이 있는 날짜(day) 집합
-  const evDays = new Set(
-    schedule
-      .filter((s) => s.starts_at)
-      .map((s) => new Date(s.starts_at!))
-      .filter((d) => d.getFullYear() === view.y && d.getMonth() === view.m)
-      .map((d) => d.getDate()),
-  );
+  // 현재 보고 있는 달에서 일정이 있는 날짜 → 그 날의 그룹 id들 (한 그룹뿐이면 그룹색 점)
+  const evDays = new Map<number, Set<number>>();
+  for (const s of schedule) {
+    if (!s.starts_at) continue;
+    const d = new Date(s.starts_at);
+    if (d.getFullYear() !== view.y || d.getMonth() !== view.m) continue;
+    if (!evDays.has(d.getDate())) evDays.set(d.getDate(), new Set());
+    evDays.get(d.getDate())!.add(s.id);
+  }
 
   // 달력 셀 구성
   const startDow = new Date(view.y, view.m, 1).getDay();
@@ -86,7 +90,16 @@ export default function ScheduleWidget({
               >
                 {d}
                 {evDays.has(d) && (
-                  <span style={{ ...evDot, background: selected ? '#fff' : 'var(--green)' }} />
+                  <span
+                    style={{
+                      ...evDot,
+                      background: selected
+                        ? '#fff'
+                        : evDays.get(d)!.size === 1
+                          ? groupColor([...evDays.get(d)!][0])
+                          : 'var(--green)',
+                    }}
+                  />
                 )}
               </button>
             );
@@ -109,7 +122,9 @@ export default function ScheduleWidget({
                   <span style={tlTime}>
                     {t.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  <span style={tlDot}><span style={tlDotInner} /></span>
+                  <span style={tlDot}>
+                    <span style={{ ...tlDotInner, background: groupColor(s.id) }} />
+                  </span>
                   <Marquee className="schedw-tl-title">{s.title}</Marquee>
                 </button>
               );
