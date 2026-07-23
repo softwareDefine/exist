@@ -18,7 +18,7 @@ import {
   runRecapForMeeting,
 } from './recap.js';
 import { listChannels, ensureDefaultChannel, resolveChannel, cleanChannelName } from './channels.js';
-import { generateAgenda, invalidateAgenda } from './steward.js';
+import { generateAgenda, invalidateAgenda, ensureAgentUser } from './steward.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -936,9 +936,10 @@ router.post('/:code/recaps/run', async (req: AuthedRequest, res) => {
     last.t ?? new Date(Date.now() - 24 * 3600_000).toISOString().replace('T', ' ').slice(0, 19);
   const chatters = db
     .prepare(
-      `SELECT DISTINCT user_id FROM messages WHERE meeting_id = ? AND created_at > ?`,
+      // AI는 참석자가 아님 — 참석 목록에 exist AI가 끼지 않게 제외
+      `SELECT DISTINCT user_id FROM messages WHERE meeting_id = ? AND created_at > ? AND user_id != ?`,
     )
-    .all(meeting.id, since) as { user_id: number }[];
+    .all(meeting.id, since, ensureAgentUser()) as { user_id: number }[];
   const id = await runRecapForMeeting(code, chatters.map((c) => c.user_id), {
     trigger: 'manual',
   });

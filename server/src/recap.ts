@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import db from './db.js';
 import { notifyUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
-import { invalidateAgenda } from './steward.js';
+import { invalidateAgenda, ensureAgentUser } from './steward.js';
 
 /*
  * exist P1 — 회의 통화가 끝나면 그 회의의 채팅에서 결정·할 일을 추출해
@@ -235,15 +235,20 @@ export async function runRecapForMeeting(
     .get(meeting.id) as { t: string | null };
   const since = last.t ?? new Date(Date.now() - 24 * 3600_000).toISOString().replace('T', ' ').slice(0, 19);
 
-  // 채팅 + 통화 음성 전사를 시간순으로 합쳐서 요약 재료로 쓴다
-  const chatMsgs = db
-    .prepare(
-      `SELECT u.username AS "from", m.text, m.created_at AS at FROM messages m
-       JOIN users u ON u.id = m.user_id
-       WHERE m.meeting_id = ? AND m.created_at > ? AND m.text != ''
-       ORDER BY m.id ASC LIMIT 200`,
-    )
-    .all(meeting.id, since) as (ChatMsg & { at: string })[];
+  // 채팅 + 통화 음성 전사를 시간순으로 합쳐서 요약 재료로 쓴다.
+  // AI 자신의 메시지는 제외 — 과거 AI 답변("내용이 부족…")을 다시 먹고 그대로 요약하는 자기 오염 방지
+  const agentId = ensureAgentUser();
+  const chatMsgs = (
+    db
+      .prepare(
+        `SELECT u.username AS "from", m.text, m.created_at AS at FROM messages m
+         JOIN users u ON u.id = m.user_id
+         WHERE m.meeting_id = ? AND m.user_id != ? AND m.created_at > ? AND m.text != ''
+         ORDER BY m.id ASC LIMIT 200`,
+      )
+      .all(meeting.id, agentId, since) as (ChatMsg & { at: string })[]
+  ) // "@AI"처럼 멘션만 있고 내용이 없는 메시지도 재료가 아님
+    .filter((m) => m.text.replace(/@[\w가-힣.-]+/g, '').trim().length > 0);
   const voiceMsgs = db
     .prepare(
       `SELECT u.username AS "from", t.text, t.created_at AS at FROM call_transcripts t

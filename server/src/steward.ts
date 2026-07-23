@@ -55,14 +55,15 @@ function gatherContext(meetingId: number, channelId: number): AgentContext {
        JOIN users u ON u.id = t.user_id WHERE t.meeting_id = ? ORDER BY t.id DESC LIMIT 20`,
     )
     .all(meetingId) as { title: string; done: number; author: string }[];
+  // AI 자신의 메시지는 근거에서 제외 — 과거 AI 답변을 다시 먹고 반복하는 자기 오염 방지
   const chat = db
     .prepare(
       `SELECT u.username AS "from", m.text FROM messages m
        JOIN users u ON u.id = m.user_id
-       WHERE m.meeting_id = ? AND (m.channel_id = ? OR m.channel_id IS NULL) AND m.text != ''
+       WHERE m.meeting_id = ? AND m.user_id != ? AND (m.channel_id = ? OR m.channel_id IS NULL) AND m.text != ''
        ORDER BY m.id DESC LIMIT 30`,
     )
-    .all(meetingId, channelId)
+    .all(meetingId, ensureAgentUser(), channelId)
     .reverse() as { from: string; text: string }[];
   // 최근 통화 음성 전사도 근거에 포함
   const voice = db
