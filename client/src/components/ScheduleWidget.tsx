@@ -187,9 +187,10 @@ const tlList: CSSProperties = {
   maxHeight: 200,
   overflowY: 'auto',
 };
+// 원 중심 x = 행 패딩 2 + 시간칸 46(border-box, 패딩 포함) + 원 컨테이너 20/2 = 58 — 선(폭 2)은 57 시작
 const tlLine: CSSProperties = {
   position: 'absolute',
-  left: 55,
+  left: 57,
   top: 6,
   bottom: 6,
   width: 2,

@@ -1,4 +1,5 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+// (MeetingHub는 memo — 아래 expandHandlers처럼 props 참조가 안정해야 스킵이 먹힌다)
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { useOrgStore, type OrgContext } from '../orgStore';
@@ -40,7 +41,7 @@ function loadSavedTabs(): { code: string; title: string }[] {
   }
 }
 
-export default function WorkspacePanel({ meetingRequest }: Props) {
+function WorkspacePanel({ meetingRequest }: Props) {
   const orgCurrent = useOrgStore((s) => s.current);
   const setOrgCurrent = useOrgStore((s) => s.setCurrent);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -52,6 +53,16 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
   );
   const [active, setActive] = useState<ActiveTab | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null); // 오버레이 전체화면 회의 코드
+  // 탭별 확대 토글 콜백 — 매 렌더 새 함수를 만들면 memo(MeetingHub)가 무력화돼 캐시
+  const expandHandlers = useRef(new Map<string, () => void>());
+  const toggleExpandFor = (code: string) => {
+    let h = expandHandlers.current.get(code);
+    if (!h) {
+      h = () => setExpanded((cur) => (cur === code ? null : code));
+      expandHandlers.current.set(code, h);
+    }
+    return h;
+  };
   const [renaming, setRenaming] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [unread, setUnread] = useState<Map<string, number>>(new Map());
@@ -404,7 +415,7 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
               <MeetingHub
                 code={t.code}
                 expanded={isExpanded}
-                onToggleExpand={() => setExpanded((cur) => (cur === t.code ? null : t.code))}
+                onToggleExpand={toggleExpandFor(t.code)}
                 gotoTab={
                   meetingRequest && meetingRequest.code === t.code && meetingRequest.tab
                     ? { tab: meetingRequest.tab, ts: meetingRequest.ts }
@@ -420,3 +431,6 @@ export default function WorkspacePanel({ meetingRequest }: Props) {
     </section>
   );
 }
+
+// 사이드바 정렬(고정 토글 등)로 대시보드가 리렌더돼도 워크스페이스 전체는 스킵
+export default memo(WorkspacePanel);

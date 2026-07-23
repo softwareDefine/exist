@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import Logo from './Logo';
@@ -368,7 +368,7 @@ function ProfileMenu({
   );
 }
 
-export default function NowBar({
+function NowBar({
   meetings = [],
   groups = [],
   focusedCode,
@@ -1045,3 +1045,6 @@ export default function NowBar({
     </header>
   );
 }
+
+// 사이드바 고정 토글 등 대시보드 리렌더에서 nowbar 전체가 다시 그려지지 않게
+export default memo(NowBar);

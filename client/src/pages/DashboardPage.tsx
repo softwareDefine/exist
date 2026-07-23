@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
@@ -88,10 +88,11 @@ export default function DashboardPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [createSchedMode, setCreateSchedMode] = useState(false);
 
-  function openCreate(schedMode = false) {
+  // 아래 핸들러들은 memo(NowBar)에 props로 내려가므로 참조가 안정해야 함 (setter만 캡처)
+  const openCreate = useCallback((schedMode = false) => {
     setCreateSchedMode(schedMode);
     setShowCreate(true);
-  }
+  }, []);
 
   // 회의 탭 열기 요청 (우측 패널로 전달)
   const [meetingRequest, setMeetingRequest] = useState<MeetingTabRequest | null>(null);
@@ -101,13 +102,13 @@ export default function DashboardPage() {
   // 회의 설정 모달 (일정/설정 버튼)
   const [settingsMeeting, setSettingsMeeting] = useState<Meeting | null>(null);
 
-  function openMeetingTab(code: string, title: string, tab?: string) {
+  const openMeetingTab = useCallback((code: string, title: string, tab?: string) => {
     setMeetingRequest({ code, title, ts: Date.now(), tab });
     setFocusedCode(code); // nowbar가 이 회의 그룹을 띄우도록
     setTabletDrawer(false); // 태블릿 드로어: 그룹 고르면 닫기
-  }
+  }, []);
 
-  function toggleSidebar() {
+  const toggleSidebar = useCallback(() => {
     // 태블릿에선 접기 대신 드로어 토글
     if (window.matchMedia(TABLET_MQ).matches) {
       setTabletDrawer((v) => !v);
@@ -118,10 +119,9 @@ export default function DashboardPage() {
       localStorage.setItem('exist:sidebar', next ? 'open' : 'closed');
       return next;
     });
-  }
+  }, []);
 
-
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const param = useOrgStore.getState().contextParam();
       const [meetings, sched, todoList] = await Promise.all([
@@ -135,7 +135,7 @@ export default function DashboardPage() {
     } catch {
       /* 로그아웃 등으로 실패 시 무시 — 라우터 가드가 처리 */
     }
-  }
+  }, []);
 
   // 최초 + 조직 컨텍스트 전환 시 회의 목록 갱신
   useEffect(() => {
@@ -191,15 +191,27 @@ export default function DashboardPage() {
     }
   }
 
-  async function toggleTodo(todo: Todo) {
-    await api(`/api/todos/${todo.id}`, { method: 'PATCH', body: { done: !todo.done } });
-    void refresh();
-  }
+  const toggleTodo = useCallback(
+    async (todo: Todo) => {
+      await api(`/api/todos/${todo.id}`, { method: 'PATCH', body: { done: !todo.done } });
+      void refresh();
+    },
+    [refresh],
+  );
 
-  async function addTodo(title: string) {
-    await api('/api/todos', { method: 'POST', body: { title } });
-    void refresh();
-  }
+  const addTodo = useCallback(
+    async (title: string) => {
+      await api('/api/todos', { method: 'POST', body: { title } });
+      void refresh();
+    },
+    [refresh],
+  );
+
+  const onOpenMeetingFromBar = useCallback(
+    (m: Meeting) => openMeetingTab(m.code, m.title),
+    [openMeetingTab],
+  );
+  const onScheduleFromBar = useCallback(() => openCreate(true), [openCreate]);
 
   // nowbar 그룹 = 최근 회의 ∪ 일정(occurrence/이벤트)이 있는 회의.
   // 최근 목록에서 밀려난 회의라도 예정 일정이 있으면 nowbar가 띄울 수 있게 합친다.
@@ -254,8 +266,8 @@ export default function DashboardPage() {
         focusedCode={focusedCode}
         onToggleTodo={toggleTodo}
         onAddTodo={addTodo}
-        onOpenMeeting={(m) => openMeetingTab(m.code, m.title)}
-        onSchedule={() => openCreate(true)}
+        onOpenMeeting={onOpenMeetingFromBar}
+        onSchedule={onScheduleFromBar}
         onToggleSidebar={toggleSidebar}
       />
       <main

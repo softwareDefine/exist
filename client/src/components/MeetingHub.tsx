@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, memo, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { getSocket, request } from '../lib/socket';
@@ -179,7 +179,7 @@ const PIP_TILE_W = 320;
 const PIP_TILE_H = 180;
 
 /** 회의 탭 = 대시보드(메인) + 통화/채팅 서브탭 */
-export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: Props) {
+function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: Props) {
   const user = useAuthStore((s) => s.user);
   const presence = usePresence();
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
@@ -384,16 +384,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
   const [todoInput, setTodoInput] = useState('');
   const [confirmDelMeeting, setConfirmDelMeeting] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [pinnedNow, setPinnedNow] = useState(false);
-
-  // 사이드바 고정 상태 동기화 (다른 곳에서 토글돼도 반영)
-  useEffect(() => {
-    if (!detail) return;
-    const sync = () => setPinnedNow(isPinned(detail.id));
-    sync();
-    window.addEventListener(PINS_EVENT, sync);
-    return () => window.removeEventListener(PINS_EVENT, sync);
-  }, [detail]);
+  // 맨 위 고정 토글은 PinToggle(파일 하단)로 분리 — 허브 전체 리렌더 없이 스위치만 갱신
 
   // 회의 공유 할 일 로드
   useEffect(() => {
@@ -1445,16 +1436,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                   <span className="hub-perm-label">맨 위 고정</span>
                   <span className="hub-perm-desc">최근 그룹 목록 맨 위에 고정해요 (나에게만 적용)</span>
                 </span>
-                <button
-                  className={`hub-switch${pinnedNow ? ' on' : ''}`}
-                  onClick={() => {
-                    togglePin(detail.id);
-                    setPinnedNow((p) => !p);
-                  }}
-                  aria-label="맨 위 고정"
-                >
-                  <i />
-                </button>
+                <PinToggle meetingId={detail.id} />
               </div>
             </section>
 
@@ -1790,3 +1772,27 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
     </div>
   );
 }
+
+/** 맨 위 고정 토글 — 스위치만 리렌더되게 허브에서 분리 (허브 전체 리렌더는 수십 ms) */
+function PinToggle({ meetingId }: { meetingId: number }) {
+  const [on, setOn] = useState(() => isPinned(meetingId));
+  useEffect(() => {
+    const sync = () => setOn(isPinned(meetingId));
+    sync();
+    window.addEventListener(PINS_EVENT, sync);
+    return () => window.removeEventListener(PINS_EVENT, sync);
+  }, [meetingId]);
+  return (
+    <button
+      className={`hub-switch${on ? ' on' : ''}`}
+      onClick={() => togglePin(meetingId)}
+      aria-label="맨 위 고정"
+    >
+      <i />
+    </button>
+  );
+}
+
+// 워크스페이스 탭들이 숨겨진 채 전부 마운트돼 있어서, 부모(대시보드) 리렌더마다
+// 허브 전체가 다시 그려지면 토글류 반응이 눈에 띄게 늦는다 — props 안 바뀌면 스킵
+export default memo(MeetingHub);
