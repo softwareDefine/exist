@@ -3578,6 +3578,55 @@ input:focus {
   border-bottom: 1px solid var(--border);
 }
 
+/* 하루 종일 레인 — 헤더 바로 아래 (애플 캘린더식) */
+.msched-week-allday {
+  position: sticky;
+  top: 47px; /* 헤더 높이 아래에 붙음 */
+  z-index: 4;
+  background: var(--surface);
+  display: grid;
+  grid-template-columns: 60px repeat(7, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border);
+  min-height: 26px;
+}
+
+.msched-week-gutter-spacer.allday {
+  display: grid;
+  place-items: center;
+  font-size: 10.5px;
+  color: var(--text-sub);
+}
+
+.msched-wallday-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 3px;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.msched-wallday-col.sel {
+  background: var(--green-soft);
+}
+
+.msched-wallday-chip {
+  background: var(--green-soft);
+  color: var(--green-dark);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msched-wallday-col.sel .msched-wallday-chip {
+  background: var(--surface);
+}
+
 .msched-wday-btn {
   position: relative;
   display: flex;

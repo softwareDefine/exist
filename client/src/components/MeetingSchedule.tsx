@@ -410,7 +410,7 @@ export default function MeetingSchedule({
                       {d.getDate()}
                     </span>
                     {dayUntimed.length > 0 && (
-                      <span className="msched-wday-untimed" title="시간 미정 일정">
+                      <span className="msched-wday-untimed" title="하루 종일 일정">
                         {dayUntimed.length}
                       </span>
                     )}
@@ -418,6 +418,30 @@ export default function MeetingSchedule({
                 );
               })}
             </div>
+
+            {/* 하루 종일 레인 — 날짜 헤더 바로 아래, 애플 캘린더식 */}
+            {weekDays.some((d) => (byDate.get(ymd(d)) ?? []).some((e) => !e.time)) && (
+              <div className="msched-week-allday">
+                <span className="msched-week-gutter-spacer allday">종일</span>
+                {weekDays.map((d) => {
+                  const key = ymd(d);
+                  const dayUntimed = (byDate.get(key) ?? []).filter((e) => !e.time);
+                  return (
+                    <div
+                      key={key}
+                      className={'msched-wallday-col' + (key === selected ? ' sel' : '')}
+                      onClick={() => setSelected(key)}
+                    >
+                      {dayUntimed.map((e) => (
+                        <span key={e.id} className="msched-wallday-chip" title={`${e.title} · ${e.author}`}>
+                          {e.title}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="msched-week-body">
               <div className="msched-week-gutter">
                 {hours.map((h) => (
