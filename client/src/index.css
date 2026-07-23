@@ -3636,6 +3636,7 @@ input:focus {
   gap: 2px;
   border: none;
   background: none;
+  color: var(--text); /* 버튼 기본색(검정)이 다크에서 안 보이던 문제 */
   padding: 4px 0 6px;
   min-width: 0;
 }
