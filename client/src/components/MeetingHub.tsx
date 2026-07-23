@@ -1292,6 +1292,9 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
               recurUntil={detail.recur_until ?? null}
               recurExcept={detail.recur_except ?? []}
               onOccurrenceChanged={() => void reloadDetail()}
+              participants={detail.participants
+                .filter((p) => p.username !== 'exist AI')
+                .map((p) => ({ userId: p.userId, username: p.username }))}
             />
           </div>
         )}

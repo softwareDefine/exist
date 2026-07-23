@@ -227,6 +227,20 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 일정 이벤트 관련자 — 참가자 id JSON 배열 (애플 캘린더 초대 느낌)
+try {
+  db.exec(`ALTER TABLE meeting_events ADD COLUMN people TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
+// 마이그레이션: 일정 이벤트 메모
+try {
+  db.exec(`ALTER TABLE meeting_events ADD COLUMN memo TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 알림이 어느 회의에서 왔는지 — meeting_code (null이면 회의 무관)
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN meeting_code TEXT`);

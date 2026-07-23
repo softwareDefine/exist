@@ -11,6 +11,8 @@ interface MEvent {
   time: string | null; // HH:MM (시작)
   end_time: string | null; // HH:MM (종료)
   is_call?: number; // 1이면 통화 일정 (10분 전 "통화 들어오세요" 알림)
+  memo: string | null; // 일정 메모 (애플 캘린더식)
+  people: { id: number; username: string; name: string | null }[]; // 관련자
   author: string;
   created_by: number;
 }
@@ -28,6 +30,8 @@ interface Props {
   recurExcept?: string[];
   /** 회차 삭제/복원 후 부모가 detail 다시 불러오게 */
   onOccurrenceChanged?: () => void;
+  /** 회의 참가자 — 일정 관련자 선택 칩에 사용 */
+  participants?: { userId: number; username: string }[];
 }
 
 function stepDate(d: Date, recur: string): Date {
@@ -77,6 +81,7 @@ export default function MeetingSchedule({
   recurUntil = null,
   recurExcept = [],
   onOccurrenceChanged,
+  participants = [],
 }: Props) {
   const userId = useAuthStore((s) => s.user?.id);
   const [events, setEvents] = useState<MEvent[]>([]);
@@ -88,6 +93,8 @@ export default function MeetingSchedule({
   const [endTime, setEndTime] = useState('');
   const [allDay, setAllDay] = useState(false); // 하루 종일 — 시간 없이 날짜에만 (애플 캘린더식)
   const [isCall, setIsCall] = useState(false);
+  const [memo, setMemo] = useState('');
+  const [people, setPeople] = useState<number[]>([]); // 관련자 userId 목록
   const [editingId, setEditingId] = useState<number | null>(null);
   const [now, setNow] = useState<Date>(() => new Date()); // 일·주 뷰 "지금" 선
   const dayviewRef = useRef<HTMLDivElement | null>(null);
@@ -260,6 +267,8 @@ export default function MeetingSchedule({
     setEndTime('');
     setAllDay(false);
     setIsCall(false);
+    setMemo('');
+    setPeople([]);
     setEditingId(null);
   }
 
@@ -271,6 +280,12 @@ export default function MeetingSchedule({
     setTime(ev.time ?? '');
     setEndTime(ev.end_time ?? '');
     setIsCall(!!ev.is_call);
+    setMemo(ev.memo ?? '');
+    setPeople(ev.people?.map((p) => p.id) ?? []);
+  }
+
+  function togglePerson(id: number) {
+    setPeople((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   async function addEvent(e: React.FormEvent) {
@@ -288,6 +303,8 @@ export default function MeetingSchedule({
       time: allDay ? null : time || null,
       end_time: !allDay && time ? endTime || null : null,
       is_call: isCall && !allDay && !!time, // 통화는 시작 시간이 있어야 의미 있음
+      memo: memo.trim() || null,
+      people,
     };
     if (editingId != null) {
       await api(`/api/meetings/${code}/events/${editingId}`, { method: 'PATCH', body });
@@ -356,6 +373,21 @@ export default function MeetingSchedule({
             ×
           </button>
         </>
+      )}
+      {/* 관련자·메모 — 있는 것만 다음 줄에 (애플 캘린더 상세 느낌) */}
+      {((ev.people?.length ?? 0) > 0 || ev.memo) && (
+        <div className="msched-event-extra">
+          {(ev.people?.length ?? 0) > 0 && (
+            <span className="msched-event-ppl">
+              {ev.people.map((p) => (
+                <span key={p.id} className="msched-event-person">
+                  {p.name || p.username}
+                </span>
+              ))}
+            </span>
+          )}
+          {ev.memo && <span className="msched-event-memo">{ev.memo}</span>}
+        </div>
       )}
     </div>
   );
@@ -435,7 +467,7 @@ export default function MeetingSchedule({
                       onClick={() => setSelected(key)}
                     >
                       {dayUntimed.map((e) => (
-                        <span key={e.id} className="msched-wallday-chip" title={`${e.title} · ${e.author}`}>
+                        <span key={e.id} className="msched-wallday-chip" title={`${e.title} · ${e.author}${e.memo ? ` — ${e.memo}` : ''}`}>
                           {e.title}
                         </span>
                       ))}
@@ -516,7 +548,7 @@ export default function MeetingSchedule({
                             key={e.id}
                             className={'msched-wblock' + (e.is_call ? ' call' : '')}
                             style={blockPos(sm, em)}
-                            title={`${e.time} ${e.title}`}
+                            title={`${e.time} ${e.title}${e.memo ? ` — ${e.memo}` : ''}`}
                             onClick={(ev) => {
                               ev.stopPropagation();
                               setSelected(key);
@@ -772,6 +804,29 @@ export default function MeetingSchedule({
               </>
             )}
           </div>
+          {/* 관련자 선택 — 참가자 칩 토글 (애플 캘린더 초대 느낌) */}
+          {participants.length > 0 && (
+            <div className="msched-add-people">
+              <span className="msched-people-label">관련자</span>
+              {participants.map((p) => (
+                <button
+                  type="button"
+                  key={p.userId}
+                  className={'msched-person' + (people.includes(p.userId) ? ' on' : '')}
+                  onClick={() => togglePerson(p.userId)}
+                >
+                  {p.username}
+                </button>
+              ))}
+            </div>
+          )}
+          <input
+            className="msched-add-memo"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            placeholder="메모 (선택)"
+            maxLength={500}
+          />
           <div className="msched-add-actions">
             {editingId != null && (
               <button type="button" className="msched-add-cancel" onClick={resetForm}>

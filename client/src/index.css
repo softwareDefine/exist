@@ -4207,10 +4207,43 @@ input:focus {
 .msched-event {
   display: flex;
   align-items: center;
+  flex-wrap: wrap; /* 관련자·메모 줄이 아래로 내려오게 */
   gap: 8px;
   padding: 8px 10px;
   border-radius: 9px;
   background: var(--surface-2);
+}
+
+/* 일정의 관련자·메모 — 본 줄 아래 보조 줄 */
+.msched-event-extra {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: -2px;
+}
+
+.msched-event-person {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green-dark);
+  background: var(--green-soft);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+
+.msched-event-ppl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.msched-event-memo {
+  font-size: 12px;
+  color: var(--text-sub);
+  white-space: normal;
+  word-break: break-word;
 }
 
 .msched-event-time {
@@ -4330,6 +4363,62 @@ input:focus {
   align-items: center;
   gap: 8px;
   margin-bottom: 10px;
+}
+
+/* 일정 관련자 선택 — 참가자 칩 토글 */
+.msched-add-people {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.msched-people-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+  margin-right: 2px;
+}
+
+.msched-person {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.msched-person.on {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .msched-person:hover {
+    border-color: var(--green);
+  }
+}
+
+/* 일정 메모 입력 */
+.msched-add-memo {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.msched-add-memo:focus {
+  border-color: var(--green);
+  outline: none;
 }
 
 .msched-add-times label {

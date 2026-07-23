@@ -729,17 +729,50 @@ router.get('/:code/events', (req: AuthedRequest, res) => {
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const rows = db
     .prepare(
-      `SELECT e.id, e.title, e.date, e.time, e.end_time, e.is_call, u.username AS author, e.created_by
+      `SELECT e.id, e.title, e.date, e.time, e.end_time, e.is_call, e.memo, e.people, u.username AS author, e.created_by
        FROM meeting_events e JOIN users u ON u.id = e.created_by
        WHERE e.meeting_id = ? ORDER BY e.date, COALESCE(e.time, '99:99')`,
     )
-    .all(meeting.id);
-  res.json(rows);
+    .all(meeting.id) as { people: string | null; [k: string]: unknown }[];
+  // people(JSON id 배열)을 이름으로 풀어서 내려줌 — 못 찾는 id(탈퇴 등)는 제외
+  const pickUser = db.prepare('SELECT id, username, name FROM users WHERE id = ?');
+  res.json(
+    rows.map((r) => {
+      let ids: number[] = [];
+      try {
+        ids = JSON.parse(r.people ?? '[]');
+      } catch {
+        /* 손상된 값은 빈 배열 취급 */
+      }
+      const people = ids
+        .map((id) => pickUser.get(id) as { id: number; username: string; name: string | null } | undefined)
+        .filter((u): u is { id: number; username: string; name: string | null } => !!u);
+      return { ...r, people };
+    }),
+  );
 });
+
+/** body.people을 회의 참가자 id만 남긴 중복 없는 배열로 정리 */
+function cleanPeople(meetingId: number, people: unknown): number[] {
+  if (!Array.isArray(people)) return [];
+  const partIds = new Set(
+    (
+      db.prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ?').all(meetingId) as {
+        user_id: number;
+      }[]
+    ).map((p) => p.user_id),
+  );
+  return [...new Set(people.map(Number).filter((n) => Number.isInteger(n) && partIds.has(n)))].slice(0, 30);
+}
+
+const cleanMemo = (v: unknown) => {
+  const s = v == null ? '' : String(v).trim();
+  return s ? s.slice(0, 500) : null;
+};
 
 /** 회의 일정 이벤트 추가 */
 router.post('/:code/events', (req: AuthedRequest, res) => {
-  const { title, date, time, end_time, is_call } = req.body ?? {};
+  const { title, date, time, end_time, is_call, people, memo } = req.body ?? {};
   if (!title || !String(title).trim()) return res.status(400).json({ error: '일정 제목을 입력하세요' });
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
     return res.status(400).json({ error: '날짜를 확인하세요' });
@@ -757,11 +790,13 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   }
   const isCall = is_call ? 1 : 0;
   const cleanTitle = String(title).trim().slice(0, 80);
+  const ppl = cleanPeople(meeting.id, people);
+  const memoVal = cleanMemo(memo);
   const info = db
     .prepare(
-      'INSERT INTO meeting_events (meeting_id, title, date, time, end_time, is_call, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO meeting_events (meeting_id, title, date, time, end_time, is_call, people, memo, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(meeting.id, cleanTitle, String(date), t, tEnd, isCall, req.userId);
+    .run(meeting.id, cleanTitle, String(date), t, tEnd, isCall, JSON.stringify(ppl), memoVal, req.userId);
 
   // 회의 참가자 전원(작성자 제외)에게 일정 알림 — 회의 썸네일과 함께
   const me = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as
@@ -774,9 +809,12 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   const timeStr = t ? (tEnd ? `${t}~${tEnd}` : t) : '';
   const when = timeStr ? `${md} ${timeStr}` : md;
   for (const p of others) {
+    // 관련자로 지정된 사람은 "나를 콕 집었다"가 보이게 문구 분리
     notifyUser(p.user_id, {
       from: me?.username ?? meeting.title,
-      text: `'${meeting.title}'에 ${isCall ? '통화' : '일정'} 추가 — ${cleanTitle} (${when})`,
+      text: ppl.includes(p.user_id)
+        ? `'${cleanTitle}' 일정의 관련자로 지정됐어요 (${when}) — ${meeting.title}`
+        : `'${meeting.title}'에 ${isCall ? '통화' : '일정'} 추가 — ${cleanTitle} (${when})`,
       meetingCode: code,
     });
   }
@@ -812,16 +850,16 @@ router.patch('/:code/events/:eventId', (req: AuthedRequest, res) => {
     | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const ev = db
-    .prepare('SELECT created_by, title, date, time, end_time, is_call FROM meeting_events WHERE id = ? AND meeting_id = ?')
+    .prepare('SELECT created_by, title, date, time, end_time, is_call, people, memo FROM meeting_events WHERE id = ? AND meeting_id = ?')
     .get(req.params.eventId, meeting.id) as
-    | { created_by: number; title: string; date: string; time: string | null; end_time: string | null; is_call: number }
+    | { created_by: number; title: string; date: string; time: string | null; end_time: string | null; is_call: number; people: string | null; memo: string | null }
     | undefined;
   if (!ev) return res.status(404).json({ error: '존재하지 않는 일정입니다' });
   if (ev.created_by !== req.userId && meeting.host_id !== req.userId) {
     return res.status(403).json({ error: '작성자나 호스트만 수정할 수 있어요' });
   }
 
-  const { title, date, time, end_time, is_call } = req.body ?? {};
+  const { title, date, time, end_time, is_call, people, memo } = req.body ?? {};
   const hhmm = (v: unknown) => (v && /^\d{2}:\d{2}$/.test(String(v)) ? String(v) : null);
   const newTitle = title !== undefined ? String(title).trim().slice(0, 80) : ev.title;
   if (!newTitle) return res.status(400).json({ error: '일정 제목을 입력하세요' });
@@ -833,10 +871,36 @@ router.patch('/:code/events/:eventId', (req: AuthedRequest, res) => {
     return res.status(400).json({ error: '종료 시간이 시작보다 빨라요' });
   }
   const isCall = is_call !== undefined ? (is_call ? 1 : 0) : ev.is_call;
+  let oldPpl: number[] = [];
+  try {
+    oldPpl = JSON.parse(ev.people ?? '[]');
+  } catch {
+    /* 손상된 값은 빈 배열 취급 */
+  }
+  const newPpl = people !== undefined ? cleanPeople(meeting.id, people) : oldPpl;
+  const newMemo = memo !== undefined ? cleanMemo(memo) : ev.memo;
 
   db.prepare(
-    'UPDATE meeting_events SET title = ?, date = ?, time = ?, end_time = ?, is_call = ? WHERE id = ?',
-  ).run(newTitle, newDate, t, tEnd, t ? isCall : 0, req.params.eventId);
+    'UPDATE meeting_events SET title = ?, date = ?, time = ?, end_time = ?, is_call = ?, people = ?, memo = ? WHERE id = ?',
+  ).run(newTitle, newDate, t, tEnd, t ? isCall : 0, JSON.stringify(newPpl), newMemo, req.params.eventId);
+
+  // 수정으로 새로 지정된 관련자에게만 알림 (원래 있던 사람에게 또 보내지 않음)
+  const added = newPpl.filter((id) => !oldPpl.includes(id) && id !== req.userId);
+  if (added.length > 0) {
+    const editor = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as
+      | { username: string }
+      | undefined;
+    const md = newDate.slice(5).replace('-', '/');
+    const when = t ? `${md} ${tEnd ? `${t}~${tEnd}` : t}` : md;
+    for (const id of added) {
+      notifyUser(id, {
+        from: editor?.username ?? '일정',
+        text: `'${newTitle}' 일정의 관련자로 지정됐어요 (${when})`,
+        meetingCode: String(req.params.code ?? '').toUpperCase(),
+      });
+    }
+  }
+
   res.json({ id: Number(req.params.eventId), title: newTitle, date: newDate, time: t, end_time: tEnd, is_call: t ? isCall : 0 });
 });
 
