@@ -230,6 +230,23 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
       })),
   ];
 
+  /** AI 결정 후보 제안 메시지의 [원장에 기록] — 따옴표 안 발언을 결정으로 저장 */
+  async function recordSuggestedDecision(suggestText: string) {
+    const m = suggestText.match(/"([^"]+)"/);
+    if (!m) return;
+    try {
+      await api(`/api/meetings/${code}/decisions/manual`, {
+        method: 'POST',
+        body: { text: m[1] },
+      });
+      window.dispatchEvent(
+        new CustomEvent('app:error', { detail: '✓ 결정 원장에 기록했어요' }),
+      );
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
+
   /** 조직 회의 + 나·상대 둘 다 활성 멤버면 조직 스코프(홈 통합 메시지와 같은 방), 아니면 개인 DM */
   function openDm(p: Participant) {
     if (!detail || p.username === user?.username) return;
@@ -980,7 +997,7 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                 <div className="hub-dash-cols">
                   <div className="hub-dash-main">
                     {/* P1 — AI 회의 정리 (통화 종료 시 결정·할 일 배달) */}
-                    <RecapPanel code={detail.code} />
+                    <RecapPanel code={detail.code} isHost={detail.isHost} />
 
                     {/* 최근 결정 — 원장 상위 3개를 첫 화면에 (회의→결정→전달 노출) */}
                     <section className="hub-section">
@@ -1659,6 +1676,15 @@ export default function MeetingHub({ code, expanded, onToggleExpand, gotoTab }: 
                               </a>
                             ) : (
                               m.text
+                            )}
+                            {/* AI 결정 후보 제안 — 사람이 버튼으로 원장 기록 확정 */}
+                            {m.from === 'exist AI' && m.text.startsWith('💡 결정 후보:') && (
+                              <button
+                                className="chat-decision-btn"
+                                onClick={() => void recordSuggestedDecision(m.text)}
+                              >
+                                ✓ 원장에 기록
+                              </button>
                             )}
                           </div>
                           {!mine && <span className="chat-time">{chatTime(m.ts)}</span>}

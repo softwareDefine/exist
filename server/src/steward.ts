@@ -209,6 +209,11 @@ async function aiAgenda(ctx: AgentContext): Promise<AgendaItem[]> {
   return items;
 }
 
+/** recap 생성 등 기록이 갱신되면 아젠다 캐시를 버림 — 10분 캐시가 구버전 재료를 물고 있지 않게 */
+export function invalidateAgenda(meetingId: number) {
+  agendaCache.delete(meetingId);
+}
+
 export async function generateAgenda(meetingId: number, channelId: number): Promise<Agenda> {
   const cached = agendaCache.get(meetingId);
   if (cached && Date.now() - cached.generatedAt < AGENDA_CACHE_MS) return cached;
@@ -232,6 +237,40 @@ export async function generateAgenda(meetingId: number, channelId: number): Prom
 /** io 최소 인터페이스 — 테스트에서 스텁 주입용 */
 interface Broadcaster {
   to(room: string): { emit(event: string, payload: unknown): void };
+}
+
+/* ── 채팅 결정 감지 — 부르지 않아도 일하는 총무 ──
+ * "~하기로 했다/확정/합의" 패턴이 보이면 결정 후보로 제안 (기록은 사람이 버튼으로 확정).
+ * 과잉 개입 방지: 회의당 2분 쿨다운. */
+export const DECISION_RX = /(하기로 (했|함|결정)|확정(했|입니다|이에요)|합의(했|됐)|결정(했|됐))/;
+const DECISION_SUGGEST_PREFIX = '💡 결정 후보: ';
+const decisionCooldown = new Map<number, number>();
+const DECISION_COOLDOWN_MS = 2 * 60 * 1000;
+
+export function maybeSuggestDecision(
+  io: Broadcaster,
+  args: { meetingId: number; code: string; channelId: number; from: string; text: string },
+): void {
+  if (!DECISION_RX.test(args.text)) return;
+  if (AGENT_MENTION.test(args.text)) return; // @AI 질의는 답변 흐름이 따로 처리
+  const last = decisionCooldown.get(args.meetingId) ?? 0;
+  if (Date.now() - last < DECISION_COOLDOWN_MS) return;
+  decisionCooldown.set(args.meetingId, Date.now());
+
+  const quoted = args.text.trim().slice(0, 160);
+  const suggest = `${DECISION_SUGGEST_PREFIX}"${quoted}" — ${args.from}님의 발언을 결정 원장에 기록할까요?`;
+  const agentId = ensureAgentUser();
+  db.prepare(
+    'INSERT INTO messages (meeting_id, user_id, text, channel_id) VALUES (?, ?, ?, ?)',
+  ).run(args.meetingId, agentId, suggest, args.channelId);
+  io.to(`chat:${args.code.toUpperCase()}`).emit('chat:message', {
+    code: args.code.toUpperCase(),
+    from: AGENT_NAME,
+    avatar: AGENT_AVATAR,
+    text: suggest,
+    channelId: args.channelId,
+    ts: Date.now(),
+  });
 }
 
 /**

@@ -3187,6 +3187,39 @@ input:focus {
   font-weight: 600;
 }
 
+/* 지금 정리하기 — 통화 없이도 채팅 즉시 recap (호스트) */
+.hub-recap-run {
+  margin-left: auto;
+  border: 1px solid rgba(33, 200, 24, 0.45);
+  background: none;
+  color: var(--green);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hub-recap-run:disabled {
+  opacity: 0.5;
+}
+
+.hub-recap-run + .hub-recap-more {
+  margin-left: 8px;
+}
+
+/* AI 결정 후보 제안의 기록 버튼 (채팅 말풍선 안) */
+.chat-decision-btn {
+  display: block;
+  margin-top: 7px;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 12px;
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 /* 다음 회의 제안 — AI가 감지한 시각, 사람이 버튼으로 확정 */
 .hub-recap-next {
   margin-top: 10px;

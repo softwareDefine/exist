@@ -10,9 +10,15 @@ import { emitToUser, notifyUser } from './notify.js';
 import { getRoomSize, getRoomPeers } from './sfu.js';
 import { isMember } from './orgs.js';
 import { byPositionDesc } from './positions.js';
-import { listRecaps, listDecisions, ackDecision, markNextMeetingRegistered } from './recap.js';
+import {
+  listRecaps,
+  listDecisions,
+  ackDecision,
+  markNextMeetingRegistered,
+  runRecapForMeeting,
+} from './recap.js';
 import { listChannels, ensureDefaultChannel, resolveChannel, cleanChannelName } from './channels.js';
-import { generateAgenda } from './steward.js';
+import { generateAgenda, invalidateAgenda } from './steward.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -845,6 +851,72 @@ router.get('/:code/recaps', (req: AuthedRequest, res) => {
     .get(meeting.id, req.userId);
   if (!isParticipant) return res.status(403).json({ error: '회의 참가자만 볼 수 있어요' });
   res.json(listRecaps(meeting.id));
+});
+
+/** 수동 recap — 통화 없이도 지금까지의 채팅을 즉시 정리 (호스트만).
+ *  참석자 = 정리 창 안에서 채팅에 참여한 사람 (통화 세션 개념의 채팅판) */
+router.post('/:code/recaps/run', async (req: AuthedRequest, res) => {
+  const code = String(req.params.code ?? '').toUpperCase();
+  const meeting = db
+    .prepare('SELECT id, host_id FROM meetings WHERE code = ?')
+    .get(code) as { id: number; host_id: number } | undefined;
+  if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  if (meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트만 정리를 실행할 수 있어요' });
+  }
+  // 정리 창 = 마지막 recap 이후 (runRecapForMeeting과 동일 기준)
+  const last = db
+    .prepare('SELECT MAX(call_ended_at) AS t FROM meeting_recaps WHERE meeting_id = ?')
+    .get(meeting.id) as { t: string | null };
+  const since =
+    last.t ?? new Date(Date.now() - 24 * 3600_000).toISOString().replace('T', ' ').slice(0, 19);
+  const chatters = db
+    .prepare(
+      `SELECT DISTINCT user_id FROM messages WHERE meeting_id = ? AND created_at > ?`,
+    )
+    .all(meeting.id, since) as { user_id: number }[];
+  const id = await runRecapForMeeting(code, chatters.map((c) => c.user_id), {
+    trigger: 'manual',
+  });
+  res.json({ id }); // id null = 정리할 새 기록 부족
+});
+
+/** 채팅 결정 수동 기록 — AI 제안 카드의 [기록] 버튼 (참가자 누구나) */
+router.post('/:code/decisions/manual', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const text = String(req.body?.text ?? '').trim().slice(0, 200);
+  if (!text) return res.status(400).json({ error: '기록할 내용이 없어요' });
+  const me = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as
+    | { username: string }
+    | undefined;
+  const info = db
+    .prepare(
+      `INSERT INTO meeting_recaps (meeting_id, summary, decisions, actions, attendees, source)
+       VALUES (?, ?, ?, ?, ?, 'manual')`,
+    )
+    .run(
+      r.meeting.id,
+      text.slice(0, 80),
+      JSON.stringify([text]),
+      JSON.stringify([]),
+      JSON.stringify(me ? [me.username] : []),
+    );
+  invalidateAgenda(r.meeting.id);
+  // 기록자 외 참가자에게 알림
+  const others = db
+    .prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ? AND user_id != ?')
+    .all(r.meeting.id, req.userId) as { user_id: number }[];
+  for (const p of others) {
+    notifyUser(p.user_id, {
+      from: 'exist AI',
+      text: `결정이 원장에 기록됐어요 — ${text.slice(0, 60)}`,
+      kind: 'recap',
+      meetingCode: String(req.params.code).toUpperCase(),
+    });
+    invalidateBrief(p.user_id);
+  }
+  res.json({ id: info.lastInsertRowid });
 });
 
 /** recap의 다음 회의 제안을 등록됨으로 표시 — 클라가 events POST 성공 후 호출 (참가자만) */

@@ -47,10 +47,33 @@ function relTime(ts: number): string {
   return `${Math.floor(h / 24)}일 전`;
 }
 
-export default function RecapPanel({ code }: { code: string }) {
+export default function RecapPanel({ code, isHost = false }: { code: string; isHost?: boolean }) {
   const [recaps, setRecaps] = useState<Recap[]>([]);
   const [expanded, setExpanded] = useState(false); // 기본은 최신 1건만
   const [registering, setRegistering] = useState<number | null>(null); // 등록 중인 recap id
+  const [running, setRunning] = useState(false); // 수동 정리 실행 중
+
+  /** 통화 없이도 지금까지의 채팅을 즉시 정리 (호스트 전용) */
+  async function runNow() {
+    if (running) return;
+    setRunning(true);
+    try {
+      const r = await api<{ id: number | null }>(`/api/meetings/${code}/recaps/run`, {
+        method: 'POST',
+      });
+      if (r.id == null) {
+        window.dispatchEvent(
+          new CustomEvent('app:error', { detail: '정리할 새 기록이 부족해요 (채팅 2개 이상)' }),
+        );
+      } else {
+        load();
+      }
+    } catch {
+      /* 전역 토스트 */
+    } finally {
+      setRunning(false);
+    }
+  }
 
   const load = useCallback(() => {
     void api<Recap[]>(`/api/meetings/${code}/recaps`)
@@ -95,6 +118,16 @@ export default function RecapPanel({ code }: { code: string }) {
     <section className="hub-section hub-recap-card">
       <div className="hub-section-title">
         <SparklesIcon size={15} /> AI 회의 정리
+        {isHost && (
+          <button
+            className="hub-recap-run"
+            disabled={running}
+            onClick={() => void runNow()}
+            title="통화 없이도 지금까지의 채팅을 정리해요"
+          >
+            {running ? '정리 중…' : '지금 정리하기'}
+          </button>
+        )}
         {recaps.length > 1 && (
           <button className="hub-recap-more" onClick={() => setExpanded((v) => !v)}>
             {expanded ? '접기' : `지난 정리 ${recaps.length - 1}건 더`}

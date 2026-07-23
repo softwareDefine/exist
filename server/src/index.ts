@@ -138,6 +138,30 @@ setInterval(() => {
         });
       }
     }
+
+    // 하루 종일 일정(시간 없음) — 당일 오전 9시 이후 한 번 알림 (애플식 아침 리마인더)
+    if (now.getHours() >= 9) {
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const alldays = db
+        .prepare(
+          `SELECT e.id AS eid, e.title AS etitle, m.code, m.title AS mtitle
+           FROM meeting_events e
+           JOIN meetings m ON m.id = e.meeting_id
+           JOIN meeting_participants mp ON mp.meeting_id = m.id
+           WHERE mp.user_id = ? AND e.time IS NULL AND e.date = ?`,
+        )
+        .all(userId, today) as { eid: number; etitle: string; code: string; mtitle: string }[];
+      for (const ev of alldays) {
+        const key = `${userId}:ev${ev.eid}:allday:${today}`;
+        if (notified.has(key)) continue;
+        notified.add(key);
+        notifyUser(userId, {
+          from: 'exist AI',
+          text: `오늘 하루 종일 — '${ev.etitle}' (${ev.mtitle})`,
+          meetingCode: ev.code,
+        });
+      }
+    }
   }
 }, 60_000);
 

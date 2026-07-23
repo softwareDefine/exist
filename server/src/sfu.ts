@@ -16,7 +16,7 @@ import type {
 import db from './db.js';
 import { scheduleRecap, cancelScheduledRecap } from './recap.js';
 import { resolveChannel } from './channels.js';
-import { AGENT_MENTION, handleAgentQuery } from './steward.js';
+import { AGENT_MENTION, handleAgentQuery, maybeSuggestDecision } from './steward.js';
 
 /*
  * exist SFU — mediasoup 기반 직접 구현.
@@ -454,6 +454,19 @@ export function attachSfu(io: Server) {
             asker: socket.data.username as string,
             text: trimmed,
           }).catch((err) => console.error('[steward] 답변 실패:', err));
+        } else {
+          // 결정성 발언 감지 — 총무가 원장 기록을 제안 (사람이 버튼으로 확정, 2분 쿨다운)
+          try {
+            maybeSuggestDecision(io, {
+              meetingId: meeting.id,
+              code: upper,
+              channelId: channel,
+              from: socket.data.username as string,
+              text: trimmed,
+            });
+          } catch (err) {
+            console.error('[steward] 결정 제안 실패:', err);
+          }
         }
       },
     );

@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import db from './db.js';
 import { notifyUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
+import { invalidateAgenda } from './steward.js';
 
 /*
  * exist P1 — 회의 통화가 끝나면 그 회의의 채팅에서 결정·할 일을 추출해
@@ -220,7 +221,9 @@ export function listRecaps(meetingId: number, limit = 20): RecapRow[] {
 export async function runRecapForMeeting(
   code: string,
   sessionUserIds: number[],
+  opts: { trigger?: 'call' | 'manual' } = {},
 ): Promise<number | null> {
+  const trigger = opts.trigger ?? 'call';
   const meeting = db
     .prepare('SELECT id, code, title FROM meetings WHERE code = ?')
     .get(code.toUpperCase()) as { id: number; code: string; title: string } | undefined;
@@ -307,18 +310,23 @@ export async function runRecapForMeeting(
   const stats = [
     recap.decisions.length > 0 ? `결정 ${recap.decisions.length}` : null,
     recap.actions.length > 0 ? `할 일 ${recap.actions.length}` : null,
+    recap.nextMeeting ? '다음 회의 제안' : null,
   ]
     .filter(Boolean)
     .join(' · ');
+  const what = trigger === 'manual' ? '기록' : '통화';
   for (const m of members) {
     const mine = assignedCount.get(m.id);
     const mineSuffix = mine ? ` — 내 할 일 ${mine}개 배정됨` : '';
     const text = inCall.has(m.id)
-      ? `"${meeting.title}" 통화 정리: ${recap.summary}${stats ? ` (${stats})` : ''}${mineSuffix}`
-      : `놓친 "${meeting.title}" 통화의 결정이 도착했어요: ${recap.summary}${stats ? ` (${stats})` : ''}${mineSuffix}`;
+      ? `"${meeting.title}" ${what} 정리: ${recap.summary}${stats ? ` (${stats})` : ''}${mineSuffix}`
+      : `놓친 "${meeting.title}" ${what}의 결정이 도착했어요: ${recap.summary}${stats ? ` (${stats})` : ''}${mineSuffix}`;
     notifyUser(m.id, { from: 'exist AI', text, kind: 'recap', meetingCode: meeting.code });
     invalidateBrief(m.id);
   }
+
+  // 새 recap이 생겼으니 아젠다는 다시 만들어야 함 (10분 캐시가 구재료를 물지 않게)
+  invalidateAgenda(meeting.id);
 
   console.log(
     `[recap] ${meeting.code} 요약 저장 (${recap.source}) — 결정 ${recap.decisions.length}, 할 일 ${recap.actions.length}, 배달 ${members.length}명`,
