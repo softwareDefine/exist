@@ -73,36 +73,39 @@ function blockPos(startMin: number, endMin: number | null) {
 
 const toMin = (t: string) => parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10);
 
-/** 일 뷰 — 겹치는 시간 일정을 애플 캘린더처럼 열로 나눠 배치 */
+/** 겹침 배치 기준 — 시작 차이가 이 분 미만이면 제목이 가려지므로 좌우 분할, 이상이면 애플식 겹쳐 얹기 */
+const NEAR_MIN = 30;
+
+/** 일·주 뷰 — 겹치는 시간 일정 배치 (애플 캘린더식).
+ *  시작이 가까우면 좌우 분할(col/ncols), 시작이 충분히 다르면 들여쓰기(indent)해서
+ *  위에 겹쳐 얹는다 — 앞 일정의 제목 줄은 가려지지 않음. z는 나중 시작이 위. */
 function layoutDayBlocks(evts: MEvent[]) {
   const items = evts
     .map((ev) => {
       const sm = toMin(ev.time!);
       const em = ev.end_time ? Math.max(toMin(ev.end_time), sm + 20) : sm + 60;
-      return { ev, sm, em, col: 0, ncols: 1 };
+      return { ev, sm, em, col: 0, ncols: 1, indent: 0, z: 1 };
     })
     .sort((a, b) => a.sm - b.sm || b.em - a.em);
-  // 겹침 클러스터 단위로 빈 열에 배정, 클러스터가 끝나면 열 수 확정
-  let cluster: typeof items = [];
-  let clusterEnd = -1;
-  const colEnds: number[] = [];
-  const flush = () => {
-    const n = Math.max(...cluster.map((x) => x.col)) + 1;
-    cluster.forEach((x) => (x.ncols = n));
-    cluster = [];
-    colEnds.length = 0;
-    clusterEnd = -1;
-  };
+  const placed: typeof items = [];
+  items.forEach((it, i) => {
+    it.z = i + 1;
+    const overlaps = placed.filter((p) => p.em > it.sm);
+    const cascade = overlaps.filter((p) => it.sm - p.sm >= NEAR_MIN);
+    it.indent = cascade.length > 0 ? Math.max(...cascade.map((p) => p.indent)) + 1 : 0;
+    // 같은 들여쓰기 단계에서 시작이 가까운 것들과는 빈 열 찾아 좌우 분할
+    const near = overlaps.filter((p) => it.sm - p.sm < NEAR_MIN && p.indent === it.indent);
+    const used = new Set(near.map((p) => p.col));
+    while (used.has(it.col)) it.col++;
+    placed.push(it);
+  });
   for (const it of items) {
-    if (cluster.length > 0 && it.sm >= clusterEnd) flush();
-    let c = colEnds.findIndex((e) => e <= it.sm);
-    if (c === -1) c = colEnds.length;
-    colEnds[c] = it.em;
-    it.col = c;
-    cluster.push(it);
-    clusterEnd = Math.max(clusterEnd, it.em);
+    const peers = items.filter(
+      (o) =>
+        o.indent === it.indent && o.em > it.sm && it.em > o.sm && Math.abs(o.sm - it.sm) < NEAR_MIN,
+    );
+    it.ncols = Math.max(...peers.map((p) => p.col), it.col) + 1;
   }
-  if (cluster.length > 0) flush();
   return items;
 }
 
@@ -615,14 +618,15 @@ export default function MeetingSchedule({
                         </div>
                       )}
                       {/* 겹치는 일정은 일 뷰와 같은 열 분할 (포개져 안 보이던 문제) */}
-                      {layoutDayBlocks(dayTimed).map(({ ev: e, sm, em, col, ncols }) => (
+                      {layoutDayBlocks(dayTimed).map(({ ev: e, sm, em, col, ncols, indent, z }) => (
                         <button
                           key={e.id}
                           className={'msched-wblock' + (e.is_call ? ' call' : '')}
                           style={{
                             ...blockPos(sm, em),
-                            left: `calc(${(col / ncols) * 100}% + 2px)`,
-                            width: `calc(${100 / ncols}% - 4px)`,
+                            left: `calc((100% - ${indent * 8 + 4}px) * ${(col / ncols).toFixed(4)} + ${indent * 8 + 2}px)`,
+                            width: `calc((100% - ${indent * 8 + 4}px) / ${ncols})`,
+                            zIndex: z,
                           }}
                           title={`${e.time} ${e.title}${e.memo ? ` — ${e.memo}` : ''}`}
                           onClick={(ev) => {
@@ -630,7 +634,12 @@ export default function MeetingSchedule({
                             setSelected(key);
                           }}
                         >
-                          <b>{e.time}</b> {e.title}
+                          {/* 애플처럼 제목 먼저, 시간은 아랫줄 */}
+                          <span className="msched-wblock-t">{e.title}</span>
+                          <span className="msched-wblock-time">
+                            {e.time}
+                            {e.end_time ? `~${e.end_time}` : ''}
+                          </span>
                         </button>
                       ))}
                       {todayInWeek && (
@@ -699,12 +708,12 @@ export default function MeetingSchedule({
                         : null,
                     )}
                   >
+                    <span className="msched-event-title">📌 이 그룹 일정</span>
                     <span className="msched-event-time">
                       {meetStart!.getHours()}:{pad(meetStart!.getMinutes())}
                       {endsAt &&
                         `~${new Date(endsAt).getHours()}:${pad(new Date(endsAt).getMinutes())}`}
                     </span>
-                    <span className="msched-event-title">📌 이 그룹 일정</span>
                     {isHost && recur !== 'none' && (
                       <button
                         type="button"
@@ -719,21 +728,18 @@ export default function MeetingSchedule({
                     )}
                   </div>
                 )}
-                {layoutDayBlocks(timed).map(({ ev, sm, em, col, ncols }) => (
+                {layoutDayBlocks(timed).map(({ ev, sm, em, col, ncols, indent, z }) => (
                   <div
                     key={ev.id}
                     className={'msched-dblock' + (ev.is_call ? ' call' : '')}
                     style={{
                       top: (sm / 60) * WEEK_ROWH,
                       height: Math.max(((em - sm) / 60) * WEEK_ROWH - 2, 22),
-                      left: `calc(${(col / ncols) * 100}%${col > 0 ? ' + 2px' : ''})`,
-                      width: `calc(${100 / ncols}%${ncols > 1 ? ' - 2px' : ''})`,
+                      left: `calc((100% - ${indent * 12}px) * ${(col / ncols).toFixed(4)} + ${indent * 12 + (col > 0 ? 2 : 0)}px)`,
+                      width: `calc((100% - ${indent * 12}px) / ${ncols}${ncols > 1 ? ' - 2px' : ''})`,
+                      zIndex: z,
                     }}
                   >
-                    <span className="msched-event-time">
-                      {ev.time}
-                      {ev.end_time ? `~${ev.end_time}` : ''}
-                    </span>
                     <Marquee className="msched-event-title">
                       {ev.is_call ? (
                         <span className="msched-call-ic">
@@ -742,6 +748,10 @@ export default function MeetingSchedule({
                       ) : null}
                       {ev.title}
                     </Marquee>
+                    <span className="msched-event-time">
+                      {ev.time}
+                      {ev.end_time ? `~${ev.end_time}` : ''}
+                    </span>
                     <span className="msched-event-author">{ev.author}</span>
                     {(ev.created_by === userId || isHost) && (
                       <>
