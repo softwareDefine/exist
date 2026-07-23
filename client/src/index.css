@@ -4101,6 +4101,15 @@ input:focus {
   flex-shrink: 0;
 }
 
+/* 하루 종일 일정 — 시간 대신 칩 (애플 캘린더식) */
+.msched-event-time.allday {
+  background: var(--green-soft);
+  color: var(--green-dark);
+  border-radius: 6px;
+  padding: 1px 7px;
+  font-size: 11px;
+}
+
 .msched-event-title {
   flex: 1;
   font-size: 14px;

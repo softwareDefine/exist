@@ -86,6 +86,7 @@ export default function MeetingSchedule({
   const [title, setTitle] = useState('');
   const [time, setTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [allDay, setAllDay] = useState(false); // 하루 종일 — 시간 없이 날짜에만 (애플 캘린더식)
   const [isCall, setIsCall] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [now, setNow] = useState<Date>(() => new Date()); // 일·주 뷰 "지금" 선
@@ -257,6 +258,7 @@ export default function MeetingSchedule({
     setTitle('');
     setTime('');
     setEndTime('');
+    setAllDay(false);
     setIsCall(false);
     setEditingId(null);
   }
@@ -265,6 +267,7 @@ export default function MeetingSchedule({
     setEditingId(ev.id);
     setSelected(ev.date);
     setTitle(ev.title);
+    setAllDay(!ev.time);
     setTime(ev.time ?? '');
     setEndTime(ev.end_time ?? '');
     setIsCall(!!ev.is_call);
@@ -282,9 +285,9 @@ export default function MeetingSchedule({
     const body = {
       title,
       date: selected,
-      time: time || null,
-      end_time: time ? endTime || null : null,
-      is_call: isCall && !!time, // 통화는 시작 시간이 있어야 의미 있음
+      time: allDay ? null : time || null,
+      end_time: !allDay && time ? endTime || null : null,
+      is_call: isCall && !allDay && !!time, // 통화는 시작 시간이 있어야 의미 있음
     };
     if (editingId != null) {
       await api(`/api/meetings/${code}/events/${editingId}`, { method: 'PATCH', body });
@@ -324,6 +327,7 @@ export default function MeetingSchedule({
 
   const eventRow = (ev: MEvent, compact = false) => (
     <div key={ev.id} className={'msched-event' + (compact ? ' compact' : '')}>
+      {!ev.time && <span className="msched-event-time allday">하루 종일</span>}
       {ev.time && (
         <span className="msched-event-time">
           {ev.time}
@@ -526,6 +530,7 @@ export default function MeetingSchedule({
                   data-hour={h}
                   className="msched-hour"
                   onClick={() => {
+                    setAllDay(false);
                     setTime(`${pad(h)}:00`);
                     setEndTime('');
                   }}
@@ -687,32 +692,58 @@ export default function MeetingSchedule({
             maxLength={80}
           />
           <div className="msched-add-times">
-            <label>
-              <span>시작</span>
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-            </label>
-            <span className="msched-times-sep">~</span>
-            <label>
-              <span>종료</span>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                disabled={!time}
-              />
-            </label>
+            {/* 하루 종일 — 켜면 시간 없이 날짜에만 등록 (애플 캘린더식) */}
             <button
               type="button"
-              className={`msched-call-sw${isCall ? ' on' : ''}`}
-              onClick={() => time && setIsCall((v) => !v)}
-              disabled={!time}
-              title={time ? '통화로 등록 (10분 전 알림)' : '시작 시간을 먼저 정하세요'}
+              className={`msched-call-sw${allDay ? ' on' : ''}`}
+              onClick={() =>
+                setAllDay((v) => {
+                  const next = !v;
+                  if (next) {
+                    setTime('');
+                    setEndTime('');
+                    setIsCall(false);
+                  }
+                  return next;
+                })
+              }
+              title="시간 없이 하루 종일 일정으로 등록"
             >
-              <PhoneIcon size={14} /> 통화
-              <span className={`msched-sw${isCall ? ' on' : ''}`}>
+              하루 종일
+              <span className={`msched-sw${allDay ? ' on' : ''}`}>
                 <i />
               </span>
             </button>
+            {!allDay && (
+              <>
+                <label>
+                  <span>시작</span>
+                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                </label>
+                <span className="msched-times-sep">~</span>
+                <label>
+                  <span>종료</span>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    disabled={!time}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={`msched-call-sw${isCall ? ' on' : ''}`}
+                  onClick={() => time && setIsCall((v) => !v)}
+                  disabled={!time}
+                  title={time ? '통화로 등록 (10분 전 알림)' : '시작 시간을 먼저 정하세요'}
+                >
+                  <PhoneIcon size={14} /> 통화
+                  <span className={`msched-sw${isCall ? ' on' : ''}`}>
+                    <i />
+                  </span>
+                </button>
+              </>
+            )}
           </div>
           <div className="msched-add-actions">
             {editingId != null && (
