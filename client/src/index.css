@@ -3773,19 +3773,30 @@ input:focus {
   left: 2px;
   right: 2px;
   border: none;
-  border-left: 3px solid var(--green);
   border-radius: 6px;
   background: color-mix(in srgb, var(--green) 16%, var(--surface));
   color: var(--text);
   font-size: 10px;
   font-weight: 600;
   text-align: left;
-  padding: 2px 4px;
+  padding: 2px 4px 2px 9px; /* 왼쪽 액센트 선 자리 */
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   z-index: 1;
   cursor: pointer;
+}
+
+/* 액센트 — 풀높이 보더 대신 위아래 띄운 짧은 선 (애플 캘린더식) */
+.msched-wblock::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--green);
 }
 
 .msched-wblock b {
@@ -3794,13 +3805,19 @@ input:focus {
 }
 
 .msched-wblock.call {
-  border-left-color: #4f8df7;
   background: color-mix(in srgb, #4f8df7 16%, var(--surface));
 }
 
+.msched-wblock.call::before {
+  background: #4f8df7;
+}
+
 .msched-wblock.meeting {
-  border-left-color: var(--green);
   background: color-mix(in srgb, var(--green) 28%, var(--surface));
+}
+
+.msched-wblock.meeting::before {
+  background: var(--green);
 }
 
 .msched-nowline.week {
