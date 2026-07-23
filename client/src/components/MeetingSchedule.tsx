@@ -614,28 +614,25 @@ export default function MeetingSchedule({
                           📌 이 그룹
                         </div>
                       )}
-                      {dayTimed.map((e) => {
-                        const sm =
-                          parseInt(e.time!.slice(0, 2), 10) * 60 + parseInt(e.time!.slice(3, 5), 10);
-                        const em = e.end_time
-                          ? parseInt(e.end_time.slice(0, 2), 10) * 60 +
-                            parseInt(e.end_time.slice(3, 5), 10)
-                          : null;
-                        return (
-                          <button
-                            key={e.id}
-                            className={'msched-wblock' + (e.is_call ? ' call' : '')}
-                            style={blockPos(sm, em)}
-                            title={`${e.time} ${e.title}${e.memo ? ` — ${e.memo}` : ''}`}
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              setSelected(key);
-                            }}
-                          >
-                            <b>{e.time}</b> {e.title}
-                          </button>
-                        );
-                      })}
+                      {/* 겹치는 일정은 일 뷰와 같은 열 분할 (포개져 안 보이던 문제) */}
+                      {layoutDayBlocks(dayTimed).map(({ ev: e, sm, em, col, ncols }) => (
+                        <button
+                          key={e.id}
+                          className={'msched-wblock' + (e.is_call ? ' call' : '')}
+                          style={{
+                            ...blockPos(sm, em),
+                            left: `calc(${(col / ncols) * 100}% + 2px)`,
+                            width: `calc(${100 / ncols}% - 4px)`,
+                          }}
+                          title={`${e.time} ${e.title}${e.memo ? ` — ${e.memo}` : ''}`}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            setSelected(key);
+                          }}
+                        >
+                          <b>{e.time}</b> {e.title}
+                        </button>
+                      ))}
                       {todayInWeek && (
                         <div
                           className={'msched-nowline week' + (key === todayKey ? '' : ' dim')}
