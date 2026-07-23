@@ -248,6 +248,14 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 개별 일정 반복 — daily/weekly/biweekly/monthly (null=없음) + 종료일
+try {
+  db.exec(`ALTER TABLE meeting_events ADD COLUMN recur TEXT`);
+  db.exec(`ALTER TABLE meeting_events ADD COLUMN recur_until TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 알림이 어느 회의에서 왔는지 — meeting_code (null이면 회의 무관)
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN meeting_code TEXT`);

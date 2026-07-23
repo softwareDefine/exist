@@ -376,10 +376,10 @@ router.get('/schedule', (req: AuthedRequest, res) => {
     }
   }
 
-  // 회의 안에서 추가한 일정 이벤트(통화 등, 시간 있는 것)도 일정에 포함
+  // 회의 안에서 추가한 일정 이벤트(통화 등, 시간 있는 것)도 일정에 포함 — 반복이면 occurrence 전개
   const events = db
     .prepare(
-      `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.end_time,
+      `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.end_time, e.recur, e.recur_until,
               m.id AS mid, m.code, m.title AS mtitle, m.thumbnail
        FROM meeting_events e
        JOIN meetings m ON m.id = e.meeting_id
@@ -392,6 +392,8 @@ router.get('/schedule', (req: AuthedRequest, res) => {
     date: string;
     time: string;
     end_time: string | null;
+    recur: string | null;
+    recur_until: string | null;
     mid: number;
     code: string;
     mtitle: string;
@@ -400,21 +402,36 @@ router.get('/schedule', (req: AuthedRequest, res) => {
   const lower = now.getTime() - 31 * 24 * 3600_000;
   const upper = now.getTime() + 90 * 24 * 3600_000;
   for (const e of events) {
-    const startsAt = `${e.date}T${e.time}`;
-    const ts = new Date(startsAt).getTime();
-    if (isNaN(ts) || ts < lower || ts > upper) continue;
-    out.push({
-      id: e.mid,
-      occId: `ev${e.eid}`,
-      code: e.code,
-      title: e.etitle, // 이벤트 제목 (회의 썸네일로 어느 회의인지 표시)
-      meetingTitle: e.mtitle, // 그룹명(회의 이름) — nowbar 그룹 구성용
-      thumbnail: e.thumbnail,
-      starts_at: startsAt,
-      ends_at: e.end_time ? `${e.date}T${e.end_time}` : null,
-      recur: 'none',
-      kind: 'event',
-    });
+    // 반복 없으면 자기 날짜 하나, 반복이면 [lower, upper] 창 안의 occurrence 전부
+    const dates: string[] = [];
+    if (!e.recur) {
+      dates.push(e.date);
+    } else {
+      let cur = new Date(e.date + 'T00:00:00');
+      for (let i = 0; i < 200 && cur.getTime() <= upper; i++) {
+        const y = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+        if (e.recur_until && y > e.recur_until) break;
+        if (cur.getTime() >= lower) dates.push(y);
+        cur = stepEventDate(cur, e.recur);
+      }
+    }
+    for (const d of dates) {
+      const startsAt = `${d}T${e.time}`;
+      const ts = new Date(startsAt).getTime();
+      if (isNaN(ts) || ts < lower || ts > upper) continue;
+      out.push({
+        id: e.mid,
+        occId: `ev${e.eid}@${d}`,
+        code: e.code,
+        title: e.etitle, // 이벤트 제목 (회의 썸네일로 어느 회의인지 표시)
+        meetingTitle: e.mtitle, // 그룹명(회의 이름) — nowbar 그룹 구성용
+        thumbnail: e.thumbnail,
+        starts_at: startsAt,
+        ends_at: e.end_time ? `${d}T${e.end_time}` : null,
+        recur: e.recur ?? 'none',
+        kind: 'event',
+      });
+    }
   }
 
   out.sort(
@@ -729,7 +746,7 @@ router.get('/:code/events', (req: AuthedRequest, res) => {
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const rows = db
     .prepare(
-      `SELECT e.id, e.title, e.date, e.time, e.end_time, e.is_call, e.memo, e.people, e.remind, u.username AS author, e.created_by
+      `SELECT e.id, e.title, e.date, e.time, e.end_time, e.is_call, e.memo, e.people, e.remind, e.recur, e.recur_until, u.username AS author, e.created_by
        FROM meeting_events e JOIN users u ON u.id = e.created_by
        WHERE e.meeting_id = ? ORDER BY e.date, COALESCE(e.time, '99:99')`,
     )
@@ -778,9 +795,48 @@ const cleanRemind = (v: unknown): number | null => {
   return REMIND_CHOICES.has(n) ? n : null;
 };
 
+/** 개별 일정 반복 검증 */
+const EV_RECURS = new Set(['daily', 'weekly', 'biweekly', 'monthly']);
+const cleanEvRecur = (v: unknown): string | null =>
+  typeof v === 'string' && EV_RECURS.has(v) ? v : null;
+const cleanEvUntil = (v: unknown): string | null =>
+  typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+
+/** 반복 일정 다음 날짜 (개별 이벤트용 — meetings의 stepDate와 동일 규칙) */
+export function stepEventDate(d: Date, recur: string): Date {
+  const n = new Date(d);
+  if (recur === 'daily') n.setDate(n.getDate() + 1);
+  else if (recur === 'weekly') n.setDate(n.getDate() + 7);
+  else if (recur === 'biweekly') n.setDate(n.getDate() + 14);
+  else n.setMonth(n.getMonth() + 1);
+  return n;
+}
+
+const ymdOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 반복 일정의 fromYmd 이후 첫 occurrence 날짜 — 없으면 null (리마인더·일정 확장 공용) */
+export function eventOccurrenceOnOrAfter(
+  anchor: string,
+  recur: string,
+  until: string | null,
+  fromYmd: string,
+): string | null {
+  let cur = new Date(anchor + 'T00:00:00');
+  if (isNaN(cur.getTime())) return null;
+  for (let i = 0; i < 500; i++) {
+    const y = ymdOf(cur);
+    if (until && y > until) return null;
+    if (y >= fromYmd) return y;
+    cur = stepEventDate(cur, recur);
+  }
+  return null;
+}
+
 /** 회의 일정 이벤트 추가 */
 router.post('/:code/events', (req: AuthedRequest, res) => {
-  const { title, date, time, end_time, is_call, people, memo, remind } = req.body ?? {};
+  const { title, date, time, end_time, is_call, people, memo, remind, recur, recur_until } =
+    req.body ?? {};
   if (!title || !String(title).trim()) return res.status(400).json({ error: '일정 제목을 입력하세요' });
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
     return res.status(400).json({ error: '날짜를 확인하세요' });
@@ -801,11 +857,13 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   const ppl = cleanPeople(meeting.id, people);
   const memoVal = cleanMemo(memo);
   const remindVal = cleanRemind(remind);
+  const recurVal = cleanEvRecur(recur);
+  const untilVal = recurVal ? cleanEvUntil(recur_until) : null;
   const info = db
     .prepare(
-      'INSERT INTO meeting_events (meeting_id, title, date, time, end_time, is_call, people, memo, remind, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO meeting_events (meeting_id, title, date, time, end_time, is_call, people, memo, remind, recur, recur_until, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(meeting.id, cleanTitle, String(date), t, tEnd, isCall, JSON.stringify(ppl), memoVal, remindVal, req.userId);
+    .run(meeting.id, cleanTitle, String(date), t, tEnd, isCall, JSON.stringify(ppl), memoVal, remindVal, recurVal, untilVal, req.userId);
 
   // 회의 참가자 전원(작성자 제외)에게 일정 알림 — 회의 썸네일과 함께
   const me = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as
@@ -859,16 +917,17 @@ router.patch('/:code/events/:eventId', (req: AuthedRequest, res) => {
     | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const ev = db
-    .prepare('SELECT created_by, title, date, time, end_time, is_call, people, memo, remind FROM meeting_events WHERE id = ? AND meeting_id = ?')
+    .prepare('SELECT created_by, title, date, time, end_time, is_call, people, memo, remind, recur, recur_until FROM meeting_events WHERE id = ? AND meeting_id = ?')
     .get(req.params.eventId, meeting.id) as
-    | { created_by: number; title: string; date: string; time: string | null; end_time: string | null; is_call: number; people: string | null; memo: string | null; remind: number | null }
+    | { created_by: number; title: string; date: string; time: string | null; end_time: string | null; is_call: number; people: string | null; memo: string | null; remind: number | null; recur: string | null; recur_until: string | null }
     | undefined;
   if (!ev) return res.status(404).json({ error: '존재하지 않는 일정입니다' });
   if (ev.created_by !== req.userId && meeting.host_id !== req.userId) {
     return res.status(403).json({ error: '작성자나 호스트만 수정할 수 있어요' });
   }
 
-  const { title, date, time, end_time, is_call, people, memo, remind } = req.body ?? {};
+  const { title, date, time, end_time, is_call, people, memo, remind, recur, recur_until } =
+    req.body ?? {};
   const hhmm = (v: unknown) => (v && /^\d{2}:\d{2}$/.test(String(v)) ? String(v) : null);
   const newTitle = title !== undefined ? String(title).trim().slice(0, 80) : ev.title;
   if (!newTitle) return res.status(400).json({ error: '일정 제목을 입력하세요' });
@@ -889,10 +948,16 @@ router.patch('/:code/events/:eventId', (req: AuthedRequest, res) => {
   const newPpl = people !== undefined ? cleanPeople(meeting.id, people) : oldPpl;
   const newMemo = memo !== undefined ? cleanMemo(memo) : ev.memo;
   const newRemind = remind !== undefined ? cleanRemind(remind) : ev.remind;
+  const newRecur = recur !== undefined ? cleanEvRecur(recur) : ev.recur;
+  const newUntil = newRecur
+    ? recur_until !== undefined
+      ? cleanEvUntil(recur_until)
+      : ev.recur_until
+    : null;
 
   db.prepare(
-    'UPDATE meeting_events SET title = ?, date = ?, time = ?, end_time = ?, is_call = ?, people = ?, memo = ?, remind = ? WHERE id = ?',
-  ).run(newTitle, newDate, t, tEnd, t ? isCall : 0, JSON.stringify(newPpl), newMemo, newRemind, req.params.eventId);
+    'UPDATE meeting_events SET title = ?, date = ?, time = ?, end_time = ?, is_call = ?, people = ?, memo = ?, remind = ?, recur = ?, recur_until = ? WHERE id = ?',
+  ).run(newTitle, newDate, t, tEnd, t ? isCall : 0, JSON.stringify(newPpl), newMemo, newRemind, newRecur, newUntil, req.params.eventId);
 
   // 수정으로 새로 지정된 관련자에게만 알림 (원래 있던 사람에게 또 보내지 않음)
   const added = newPpl.filter((id) => !oldPpl.includes(id) && id !== req.userId);

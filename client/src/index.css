@@ -4734,6 +4734,20 @@ input:focus {
   outline: none;
 }
 
+.msched-add-remind input[type='date'] {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.msched-add-remind input[type='date']:focus {
+  border-color: var(--green);
+  outline: none;
+}
+
 .msched-pop-remind {
   font-size: 12px;
   font-weight: 600;

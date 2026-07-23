@@ -14,6 +14,10 @@ interface MEvent {
   is_call?: number; // 1이면 통화 일정 (10분 전 "통화 들어오세요" 알림)
   memo: string | null; // 일정 메모 (애플 캘린더식)
   remind: number | null; // 알림 시점(분 전) — null=기본(30·10분), 0=없음
+  recur: string | null; // 반복 — daily/weekly/biweekly/monthly (null=없음)
+  recur_until: string | null; // 반복 종료일
+  /** 반복 확장 occurrence면 원본 날짜 (수정 폼은 이 날짜 기준) */
+  baseDate?: string;
   people: { id: number; username: string; name: string | null }[]; // 관련자
   author: string;
   created_by: number;
@@ -71,6 +75,13 @@ const REMIND_OPTIONS: { value: string; label: string }[] = [
 
 const remindLabel = (r: number | null): string =>
   REMIND_OPTIONS.find((o) => o.value === (r == null ? '' : String(r)))?.label ?? '기본';
+
+const EV_RECUR_LABEL: Record<string, string> = {
+  daily: '매일',
+  weekly: '매주',
+  biweekly: '격주',
+  monthly: '매월',
+};
 
 type ViewMode = 'day' | 'week' | 'month';
 const VIEW_LABEL: Record<ViewMode, string> = { day: '일', week: '주', month: '월' };
@@ -167,6 +178,8 @@ export default function MeetingSchedule({
   const [isCall, setIsCall] = useState(false);
   const [memo, setMemo] = useState('');
   const [remind, setRemind] = useState(''); // ''=기본, '0'=없음, 그 외 분
+  const [evRecur, setEvRecur] = useState('none'); // 개별 일정 반복
+  const [evUntil, setEvUntil] = useState(''); // 반복 종료일 (''=계속)
   const [people, setPeople] = useState<{ id: number; username: string }[]>([]); // 선택된 관련자
   const [pq, setPq] = useState(''); // 관련자 검색어
   const [pplOpen, setPplOpen] = useState(false);
@@ -178,7 +191,7 @@ export default function MeetingSchedule({
 
   // ── 애플식 인터랙션: 팝오버 + 드래그 ──
   /** 이벤트 클릭 팝오버 — view(상세) / edit(수정 폼) / create(드래그 생성 폼) */
-  const [pop, setPop] = useState<{ mode: 'view' | 'edit' | 'create'; evId: number | null; x: number; y: number } | null>(null);
+  const [pop, setPop] = useState<{ mode: 'view' | 'edit' | 'create'; evId: number | null; day?: string; x: number; y: number } | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
   const [drag, setDrag] = useState<DragView | null>(null);
   /** 드래그 원시 추적 — 렌더와 무관한 값 (시작 좌표, 원본 시간, 권한) */
@@ -228,7 +241,8 @@ export default function MeetingSchedule({
   /** 블록 클릭 → 상세 팝오버 */
   function openViewPop(ev: MEvent, anchor: DOMRect) {
     setSelected(ev.date);
-    setPop({ mode: 'view', evId: ev.id, x: anchor.left + anchor.width / 2, y: anchor.bottom });
+    // day = 클릭한 occurrence 날짜 — 팝오버가 반복 회차의 날짜를 정확히 보여주게
+    setPop({ mode: 'view', evId: ev.id, day: ev.date, x: anchor.left + anchor.width / 2, y: anchor.bottom });
   }
 
   /** 드래그 생성 완료 → 폼을 팝오버로 (시간 범위 프리필) */
@@ -276,7 +290,8 @@ export default function MeetingSchedule({
   function blockPointerDown(e: React.PointerEvent, ev: MEvent, dayIdx: number) {
     if ((e.target as HTMLElement).closest('button.msched-event-edit, button.msched-event-del')) return;
     e.stopPropagation();
-    const canEdit = ev.created_by === userId || isHost;
+    // 반복 일정은 드래그로 옮기면 시리즈 앵커가 통째로 움직여 혼란 — 팝오버 수정만 허용
+    const canEdit = (ev.created_by === userId || isHost) && !ev.recur;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     if (e.pointerType !== 'mouse' || e.button !== 0) {
       // 터치: 탭 = 상세 팝오버
@@ -427,12 +442,27 @@ export default function MeetingSchedule({
   const exceptSet = useMemo(() => new Set(recurExcept), [recurExcept]);
   const isMeetingDayKey = (key: string) => meetingDays.has(key) && !exceptSet.has(key);
 
-  // 날짜별 이벤트 수
+  // 날짜별 이벤트 — 반복 일정은 occurrence로 전개 (baseDate에 원본 날짜 유지)
   const byDate = useMemo(() => {
     const m = new Map<string, MEvent[]>();
+    const push = (d: string, e: MEvent) => {
+      if (!m.has(d)) m.set(d, []);
+      m.get(d)!.push(e);
+    };
     for (const e of events) {
-      if (!m.has(e.date)) m.set(e.date, []);
-      m.get(e.date)!.push(e);
+      if (!e.recur) {
+        push(e.date, { ...e, baseDate: e.date });
+        continue;
+      }
+      // 종료일 없으면 +6개월까지만 전개 (최대 200회)
+      const fallback = new Date();
+      fallback.setMonth(fallback.getMonth() + 6);
+      const cap = e.recur_until ? new Date(e.recur_until + 'T23:59:59') : fallback;
+      let cur = new Date(e.date + 'T00:00');
+      for (let i = 0; i < 200 && cur.getTime() <= cap.getTime(); i++) {
+        push(ymd(cur), { ...e, date: ymd(cur), baseDate: e.date });
+        cur = stepDate(cur, e.recur);
+      }
     }
     return m;
   }, [events]);
@@ -535,6 +565,8 @@ export default function MeetingSchedule({
     setIsCall(false);
     setMemo('');
     setRemind('');
+    setEvRecur('none');
+    setEvUntil('');
     setPeople([]);
     setPq('');
     setPplOpen(false);
@@ -543,7 +575,8 @@ export default function MeetingSchedule({
 
   function startEdit(ev: MEvent) {
     setEditingId(ev.id);
-    setSelected(ev.date);
+    // 반복 occurrence를 수정해도 원본(앵커) 날짜 기준 — 날짜를 바꾸면 시리즈 전체가 이동
+    setSelected(ev.baseDate ?? ev.date);
     setTitle(ev.title);
     setAllDay(!ev.time);
     setTime(ev.time ?? '');
@@ -551,6 +584,8 @@ export default function MeetingSchedule({
     setIsCall(!!ev.is_call);
     setMemo(ev.memo ?? '');
     setRemind(ev.remind == null ? '' : String(ev.remind));
+    setEvRecur(ev.recur ?? 'none');
+    setEvUntil(ev.recur_until ?? '');
     setPeople(ev.people?.map((p) => ({ id: p.id, username: p.name || p.username })) ?? []);
   }
 
@@ -610,6 +645,8 @@ export default function MeetingSchedule({
       is_call: isCall && !allDay && !!time, // 통화는 시작 시간이 있어야 의미 있음
       memo: memo.trim() || null,
       remind: remind === '' ? null : Number(remind),
+      recur: evRecur === 'none' ? null : evRecur,
+      recur_until: evRecur !== 'none' && evUntil ? evUntil : null,
       people: people.map((p) => p.id),
     };
     if (editingId != null) {
@@ -779,6 +816,25 @@ export default function MeetingSchedule({
               </select>
             </div>
           )}
+          {/* 반복 — 애플식 (개별 일정 단위) */}
+          <div className="msched-add-remind">
+            <span className="msched-people-label">반복</span>
+            <select value={evRecur} onChange={(e) => setEvRecur(e.target.value)}>
+              <option value="none">없음</option>
+              <option value="daily">매일</option>
+              <option value="weekly">매주</option>
+              <option value="biweekly">격주</option>
+              <option value="monthly">매월</option>
+            </select>
+            {evRecur !== 'none' && (
+              <input
+                type="date"
+                value={evUntil}
+                onChange={(e) => setEvUntil(e.target.value)}
+                title="반복 종료일 — 비우면 계속 반복"
+              />
+            )}
+          </div>
           {/* 관련자 — 검색해서 추가 (애플 캘린더 초대 느낌) */}
           {participants.length > 0 && (
             <div className="msched-add-people">
@@ -863,7 +919,12 @@ export default function MeetingSchedule({
         </form>
   );
 
-  const popEv = pop && pop.evId != null ? (events.find((x) => x.id === pop.evId) ?? null) : null;
+  const popEv =
+    pop && pop.evId != null
+      ? ((pop.day ? (byDate.get(pop.day) ?? []).find((x) => x.id === pop.evId) : undefined) ??
+        events.find((x) => x.id === pop.evId) ??
+        null)
+      : null;
   const popCanEdit = popEv ? popEv.created_by === userId || isHost : false;
 
   return (
@@ -1376,6 +1437,14 @@ export default function MeetingSchedule({
                 {popEv.time && (
                   <div className="msched-pop-remind">🔔 {remindLabel(popEv.remind)}</div>
                 )}
+                {popEv.recur && (
+                  <div className="msched-pop-remind">
+                    🔁 {EV_RECUR_LABEL[popEv.recur] ?? popEv.recur}
+                    {popEv.recur_until
+                      ? ` · ${popEv.recur_until.slice(5).replace('-', '/')}까지`
+                      : ''}
+                  </div>
+                )}
                 {(popEv.people?.length ?? 0) > 0 && (
                   <div className="msched-pop-ppl">
                     {popEv.people.map((p) => (
@@ -1407,7 +1476,7 @@ export default function MeetingSchedule({
                           setPop(null);
                         }}
                       >
-                        삭제
+                        {popEv.recur ? '반복 전체 삭제' : '삭제'}
                       </button>
                     </span>
                   )}

@@ -3,6 +3,7 @@ import http from 'node:http';
 import { Server } from 'socket.io';
 import db from './db.js';
 import { startMediasoup, attachSfu } from './sfu.js';
+import { eventOccurrenceOnOrAfter } from './meetings.js';
 import { getUserContext } from './agent.js';
 import { attachYjs } from './ydoc.js';
 import { initNotifier, notifyUser } from './notify.js';
@@ -105,7 +106,7 @@ setInterval(() => {
     // 회의 일정 이벤트(통화 등, 시간 있는 것) 리마인더 — 기본 30/10분 전, remind 지정 시 그 시점만 (0=끔)
     const events = db
       .prepare(
-        `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.is_call, e.remind, m.code, m.title AS mtitle
+        `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.is_call, e.remind, e.recur, e.recur_until, m.code, m.title AS mtitle
          FROM meeting_events e
          JOIN meetings m ON m.id = e.meeting_id
          JOIN meeting_participants mp ON mp.meeting_id = m.id
@@ -118,18 +119,26 @@ setInterval(() => {
       time: string;
       is_call: number;
       remind: number | null;
+      recur: string | null;
+      recur_until: string | null;
       code: string;
       mtitle: string;
     }[];
+    const todayY = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     for (const ev of events) {
-      const start = new Date(`${ev.date}T${ev.time}`);
+      // 반복 일정은 오늘 이후 첫 occurrence 기준 (키에 날짜 포함 — 회차마다 새로 알림)
+      const effDate = ev.recur
+        ? eventOccurrenceOnOrAfter(ev.date, ev.recur, ev.recur_until, todayY)
+        : ev.date;
+      if (!effDate) continue;
+      const start = new Date(`${effDate}T${ev.time}`);
       const min = Math.round((start.getTime() - now.getTime()) / 60_000);
       const thresholds = ev.remind == null ? [30, 10] : ev.remind === 0 ? [] : [ev.remind];
       const due = thresholds.filter(
-        (t) => min <= t && min > 0 && !notified.has(`${userId}:ev${ev.eid}:${t}`),
+        (t) => min <= t && min > 0 && !notified.has(`${userId}:ev${ev.eid}:${effDate}:${t}`),
       );
       if (due.length > 0) {
-        due.forEach((t) => notified.add(`${userId}:ev${ev.eid}:${t}`));
+        due.forEach((t) => notified.add(`${userId}:ev${ev.eid}:${effDate}:${t}`));
         // 1시간 이상 남은 알림(1시간·2시간·하루 전)은 분 대신 시간/일로
         const lead =
           min >= 1440
@@ -153,14 +162,27 @@ setInterval(() => {
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const alldays = db
         .prepare(
-          `SELECT e.id AS eid, e.title AS etitle, m.code, m.title AS mtitle
+          `SELECT e.id AS eid, e.title AS etitle, e.date, e.recur, e.recur_until, m.code, m.title AS mtitle
            FROM meeting_events e
            JOIN meetings m ON m.id = e.meeting_id
            JOIN meeting_participants mp ON mp.meeting_id = m.id
-           WHERE mp.user_id = ? AND e.time IS NULL AND e.date = ?`,
+           WHERE mp.user_id = ? AND e.time IS NULL AND (e.date = ? OR e.recur IS NOT NULL)`,
         )
-        .all(userId, today) as { eid: number; etitle: string; code: string; mtitle: string }[];
+        .all(userId, today) as {
+        eid: number;
+        etitle: string;
+        date: string;
+        recur: string | null;
+        recur_until: string | null;
+        code: string;
+        mtitle: string;
+      }[];
       for (const ev of alldays) {
+        // 반복이면 오늘이 occurrence인 날만
+        const eff = ev.recur
+          ? eventOccurrenceOnOrAfter(ev.date, ev.recur, ev.recur_until, today)
+          : ev.date;
+        if (eff !== today) continue;
         const key = `${userId}:ev${ev.eid}:allday:${today}`;
         if (notified.has(key)) continue;
         notified.add(key);
