@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { useAuthStore } from '../store';
-import { PhoneIcon } from './Icons';
+import { PhoneIcon, BellIcon } from './Icons';
 import Marquee from './Marquee';
 
 interface MEvent {
@@ -107,6 +107,30 @@ function blockPos(startMin: number, endMin: number | null) {
 
 const toMin = (t: string) => parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10);
 const minToHHMM = (m: number) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+
+/** "오후 3:00" — HH:MM을 오전/오후 표기로 (앱 전체 시계 표기와 통일) */
+function ampm(t: string): string {
+  const h = parseInt(t.slice(0, 2), 10);
+  const ap = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${ap} ${h12}:${t.slice(3, 5)}`;
+}
+
+/** "오후 3:00~4:30" — 같은 오전/오후면 뒤쪽 접두 생략, 걸치면 둘 다 표기 */
+function ampmRange(t: string, end: string | null | undefined): string {
+  if (!end) return ampm(t);
+  const same = parseInt(t.slice(0, 2), 10) < 12 === parseInt(end.slice(0, 2), 10) < 12;
+  return `${ampm(t)}~${same ? ampm(end).replace(/^오[전후] /, '') : ampm(end)}`;
+}
+
+/** 월 칩용 짧은 표기 — 정각이면 "오후 3시" */
+function ampmShort(t: string): string {
+  const h = parseInt(t.slice(0, 2), 10);
+  const ap = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const m = t.slice(3, 5);
+  return m === '00' ? `${ap} ${h12}시` : `${ap} ${h12}:${m}`;
+}
 
 /** 드래그 스냅 단위(분) — 애플과 동일 */
 const SNAP = 15;
@@ -692,12 +716,7 @@ export default function MeetingSchedule({
       className={'msched-event' + (compact ? ' compact' : '') + (ev.is_call ? ' call' : '')}
     >
       {!ev.time && <span className="msched-event-time allday">하루 종일</span>}
-      {ev.time && (
-        <span className="msched-event-time">
-          {ev.time}
-          {ev.end_time ? `~${ev.end_time}` : ''}
-        </span>
-      )}
+      {ev.time && <span className="msched-event-time">{ampmRange(ev.time, ev.end_time)}</span>}
       <Marquee className="msched-event-title">
         {ev.is_call ? (
           <span className="msched-call-ic">
@@ -911,9 +930,13 @@ export default function MeetingSchedule({
             </button>
           </div>
           <p className="msched-add-hint">
-            {editingId != null
-              ? '✎ 일정을 수정하는 중이에요'
-              : '🔔 추가하면 참가자 전원에게 알림'}
+            {editingId != null ? (
+              '✎ 일정을 수정하는 중이에요'
+            ) : (
+              <>
+                <BellIcon size={12} /> 추가하면 참가자 전원에게 알림
+              </>
+            )}
             {isCall && ' · 통화는 10분 전에 "들어오세요" 알림'}
           </p>
         </form>
@@ -1080,7 +1103,7 @@ export default function MeetingSchedule({
                             height: (Math.max(Math.abs(drag.b - drag.a), SNAP) / 60) * WEEK_ROWH,
                           }}
                         >
-                          {minToHHMM(Math.min(drag.a, drag.b))}~{minToHHMM(Math.max(drag.a, drag.b))}
+                          {ampmRange(minToHHMM(Math.min(drag.a, drag.b)), minToHHMM(Math.max(drag.a, drag.b)))}
                         </div>
                       )}
                       {meet && meetStart && !isNaN(meetStart.getTime()) && (
@@ -1116,7 +1139,7 @@ export default function MeetingSchedule({
                             zIndex: dv ? 15 : z,
                             transform: dx ? `translateX(${dx}px)` : undefined,
                           }}
-                          title={`${e.time} ${e.title}${e.memo ? ` — ${e.memo}` : ''}`}
+                          title={`${ampmRange(e.time!, e.end_time)} ${e.title}${e.memo ? ` — ${e.memo}` : ''}`}
                           onPointerDown={(ev2) => blockPointerDown(ev2, e, dayIdx)}
                           onPointerMove={(ev2) => blockPointerMove(ev2, true)}
                           onPointerUp={(ev2) => blockPointerUp(ev2, e, true)}
@@ -1124,7 +1147,7 @@ export default function MeetingSchedule({
                           {/* 애플처럼 제목 먼저, 시간은 아랫줄 */}
                           <span className="msched-wblock-t">{e.title}</span>
                           <span className="msched-wblock-time">
-                            {dv ? `${minToHHMM(s)}~${minToHHMM(en)}` : `${e.time}${e.end_time ? `~${e.end_time}` : ''}`}
+                            {dv ? ampmRange(minToHHMM(s), minToHHMM(en)) : ampmRange(e.time!, e.end_time)}
                           </span>
                         </button>
                         );
@@ -1217,9 +1240,12 @@ export default function MeetingSchedule({
                   >
                     <span className="msched-event-title">📌 이 그룹 일정</span>
                     <span className="msched-event-time">
-                      {meetStart!.getHours()}:{pad(meetStart!.getMinutes())}
-                      {endsAt &&
-                        `~${new Date(endsAt).getHours()}:${pad(new Date(endsAt).getMinutes())}`}
+                      {ampmRange(
+                        `${pad(meetStart!.getHours())}:${pad(meetStart!.getMinutes())}`,
+                        endsAt
+                          ? `${pad(new Date(endsAt).getHours())}:${pad(new Date(endsAt).getMinutes())}`
+                          : null,
+                      )}
                     </span>
                     {isHost && recur !== 'none' && (
                       <button
@@ -1244,7 +1270,7 @@ export default function MeetingSchedule({
                       height: (Math.max(Math.abs(drag.b - drag.a), SNAP) / 60) * WEEK_ROWH,
                     }}
                   >
-                    {minToHHMM(Math.min(drag.a, drag.b))}~{minToHHMM(Math.max(drag.a, drag.b))}
+                    {ampmRange(minToHHMM(Math.min(drag.a, drag.b)), minToHHMM(Math.max(drag.a, drag.b)))}
                   </div>
                 )}
                 {layoutDayBlocks(timed).map(({ ev, sm, em, col, ncols, indent, z }) => {
@@ -1276,7 +1302,7 @@ export default function MeetingSchedule({
                       {ev.title}
                     </Marquee>
                     <span className="msched-event-time">
-                      {dv ? `${minToHHMM(s)}~${minToHHMM(en)}` : `${ev.time}${ev.end_time ? `~${ev.end_time}` : ''}`}
+                      {dv ? ampmRange(minToHHMM(s), minToHHMM(en)) : ampmRange(ev.time!, ev.end_time)}
                     </span>
                     <span className="msched-event-author">{ev.author}</span>
                     {(ev.created_by === userId || isHost) && (
@@ -1349,7 +1375,7 @@ export default function MeetingSchedule({
                   )}
                   {chips.map((e) => (
                     <span key={e.id} className="msched-chip" title={e.title}>
-                      {e.time && <b className="msched-chip-time">{e.time}</b>}
+                      {e.time && <b className="msched-chip-time">{ampmShort(e.time)}</b>}
                       {e.title}
                     </span>
                   ))}
@@ -1373,9 +1399,12 @@ export default function MeetingSchedule({
               {startsAt && (
                 <span>
                   {' '}
-                  {new Date(startsAt).getHours()}:{pad(new Date(startsAt).getMinutes())}
-                  {endsAt &&
-                    ` ~ ${new Date(endsAt).getHours()}:${pad(new Date(endsAt).getMinutes())}`}
+                  {ampmRange(
+                    `${pad(new Date(startsAt).getHours())}:${pad(new Date(startsAt).getMinutes())}`,
+                    endsAt
+                      ? `${pad(new Date(endsAt).getHours())}:${pad(new Date(endsAt).getMinutes())}`
+                      : null,
+                  )}
                 </span>
               )}
             </span>
@@ -1432,10 +1461,12 @@ export default function MeetingSchedule({
                 </div>
                 <div className="msched-pop-time">
                   {dateLabelOf(popEv.date)} ·{' '}
-                  {popEv.time ? `${popEv.time}${popEv.end_time ? `~${popEv.end_time}` : ''}` : '하루 종일'}
+                  {popEv.time ? ampmRange(popEv.time, popEv.end_time) : '하루 종일'}
                 </div>
                 {popEv.time && (
-                  <div className="msched-pop-remind">🔔 {remindLabel(popEv.remind)}</div>
+                  <div className="msched-pop-remind">
+                    <BellIcon size={12} /> {remindLabel(popEv.remind)}
+                  </div>
                 )}
                 {popEv.recur && (
                   <div className="msched-pop-remind">
