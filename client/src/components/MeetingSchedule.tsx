@@ -71,6 +71,41 @@ function blockPos(startMin: number, endMin: number | null) {
   };
 }
 
+const toMin = (t: string) => parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10);
+
+/** 일 뷰 — 겹치는 시간 일정을 애플 캘린더처럼 열로 나눠 배치 */
+function layoutDayBlocks(evts: MEvent[]) {
+  const items = evts
+    .map((ev) => {
+      const sm = toMin(ev.time!);
+      const em = ev.end_time ? Math.max(toMin(ev.end_time), sm + 20) : sm + 60;
+      return { ev, sm, em, col: 0, ncols: 1 };
+    })
+    .sort((a, b) => a.sm - b.sm || b.em - a.em);
+  // 겹침 클러스터 단위로 빈 열에 배정, 클러스터가 끝나면 열 수 확정
+  let cluster: typeof items = [];
+  let clusterEnd = -1;
+  const colEnds: number[] = [];
+  const flush = () => {
+    const n = Math.max(...cluster.map((x) => x.col)) + 1;
+    cluster.forEach((x) => (x.ncols = n));
+    cluster = [];
+    colEnds.length = 0;
+    clusterEnd = -1;
+  };
+  for (const it of items) {
+    if (cluster.length > 0 && it.sm >= clusterEnd) flush();
+    let c = colEnds.findIndex((e) => e <= it.sm);
+    if (c === -1) c = colEnds.length;
+    colEnds[c] = it.em;
+    it.col = c;
+    cluster.push(it);
+    clusterEnd = Math.max(clusterEnd, it.em);
+  }
+  if (cluster.length > 0) flush();
+  return items;
+}
+
 /** 회의 일정 달력 — 이벤트를 날짜에 표시하고 추가·삭제로 관리 */
 export default function MeetingSchedule({
   code,
@@ -373,7 +408,7 @@ export default function MeetingSchedule({
   const untimed = dayEvents.filter((e) => !e.time);
   const meetingToday = isMeetingDayKey(selected);
   const meetStart = startsAt ? new Date(startsAt) : null;
-  const meetHour = meetingToday && meetStart && !isNaN(meetStart.getTime()) ? meetStart.getHours() : null;
+  const meetOk = meetingToday && meetStart != null && !isNaN(meetStart.getTime());
   // 오전 12시(0시) ~ 밤 11시 — 하루 전체 시간선
   const hours = Array.from({ length: 24 }, (_, i) => i);
   const isToday = selected === todayKey;
@@ -651,35 +686,87 @@ export default function MeetingSchedule({
                       </span>
                     </div>
                   )}
-                  <div className="msched-hour-slot">
-                    {meetHour === h && meetStart && (
-                      <div className="msched-event compact meeting">
-                        <span className="msched-event-time">
-                          {meetStart.getHours()}:{pad(meetStart.getMinutes())}
-                          {endsAt &&
-                            `~${new Date(endsAt).getHours()}:${pad(new Date(endsAt).getMinutes())}`}
-                        </span>
-                        <span className="msched-event-title">📌 이 그룹 일정</span>
-                        {isHost && recur !== 'none' && (
-                          <button
-                            type="button"
-                            className="msched-occ-del"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void excludeOccurrence();
-                            }}
-                          >
-                            이 회차 삭제
-                          </button>
-                        )}
-                      </div>
-                    )}
-                    {timed
-                      .filter((e) => parseInt(e.time!.slice(0, 2), 10) === h)
-                      .map((e) => eventRow(e, true))}
-                  </div>
+                  <div className="msched-hour-slot" />
                 </div>
               ))}
+
+              {/* 시간 일정 — 주 뷰처럼 분 비례 절대 배치 (칸이 늘어나 시간선이 밀리던 문제 해결) */}
+              <div className="msched-day-layer">
+                {meetOk && (
+                  <div
+                    className="msched-dblock meeting"
+                    style={blockPos(
+                      meetStart!.getHours() * 60 + meetStart!.getMinutes(),
+                      endsAt
+                        ? new Date(endsAt).getHours() * 60 + new Date(endsAt).getMinutes()
+                        : null,
+                    )}
+                  >
+                    <span className="msched-event-time">
+                      {meetStart!.getHours()}:{pad(meetStart!.getMinutes())}
+                      {endsAt &&
+                        `~${new Date(endsAt).getHours()}:${pad(new Date(endsAt).getMinutes())}`}
+                    </span>
+                    <span className="msched-event-title">📌 이 그룹 일정</span>
+                    {isHost && recur !== 'none' && (
+                      <button
+                        type="button"
+                        className="msched-occ-del"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void excludeOccurrence();
+                        }}
+                      >
+                        이 회차 삭제
+                      </button>
+                    )}
+                  </div>
+                )}
+                {layoutDayBlocks(timed).map(({ ev, sm, em, col, ncols }) => (
+                  <div
+                    key={ev.id}
+                    className={'msched-dblock' + (ev.is_call ? ' call' : '')}
+                    style={{
+                      top: (sm / 60) * WEEK_ROWH,
+                      height: Math.max(((em - sm) / 60) * WEEK_ROWH - 2, 22),
+                      left: `calc(${(col / ncols) * 100}%${col > 0 ? ' + 2px' : ''})`,
+                      width: `calc(${100 / ncols}%${ncols > 1 ? ' - 2px' : ''})`,
+                    }}
+                  >
+                    <span className="msched-event-time">
+                      {ev.time}
+                      {ev.end_time ? `~${ev.end_time}` : ''}
+                    </span>
+                    <Marquee className="msched-event-title">
+                      {ev.is_call ? (
+                        <span className="msched-call-ic">
+                          <PhoneIcon size={12} />
+                        </span>
+                      ) : null}
+                      {ev.title}
+                    </Marquee>
+                    <span className="msched-event-author">{ev.author}</span>
+                    {(ev.created_by === userId || isHost) && (
+                      <>
+                        <button
+                          className={`msched-event-edit${editingId === ev.id ? ' on' : ''}`}
+                          title="수정"
+                          onClick={() => startEdit(ev)}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          className="msched-event-del"
+                          title="삭제"
+                          onClick={() => void removeEvent(ev.id)}
+                        >
+                          ×
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
               {/* 하루 끝 경계선 */}
               <div className="msched-hour msched-hour-end" aria-hidden>
                 <span className="msched-hour-label">{hourLabel(24)}</span>

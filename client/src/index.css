@@ -3935,12 +3935,61 @@ input:focus {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  min-height: 40px;
+  height: 40px; /* 고정 — 일정은 절대 배치 레이어에 있어 칸이 늘어나지 않음 */
   cursor: pointer;
+}
+
+/* 시간 일정 절대 배치 레이어 — 눈금 슬롯 위에 겹침 (좌표 기준: 라벨 56px + 간격 8px) */
+.msched-day-layer {
+  position: absolute;
+  top: 8px; /* .msched-hours padding-top과 일치 */
+  left: 64px;
+  right: 0;
+  height: 960px; /* 24h × 40px */
+  pointer-events: none;
+}
+
+.msched-dblock {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  border-radius: 8px;
+  padding: 2px 8px 2px 15px;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--green) 14%, var(--surface));
+}
+
+.msched-dblock::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--green);
+}
+
+.msched-dblock.call {
+  background: color-mix(in srgb, #4f8df7 14%, var(--surface));
+}
+
+.msched-dblock.call::before {
+  background: #4f8df7;
+}
+
+.msched-dblock.meeting {
+  background: color-mix(in srgb, var(--green) 26%, var(--surface));
 }
 
 /* 첫 눈금 라벨(오전 12시)이 위로 잘리지 않게 + 아래 자정 선 뒤 작은 여백 */
 .msched-hours {
+  position: relative; /* 시간 일정 절대 배치 레이어의 기준 */
   padding-top: 8px;
   padding-bottom: 4px;
 }
