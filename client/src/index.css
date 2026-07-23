@@ -11097,6 +11097,7 @@ input:focus {
 /* nowbar 모바일 미니바·드로어 홈/추가 버튼·조직메뉴 스크림·허브 모바일 메뉴/뒤로바 — 데스크톱에선 숨김 (모바일 블록에서 표시) */
 .nb-mini,
 .nb-shade-scrim,
+.nb-pill-count,
 .drawer-home,
 .drawer-add,
 .org-menu-scrim,
@@ -11635,6 +11636,7 @@ input:focus {
   }
 
   .nb-pill-count {
+    display: block; /* 데스크톱 공통 숨김을 모바일에서 복원 */
     position: absolute;
     top: -6px;
     left: -6px;
