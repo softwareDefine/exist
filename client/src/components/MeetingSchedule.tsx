@@ -390,6 +390,8 @@ export default function MeetingSchedule({
 
         {view === 'week' && (
           <div className="msched-weekwrap" ref={weekRef}>
+            {/* 헤더 + 종일 레인을 한 덩어리로 sticky — 따로 붙이면 스크롤 중 겹쳐 높이가 변해 보임 */}
+            <div className="msched-week-sticky">
             <div className="msched-week-head">
               <span className="msched-week-gutter-spacer" />
               {weekDays.map((d) => {
@@ -442,6 +444,7 @@ export default function MeetingSchedule({
                 })}
               </div>
             )}
+            </div>
             <div className="msched-week-body">
               <div className="msched-week-gutter">
                 {hours.map((h) => (
