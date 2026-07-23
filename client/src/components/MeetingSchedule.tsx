@@ -94,7 +94,10 @@ export default function MeetingSchedule({
   const [allDay, setAllDay] = useState(false); // 하루 종일 — 시간 없이 날짜에만 (애플 캘린더식)
   const [isCall, setIsCall] = useState(false);
   const [memo, setMemo] = useState('');
-  const [people, setPeople] = useState<number[]>([]); // 관련자 userId 목록
+  const [people, setPeople] = useState<{ id: number; username: string }[]>([]); // 선택된 관련자
+  const [pq, setPq] = useState(''); // 관련자 검색어
+  const [pplOpen, setPplOpen] = useState(false);
+  const [pplIdx, setPplIdx] = useState(0);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [now, setNow] = useState<Date>(() => new Date()); // 일·주 뷰 "지금" 선
   const dayviewRef = useRef<HTMLDivElement | null>(null);
@@ -269,6 +272,8 @@ export default function MeetingSchedule({
     setIsCall(false);
     setMemo('');
     setPeople([]);
+    setPq('');
+    setPplOpen(false);
     setEditingId(null);
   }
 
@@ -281,11 +286,46 @@ export default function MeetingSchedule({
     setEndTime(ev.end_time ?? '');
     setIsCall(!!ev.is_call);
     setMemo(ev.memo ?? '');
-    setPeople(ev.people?.map((p) => p.id) ?? []);
+    setPeople(ev.people?.map((p) => ({ id: p.id, username: p.name || p.username })) ?? []);
   }
 
-  function togglePerson(id: number) {
-    setPeople((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  // 검색어에 맞는 참가자 (이미 선택된 사람 제외, 최대 8명)
+  const pplMatches = useMemo(() => {
+    const q = pq.trim().toLowerCase();
+    return participants
+      .filter((p) => !people.some((s) => s.id === p.userId))
+      .filter((p) => !q || p.username.toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [participants, people, pq]);
+
+  function addPerson(p: { userId: number; username: string }) {
+    setPeople((prev) => [...prev, { id: p.userId, username: p.username }]);
+    setPq('');
+    setPplIdx(0);
+  }
+
+  function removePerson(id: number) {
+    setPeople((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  function pplKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Backspace' && !pq && people.length > 0) {
+      removePerson(people[people.length - 1].id);
+      return;
+    }
+    if (!pplOpen || pplMatches.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setPplIdx((i) => (i + 1) % pplMatches.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setPplIdx((i) => (i - 1 + pplMatches.length) % pplMatches.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault(); // 폼 제출 막고 선택으로
+      addPerson(pplMatches[Math.min(pplIdx, pplMatches.length - 1)]);
+    } else if (e.key === 'Escape') {
+      setPplOpen(false);
+    }
   }
 
   async function addEvent(e: React.FormEvent) {
@@ -304,7 +344,7 @@ export default function MeetingSchedule({
       end_time: !allDay && time ? endTime || null : null,
       is_call: isCall && !allDay && !!time, // 통화는 시작 시간이 있어야 의미 있음
       memo: memo.trim() || null,
-      people,
+      people: people.map((p) => p.id),
     };
     if (editingId != null) {
       await api(`/api/meetings/${code}/events/${editingId}`, { method: 'PATCH', body });
@@ -804,20 +844,55 @@ export default function MeetingSchedule({
               </>
             )}
           </div>
-          {/* 관련자 선택 — 참가자 칩 토글 (애플 캘린더 초대 느낌) */}
+          {/* 관련자 — 검색해서 추가 (애플 캘린더 초대 느낌) */}
           {participants.length > 0 && (
             <div className="msched-add-people">
               <span className="msched-people-label">관련자</span>
-              {participants.map((p) => (
-                <button
-                  type="button"
-                  key={p.userId}
-                  className={'msched-person' + (people.includes(p.userId) ? ' on' : '')}
-                  onClick={() => togglePerson(p.userId)}
-                >
+              {people.map((p) => (
+                <span key={p.id} className="msched-person on">
                   {p.username}
-                </button>
+                  <button
+                    type="button"
+                    className="msched-person-x"
+                    aria-label={`${p.username} 제외`}
+                    onClick={() => removePerson(p.id)}
+                  >
+                    ×
+                  </button>
+                </span>
               ))}
+              <div className="msched-ppl-search">
+                <input
+                  value={pq}
+                  onChange={(e) => {
+                    setPq(e.target.value);
+                    setPplIdx(0);
+                  }}
+                  onFocus={() => setPplOpen(true)}
+                  onBlur={() => setPplOpen(false)}
+                  onKeyDown={pplKeyDown}
+                  placeholder={people.length === 0 ? '참가자 검색해서 추가' : '더 추가'}
+                />
+                {pplOpen && pplMatches.length > 0 && (
+                  <div className="msched-ppl-pop">
+                    {pplMatches.map((p, i) => (
+                      <button
+                        type="button"
+                        key={p.userId}
+                        className={'msched-ppl-item' + (i === pplIdx ? ' active' : '')}
+                        // blur보다 먼저 잡아야 클릭이 살아남음 (MentionInput과 동일한 트릭)
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          addPerson(p);
+                        }}
+                        onMouseEnter={() => setPplIdx(i)}
+                      >
+                        {p.username}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <input

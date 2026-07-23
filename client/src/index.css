@@ -4382,26 +4382,89 @@ input:focus {
 }
 
 .msched-person {
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 4px 11px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.msched-person.on {
-  border-color: var(--green);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--green);
   background: var(--green-soft);
   color: var(--green-dark);
+  border-radius: 999px;
+  padding: 4px 6px 4px 11px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.msched-person-x {
+  border: none;
+  background: none;
+  color: var(--green-dark);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 3px;
+  cursor: pointer;
+  opacity: 0.7;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .msched-person:hover {
-    border-color: var(--green);
+  .msched-person-x:hover {
+    opacity: 1;
   }
+}
+
+/* 관련자 검색 입력 + 드롭다운 */
+.msched-ppl-search {
+  position: relative;
+  flex: 1;
+  min-width: 130px;
+}
+
+.msched-ppl-search input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.msched-ppl-search input:focus {
+  border-color: var(--green);
+  outline: none;
+}
+
+.msched-ppl-pop {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 180px;
+  max-width: 260px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 5px;
+  z-index: 80;
+}
+
+/* 폼 공통 버튼 스타일보다 세게 — .msched-ppl-pop로 특이도 확보 */
+.msched-ppl-pop .msched-ppl-item {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--text);
+  padding: 7px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.msched-ppl-pop .msched-ppl-item.active {
+  background: rgba(33, 200, 24, 0.1);
 }
 
 /* 일정 메모 입력 */
