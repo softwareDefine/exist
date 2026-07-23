@@ -3834,6 +3834,11 @@ input:focus {
   padding: 2px 4px 2px 9px; /* 왼쪽 액센트 선 자리 */
   overflow: hidden;
   box-shadow: 0 0 0 1px var(--surface); /* 겹쳐 얹힐 때 경계 구분 */
+  /* button 기본은 내용 세로 가운데 — 애플처럼 제목이 블록 상단에 붙게 */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   z-index: 1;
   cursor: pointer;
 }
