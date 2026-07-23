@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { useAuthStore } from '../store';
@@ -16,6 +16,7 @@ interface MEvent {
   remind: number | null; // 알림 시점(분 전) — null=기본(30·10분), 0=없음
   recur: string | null; // 반복 — daily/weekly/biweekly/monthly (null=없음)
   recur_until: string | null; // 반복 종료일
+  color: string | null; // 일정 색 (#rrggbb, null=기본)
   /** 반복 확장 occurrence면 원본 날짜 (수정 폼은 이 날짜 기준) */
   baseDate?: string;
   people: { id: number; username: string; name: string | null }[]; // 관련자
@@ -82,6 +83,21 @@ const EV_RECUR_LABEL: Record<string, string> = {
   biweekly: '격주',
   monthly: '매월',
 };
+
+/** 일정 색 팔레트 (애플 캘린더 색 느낌) — ''=기본(초록/통화 파랑) */
+const COLOR_CHOICES: { value: string; label: string }[] = [
+  { value: '', label: '기본' },
+  { value: '#e5484d', label: '빨강' },
+  { value: '#f7801a', label: '주황' },
+  { value: '#d9a900', label: '노랑' },
+  { value: '#4f8df7', label: '파랑' },
+  { value: '#8e4ef7', label: '보라' },
+  { value: '#e93d82', label: '핑크' },
+];
+
+/** 블록·행에 일정 색을 CSS 변수로 주입 (없으면 CSS 기본값 사용) */
+const evColorStyle = (c: string | null | undefined) =>
+  c ? ({ '--evc': c } as CSSProperties) : undefined;
 
 type ViewMode = 'day' | 'week' | 'month';
 const VIEW_LABEL: Record<ViewMode, string> = { day: '일', week: '주', month: '월' };
@@ -204,6 +220,7 @@ export default function MeetingSchedule({
   const [remind, setRemind] = useState(''); // ''=기본, '0'=없음, 그 외 분
   const [evRecur, setEvRecur] = useState('none'); // 개별 일정 반복
   const [evUntil, setEvUntil] = useState(''); // 반복 종료일 (''=계속)
+  const [evColor, setEvColor] = useState(''); // 일정 색 (''=기본)
   const [people, setPeople] = useState<{ id: number; username: string }[]>([]); // 선택된 관련자
   const [pq, setPq] = useState(''); // 관련자 검색어
   const [pplOpen, setPplOpen] = useState(false);
@@ -591,6 +608,7 @@ export default function MeetingSchedule({
     setRemind('');
     setEvRecur('none');
     setEvUntil('');
+    setEvColor('');
     setPeople([]);
     setPq('');
     setPplOpen(false);
@@ -610,6 +628,7 @@ export default function MeetingSchedule({
     setRemind(ev.remind == null ? '' : String(ev.remind));
     setEvRecur(ev.recur ?? 'none');
     setEvUntil(ev.recur_until ?? '');
+    setEvColor(ev.color ?? '');
     setPeople(ev.people?.map((p) => ({ id: p.id, username: p.name || p.username })) ?? []);
   }
 
@@ -671,6 +690,7 @@ export default function MeetingSchedule({
       remind: remind === '' ? null : Number(remind),
       recur: evRecur === 'none' ? null : evRecur,
       recur_until: evRecur !== 'none' && evUntil ? evUntil : null,
+      color: evColor || null,
       people: people.map((p) => p.id),
     };
     if (editingId != null) {
@@ -714,6 +734,7 @@ export default function MeetingSchedule({
     <div
       key={ev.id}
       className={'msched-event' + (compact ? ' compact' : '') + (ev.is_call ? ' call' : '')}
+      style={evColorStyle(ev.color)}
     >
       {!ev.time && <span className="msched-event-time allday">하루 종일</span>}
       {ev.time && <span className="msched-event-time">{ampmRange(ev.time, ev.end_time)}</span>}
@@ -853,6 +874,21 @@ export default function MeetingSchedule({
                 title="반복 종료일 — 비우면 계속 반복"
               />
             )}
+          </div>
+          {/* 색 — 애플 캘린더 팔레트 */}
+          <div className="msched-add-people">
+            <span className="msched-people-label">색</span>
+            {COLOR_CHOICES.map((c) => (
+              <button
+                type="button"
+                key={c.value}
+                className={'msched-color-dot' + (evColor === c.value ? ' on' : '')}
+                style={{ background: c.value || 'var(--green)' }}
+                title={c.label}
+                aria-label={`색 ${c.label}`}
+                onClick={() => setEvColor(c.value)}
+              />
+            ))}
           </div>
           {/* 관련자 — 검색해서 추가 (애플 캘린더 초대 느낌) */}
           {participants.length > 0 && (
@@ -1025,7 +1061,7 @@ export default function MeetingSchedule({
                       onClick={() => setSelected(key)}
                     >
                       {dayUntimed.map((e) => (
-                        <span key={e.id} className="msched-wallday-chip" title={`${e.title} · ${e.author}${e.memo ? ` — ${e.memo}` : ''}`}>
+                        <span key={e.id} className="msched-wallday-chip" style={evColorStyle(e.color)} title={`${e.title} · ${e.author}${e.memo ? ` — ${e.memo}` : ''}`}>
                           {e.title}
                         </span>
                       ))}
@@ -1132,6 +1168,7 @@ export default function MeetingSchedule({
                           key={e.id}
                           className={'msched-wblock' + (e.is_call ? ' call' : '') + (dv ? ' dragging' : '')}
                           style={{
+                            ...evColorStyle(e.color),
                             top: (s / 60) * WEEK_ROWH,
                             height: (Math.max(en - s, 20) / 60) * WEEK_ROWH,
                             left: `calc((100% - ${indent * 8 + 4}px) * ${(col / ncols).toFixed(4)} + ${indent * 8 + 2}px)`,
@@ -1283,6 +1320,7 @@ export default function MeetingSchedule({
                     key={ev.id}
                     className={'msched-dblock' + (ev.is_call ? ' call' : '') + (dv ? ' dragging' : '')}
                     style={{
+                      ...evColorStyle(ev.color),
                       top: (s / 60) * WEEK_ROWH,
                       height: Math.max(((en - s) / 60) * WEEK_ROWH - 2, 22),
                       left: `calc((100% - ${indent * 12}px) * ${(col / ncols).toFixed(4)} + ${indent * 12 + (col > 0 ? 2 : 0)}px)`,

@@ -3663,8 +3663,8 @@ input:focus {
 }
 
 .msched-wallday-chip {
-  background: var(--green-soft);
-  color: var(--green-dark);
+  background: color-mix(in srgb, var(--evc, var(--green)) 16%, var(--surface));
+  color: var(--evc, var(--green-dark));
   border-radius: 5px;
   padding: 2px 7px;
   font-size: 11px;
@@ -3821,12 +3821,13 @@ input:focus {
 }
 
 .msched-wblock {
+  --evc: var(--green); /* 일정 색 — 인라인 스타일로 덮어씀 */
   position: absolute;
   left: 2px;
   right: 2px;
   border: none;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--green) 16%, var(--surface));
+  background: color-mix(in srgb, var(--evc) 16%, var(--surface));
   color: var(--text);
   font-size: 10px;
   font-weight: 600;
@@ -3852,7 +3853,7 @@ input:focus {
   bottom: 4px;
   width: 3px;
   border-radius: 2px;
-  background: var(--green);
+  background: var(--evc);
 }
 
 .msched-wblock b {
@@ -3877,19 +3878,11 @@ input:focus {
 }
 
 .msched-wblock.call {
-  background: color-mix(in srgb, #4f8df7 16%, var(--surface));
-}
-
-.msched-wblock.call::before {
-  background: #4f8df7;
+  --evc: #4f8df7;
 }
 
 .msched-wblock.meeting {
-  background: color-mix(in srgb, var(--green) 28%, var(--surface));
-}
-
-.msched-wblock.meeting::before {
-  background: var(--green);
+  background: color-mix(in srgb, var(--evc) 28%, var(--surface));
 }
 
 .msched-nowline.week {
@@ -3971,6 +3964,7 @@ input:focus {
 }
 
 .msched-dblock {
+  --evc: var(--green); /* 일정 색 — 인라인 스타일로 덮어씀 */
   position: absolute;
   left: 0;
   width: 100%;
@@ -3982,7 +3976,7 @@ input:focus {
   border-radius: 8px;
   padding: 2px 8px 2px 15px;
   box-sizing: border-box;
-  background: color-mix(in srgb, var(--green) 14%, var(--surface));
+  background: color-mix(in srgb, var(--evc) 14%, var(--surface));
   box-shadow: 0 0 0 1px var(--surface); /* 겹쳐 얹힐 때 경계 구분 */
 }
 
@@ -3994,19 +3988,15 @@ input:focus {
   bottom: 4px;
   width: 3px;
   border-radius: 2px;
-  background: var(--green);
+  background: var(--evc);
 }
 
 .msched-dblock.call {
-  background: color-mix(in srgb, #4f8df7 14%, var(--surface));
-}
-
-.msched-dblock.call::before {
-  background: #4f8df7;
+  --evc: #4f8df7;
 }
 
 .msched-dblock.meeting {
-  background: color-mix(in srgb, var(--green) 26%, var(--surface));
+  background: color-mix(in srgb, var(--evc) 26%, var(--surface));
 }
 
 /* ── 애플식 드래그 인터랙션 ── */
@@ -4246,9 +4236,10 @@ input:focus {
 
 /* 일 뷰 이벤트 — 주 뷰 블록과 같은 초록 틴트 + 왼쪽 액센트 선 (배경과 구분 안 되던 문제) */
 .msched-dayview .msched-event.compact {
+  --evc: var(--green);
   position: relative;
   border: none;
-  background: color-mix(in srgb, var(--green) 14%, var(--surface));
+  background: color-mix(in srgb, var(--evc) 14%, var(--surface));
   padding-left: 15px; /* 액센트 선 자리 */
 }
 
@@ -4260,19 +4251,15 @@ input:focus {
   bottom: 5px;
   width: 3px;
   border-radius: 2px;
-  background: var(--green);
+  background: var(--evc);
 }
 
 .msched-dayview .msched-event.compact.call {
-  background: color-mix(in srgb, #4f8df7 14%, var(--surface));
-}
-
-.msched-dayview .msched-event.compact.call::before {
-  background: #4f8df7;
+  --evc: #4f8df7;
 }
 
 .msched-dayview .msched-event.compact.meeting {
-  background: color-mix(in srgb, var(--green) 26%, var(--surface));
+  background: color-mix(in srgb, var(--evc) 26%, var(--surface));
 }
 
 .msched-grid {
@@ -4498,7 +4485,7 @@ input:focus {
 .msched-event-time {
   font-size: 12px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--evc, var(--green));
   flex-shrink: 0;
 }
 
@@ -4758,6 +4745,23 @@ input:focus {
   font-weight: 600;
   color: var(--text-sub);
   margin: -4px 0 8px;
+}
+
+/* 일정 색 팔레트 점 */
+.msched-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  flex: none;
+}
+
+.msched-color-dot.on {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--text-sub);
 }
 
 /* 일정 메모 입력 */
