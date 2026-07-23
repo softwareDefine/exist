@@ -3587,7 +3587,6 @@ input:focus {
   display: grid;
   grid-template-columns: 60px repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid var(--border);
-  min-height: 26px;
 }
 
 .msched-week-gutter-spacer.allday {
@@ -3600,8 +3599,9 @@ input:focus {
 .msched-wallday-col {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 3px 3px;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px;
   min-width: 0;
   border-left: 1px solid var(--border);
   cursor: pointer;
@@ -3615,9 +3615,10 @@ input:focus {
   background: var(--green-soft);
   color: var(--green-dark);
   border-radius: 5px;
-  padding: 1px 6px;
+  padding: 2px 7px;
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
