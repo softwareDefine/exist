@@ -383,7 +383,10 @@ export default function MeetingSchedule({
   const todayInWeek = weekDays.some((d) => ymd(d) === todayKey);
 
   const eventRow = (ev: MEvent, compact = false) => (
-    <div key={ev.id} className={'msched-event' + (compact ? ' compact' : '')}>
+    <div
+      key={ev.id}
+      className={'msched-event' + (compact ? ' compact' : '') + (ev.is_call ? ' call' : '')}
+    >
       {!ev.time && <span className="msched-event-time allday">하루 종일</span>}
       {ev.time && (
         <span className="msched-event-time">

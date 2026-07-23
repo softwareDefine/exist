@@ -4031,6 +4031,37 @@ input:focus {
   border-color: var(--green);
 }
 
+/* 일 뷰 이벤트 — 주 뷰 블록과 같은 초록 틴트 + 왼쪽 액센트 선 (배경과 구분 안 되던 문제) */
+.msched-dayview .msched-event.compact {
+  position: relative;
+  border: none;
+  background: color-mix(in srgb, var(--green) 14%, var(--surface));
+  padding-left: 15px; /* 액센트 선 자리 */
+}
+
+.msched-dayview .msched-event.compact::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 5px;
+  bottom: 5px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--green);
+}
+
+.msched-dayview .msched-event.compact.call {
+  background: color-mix(in srgb, #4f8df7 14%, var(--surface));
+}
+
+.msched-dayview .msched-event.compact.call::before {
+  background: #4f8df7;
+}
+
+.msched-dayview .msched-event.compact.meeting {
+  background: color-mix(in srgb, var(--green) 26%, var(--surface));
+}
+
 .msched-grid {
   flex: 1;
   display: grid;
