@@ -76,9 +76,11 @@
   border-radius: 9px;
 }
 
-.nowbar-theme:hover {
-  background: var(--surface-2);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .nowbar-theme:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
 }
 
 /* ── 다크 모드 ── */
@@ -252,8 +254,10 @@ input:focus {
   transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
 }
 
-.nowbar-auto:hover {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  .nowbar-auto:hover {
+    opacity: 1;
+  }
 }
 
 .nowbar-auto.on {
@@ -272,8 +276,10 @@ input:focus {
   50% { opacity: 1; transform: scale(1.1); }
 }
 
-.nowbar-dot:hover:not(.active) {
-  background: #aaa;
+@media (hover: hover) and (pointer: fine) {
+  .nowbar-dot:hover:not(.active) {
+    background: #aaa;
+  }
 }
 
 .nowbar-card {
@@ -442,9 +448,11 @@ input:focus {
   transition: background 0.12s;
 }
 
-.nb-sched-add:hover {
-  background: var(--green);
-  color: #fff;
+@media (hover: hover) and (pointer: fine) {
+  .nb-sched-add:hover {
+    background: var(--green);
+    color: #fff;
+  }
 }
 
 .nb-recur-tag {
@@ -488,8 +496,10 @@ input:focus {
   padding: 2px 8px;
 }
 
-.nb-cal-head button:hover {
-  color: var(--green);
+@media (hover: hover) and (pointer: fine) {
+  .nb-cal-head button:hover {
+    color: var(--green);
+  }
 }
 
 .nb-cal-grid {
@@ -792,9 +802,11 @@ input:focus {
   margin-left: 4px;
 }
 
-.nb-notif-join:hover,
-.notif-join:hover {
-  background: var(--green-dark);
+@media (hover: hover) and (pointer: fine) {
+  .nb-notif-join:hover,
+  .notif-join:hover {
+    background: var(--green-dark);
+  }
 }
 
 .notif-join {
@@ -824,8 +836,10 @@ input:focus {
   border-radius: 9px;
 }
 
-.nb-notif-erow:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .nb-notif-erow:hover {
+    background: var(--surface-2);
+  }
 }
 
 .nb-notif-bell.sm {
@@ -1139,8 +1153,10 @@ input:focus {
   transition: transform 0.15s ease;
 }
 
-.nowbar-profile:hover .nowbar-avatar {
-  transform: scale(1.08);
+@media (hover: hover) and (pointer: fine) {
+  .nowbar-profile:hover .nowbar-avatar {
+    transform: scale(1.08);
+  }
 }
 
 .profile-menu {
@@ -1152,9 +1168,11 @@ input:focus {
   z-index: 1500;
 }
 
-.nowbar-profile:hover .profile-menu {
-  display: block;
-  animation: toast-in 0.18s ease-out;
+@media (hover: hover) and (pointer: fine) {
+  .nowbar-profile:hover .profile-menu {
+    display: block;
+    animation: toast-in 0.18s ease-out;
+  }
 }
 
 .profile-menu-box {
