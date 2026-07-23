@@ -102,10 +102,10 @@ setInterval(() => {
       }
     }
 
-    // 회의 일정 이벤트(통화 등, 시간 있는 것)도 30/10분 전 리마인더
+    // 회의 일정 이벤트(통화 등, 시간 있는 것) 리마인더 — 기본 30/10분 전, remind 지정 시 그 시점만 (0=끔)
     const events = db
       .prepare(
-        `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.is_call, m.code, m.title AS mtitle
+        `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.is_call, e.remind, m.code, m.title AS mtitle
          FROM meeting_events e
          JOIN meetings m ON m.id = e.meeting_id
          JOIN meeting_participants mp ON mp.meeting_id = m.id
@@ -117,22 +117,31 @@ setInterval(() => {
       date: string;
       time: string;
       is_call: number;
+      remind: number | null;
       code: string;
       mtitle: string;
     }[];
     for (const ev of events) {
       const start = new Date(`${ev.date}T${ev.time}`);
       const min = Math.round((start.getTime() - now.getTime()) / 60_000);
-      const due = [30, 10].filter(
+      const thresholds = ev.remind == null ? [30, 10] : ev.remind === 0 ? [] : [ev.remind];
+      const due = thresholds.filter(
         (t) => min <= t && min > 0 && !notified.has(`${userId}:ev${ev.eid}:${t}`),
       );
       if (due.length > 0) {
         due.forEach((t) => notified.add(`${userId}:ev${ev.eid}:${t}`));
+        // 1시간 이상 남은 알림(1시간·2시간·하루 전)은 분 대신 시간/일로
+        const lead =
+          min >= 1440
+            ? `${Math.round(min / 1440)}일 뒤`
+            : min >= 60
+              ? `${Math.round(min / 60)}시간 뒤`
+              : `${min}분 뒤`;
         notifyUser(userId, {
           from: 'exist AI',
           text: ev.is_call
-            ? `'${ev.etitle}' 통화 ${min}분 뒤 시작 — 들어오세요 (${ev.mtitle})`
-            : `'${ev.etitle}' ${min}분 뒤 시작 — ${ev.mtitle}`,
+            ? `'${ev.etitle}' 통화 ${lead} 시작 — 들어오세요 (${ev.mtitle})`
+            : `'${ev.etitle}' ${lead} 시작 — ${ev.mtitle}`,
           meetingCode: ev.code,
           kind: ev.is_call ? 'call' : undefined,
         });

@@ -4711,6 +4711,36 @@ input:focus {
   background: rgba(33, 200, 24, 0.1);
 }
 
+/* 알림 시점 선택 */
+.msched-add-remind {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.msched-add-remind select {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.msched-add-remind select:focus {
+  border-color: var(--green);
+  outline: none;
+}
+
+.msched-pop-remind {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-sub);
+  margin: -4px 0 8px;
+}
+
 /* 일정 메모 입력 */
 .msched-add-memo {
   display: block;

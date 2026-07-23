@@ -13,6 +13,7 @@ interface MEvent {
   end_time: string | null; // HH:MM (종료)
   is_call?: number; // 1이면 통화 일정 (10분 전 "통화 들어오세요" 알림)
   memo: string | null; // 일정 메모 (애플 캘린더식)
+  remind: number | null; // 알림 시점(분 전) — null=기본(30·10분), 0=없음
   people: { id: number; username: string; name: string | null }[]; // 관련자
   author: string;
   created_by: number;
@@ -55,6 +56,21 @@ function dateLabelOf(ds: string): string {
   const d = new Date(ds + 'T00:00');
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`;
 }
+
+/** 알림 시점 선택지 — 애플식. ''=기본(30·10분 전) */
+const REMIND_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: '기본 (30분·10분 전)' },
+  { value: '0', label: '없음' },
+  { value: '5', label: '5분 전' },
+  { value: '10', label: '10분 전' },
+  { value: '30', label: '30분 전' },
+  { value: '60', label: '1시간 전' },
+  { value: '120', label: '2시간 전' },
+  { value: '1440', label: '하루 전' },
+];
+
+const remindLabel = (r: number | null): string =>
+  REMIND_OPTIONS.find((o) => o.value === (r == null ? '' : String(r)))?.label ?? '기본';
 
 type ViewMode = 'day' | 'week' | 'month';
 const VIEW_LABEL: Record<ViewMode, string> = { day: '일', week: '주', month: '월' };
@@ -150,6 +166,7 @@ export default function MeetingSchedule({
   const [allDay, setAllDay] = useState(false); // 하루 종일 — 시간 없이 날짜에만 (애플 캘린더식)
   const [isCall, setIsCall] = useState(false);
   const [memo, setMemo] = useState('');
+  const [remind, setRemind] = useState(''); // ''=기본, '0'=없음, 그 외 분
   const [people, setPeople] = useState<{ id: number; username: string }[]>([]); // 선택된 관련자
   const [pq, setPq] = useState(''); // 관련자 검색어
   const [pplOpen, setPplOpen] = useState(false);
@@ -517,6 +534,7 @@ export default function MeetingSchedule({
     setAllDay(false);
     setIsCall(false);
     setMemo('');
+    setRemind('');
     setPeople([]);
     setPq('');
     setPplOpen(false);
@@ -532,6 +550,7 @@ export default function MeetingSchedule({
     setEndTime(ev.end_time ?? '');
     setIsCall(!!ev.is_call);
     setMemo(ev.memo ?? '');
+    setRemind(ev.remind == null ? '' : String(ev.remind));
     setPeople(ev.people?.map((p) => ({ id: p.id, username: p.name || p.username })) ?? []);
   }
 
@@ -590,6 +609,7 @@ export default function MeetingSchedule({
       end_time: !allDay && time ? endTime || null : null,
       is_call: isCall && !allDay && !!time, // 통화는 시작 시간이 있어야 의미 있음
       memo: memo.trim() || null,
+      remind: remind === '' ? null : Number(remind),
       people: people.map((p) => p.id),
     };
     if (editingId != null) {
@@ -746,6 +766,19 @@ export default function MeetingSchedule({
               </>
             )}
           </div>
+          {/* 알림 시점 — 애플식 선택 (시간 일정에만 의미) */}
+          {!allDay && (
+            <div className="msched-add-remind">
+              <span className="msched-people-label">알림</span>
+              <select value={remind} onChange={(e) => setRemind(e.target.value)} disabled={!time}>
+                {REMIND_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {/* 관련자 — 검색해서 추가 (애플 캘린더 초대 느낌) */}
           {participants.length > 0 && (
             <div className="msched-add-people">
@@ -1340,6 +1373,9 @@ export default function MeetingSchedule({
                   {dateLabelOf(popEv.date)} ·{' '}
                   {popEv.time ? `${popEv.time}${popEv.end_time ? `~${popEv.end_time}` : ''}` : '하루 종일'}
                 </div>
+                {popEv.time && (
+                  <div className="msched-pop-remind">🔔 {remindLabel(popEv.remind)}</div>
+                )}
                 {(popEv.people?.length ?? 0) > 0 && (
                   <div className="msched-pop-ppl">
                     {popEv.people.map((p) => (

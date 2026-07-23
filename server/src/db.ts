@@ -241,6 +241,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 일정 알림 시점(분 전) — null=기본(30·10분), 0=알림 없음 (애플식 선택)
+try {
+  db.exec(`ALTER TABLE meeting_events ADD COLUMN remind INTEGER`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 알림이 어느 회의에서 왔는지 — meeting_code (null이면 회의 무관)
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN meeting_code TEXT`);
