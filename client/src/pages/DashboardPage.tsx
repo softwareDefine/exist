@@ -11,6 +11,7 @@ import MeetingThumb from '../components/MeetingThumb';
 import OrgSwitcher from '../components/OrgSwitcher';
 import { useOrgStore } from '../orgStore';
 import { readPins, PINS_EVENT } from '../lib/pins';
+import { initPush } from '../lib/push';
 
 export default function DashboardPage() {
   const location = useLocation();
@@ -142,6 +143,11 @@ export default function DashboardPage() {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgCurrent]);
+
+  // 웹푸시 구독 (PWA) — 로그인된 대시보드 진입 시 한 번
+  useEffect(() => {
+    void initPush();
+  }, []);
 
   // 회의 일정 이벤트가 추가/삭제되면 nowbar 일정도 다시 불러오기
   useEffect(() => {

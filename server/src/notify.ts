@@ -1,5 +1,6 @@
 import type { Server } from 'socket.io';
 import db from './db.js';
+import { sendPushToUser } from './push.js';
 
 /*
  * 특정 사용자에게 알림 — DB에 영속 저장(알림함) + 접속 중이면 실시간 푸시(토스트).
@@ -53,7 +54,20 @@ export function notifyUser(userId: number, payload: NotifyPayload) {
     meeting,
     created_at: new Date().toISOString(),
   };
+  let delivered = false;
   for (const s of io.sockets.sockets.values()) {
-    if (s.data.userId === userId) s.emit('agent:notify', full);
+    if (s.data.userId === userId) {
+      s.emit('agent:notify', full);
+      delivered = true;
+    }
+  }
+  // 접속 소켓이 하나도 없으면 웹푸시(PWA) — 앱을 안 켜둔 사람에게 OS 알림
+  if (!delivered) {
+    sendPushToUser(userId, {
+      title: payload.from,
+      body: payload.text,
+      tag: payload.kind ?? 'exist',
+      url: '/',
+    });
   }
 }

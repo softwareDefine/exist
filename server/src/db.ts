@@ -270,6 +270,18 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 웹푸시 구독 (PWA) — 기기별 구독, endpoint가 기기 식별자
+db.exec(`
+  CREATE TABLE IF NOT EXISTS push_subs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    endpoint   TEXT NOT NULL UNIQUE,
+    sub        TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subs(user_id);
+`);
+
 // 마이그레이션: 알림이 어느 회의에서 왔는지 — meeting_code (null이면 회의 무관)
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN meeting_code TEXT`);

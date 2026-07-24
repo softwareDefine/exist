@@ -81,9 +81,11 @@ const notified = new Set<string>(); // `${userId}:${meetingTitle}:${threshold}`
 
 setInterval(() => {
   const now = new Date();
-  for (const socket of io.sockets.sockets.values()) {
-    const userId = socket.data.userId as number | undefined;
-    if (!userId) continue;
+  // 접속 여부와 무관하게 회의 참가자 전원 검사 — 오프라인이면 notifyUser가 웹푸시로 배달
+  const userIds = (
+    db.prepare('SELECT DISTINCT user_id FROM meeting_participants').all() as { user_id: number }[]
+  ).map((r) => r.user_id);
+  for (const userId of userIds) {
     const ctx = getUserContext(userId);
     for (const m of ctx.meetings) {
       if (!m.starts_at) continue;

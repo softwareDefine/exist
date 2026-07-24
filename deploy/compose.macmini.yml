@@ -21,6 +21,10 @@ services:
       # 코드 실행(/exec)은 격리된 runner 컨테이너로 위임. git push(/git)만 게이트.
       RUNNER_URL: http://runner:5000
       CODE_EXEC_ENABLED: ${CODE_EXEC_ENABLED:-0}
+      # 웹푸시(PWA) — VAPID 키는 .env로
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     ports:
       # 4000은 nginx가 망 안에서 접근하므로 미공개. 미디어는 UDP+TCP 둘 다 publish
       # (Colima에선 UDP가 안 넘어와서 TCP가 실제 동작 경로)

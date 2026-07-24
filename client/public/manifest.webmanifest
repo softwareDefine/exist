@@ -1,0 +1,17 @@
+{
+  "name": "exist — AI가 팀을 움직이는 협업 공간",
+  "short_name": "exist",
+  "description": "회의·결정·할 일이 사람이 아니라 조직에 남는 AX 협업 플랫폼",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#21c818",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
