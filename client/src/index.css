@@ -4747,7 +4747,7 @@ input:focus {
   margin: -4px 0 8px;
 }
 
-/* 일정 색 미리보기 점 (드롭다운 옆) */
+/* 일정 색 점 — 점 자체가 드롭다운 버튼 */
 .msched-color-dot {
   width: 18px;
   height: 18px;
@@ -4755,6 +4755,45 @@ input:focus {
   border: none;
   padding: 0;
   flex: none;
+  cursor: pointer;
+}
+
+.msched-color-dot.btn {
+  width: 22px;
+  height: 22px;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.msched-color-pick {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.msched-color-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  gap: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 10px;
+  box-shadow: var(--shadow-md);
+  z-index: 95;
+}
+
+.msched-color-pop .msched-color-dot.on {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--text-sub);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .msched-color-pop .msched-color-dot:hover {
+    transform: scale(1.15);
+  }
 }
 
 /* 일정 메모 입력 */

@@ -221,6 +221,17 @@ export default function MeetingSchedule({
   const [evRecur, setEvRecur] = useState('none'); // 개별 일정 반복
   const [evUntil, setEvUntil] = useState(''); // 반복 종료일 (''=계속)
   const [evColor, setEvColor] = useState(''); // 일정 색 (''=기본)
+  const [colorOpen, setColorOpen] = useState(false); // 색 팔레트 펼침
+
+  // 색 팔레트 바깥 클릭으로 닫기
+  useEffect(() => {
+    if (!colorOpen) return;
+    function onDown(e: PointerEvent) {
+      if (!(e.target as HTMLElement).closest('.msched-color-pick')) setColorOpen(false);
+    }
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [colorOpen]);
   const [people, setPeople] = useState<{ id: number; username: string }[]>([]); // 선택된 관련자
   const [pq, setPq] = useState(''); // 관련자 검색어
   const [pplOpen, setPplOpen] = useState(false);
@@ -878,19 +889,35 @@ export default function MeetingSchedule({
           {/* 색 — 애플 캘린더 팔레트 */}
           <div className="msched-add-remind">
             <span className="msched-people-label">색</span>
-            <select value={evColor} onChange={(e) => setEvColor(e.target.value)} aria-label="일정 색">
-              {COLOR_CHOICES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            {/* 현재 선택 색 미리보기 */}
-            <span
-              className="msched-color-dot preview"
-              style={{ background: evColor || 'var(--green)' }}
-              aria-hidden
-            />
+            {/* 색 점 자체가 드롭다운 버튼 — 누르면 팔레트가 펼쳐짐 */}
+            <div className="msched-color-pick">
+              <button
+                type="button"
+                className="msched-color-dot btn"
+                style={{ background: evColor || 'var(--green)' }}
+                aria-label="일정 색 선택"
+                title={COLOR_CHOICES.find((c) => c.value === evColor)?.label ?? '기본'}
+                onClick={() => setColorOpen((v) => !v)}
+              />
+              {colorOpen && (
+                <div className="msched-color-pop">
+                  {COLOR_CHOICES.map((c) => (
+                    <button
+                      type="button"
+                      key={c.value}
+                      className={'msched-color-dot' + (evColor === c.value ? ' on' : '')}
+                      style={{ background: c.value || 'var(--green)' }}
+                      title={c.label}
+                      aria-label={`색 ${c.label}`}
+                      onClick={() => {
+                        setEvColor(c.value);
+                        setColorOpen(false);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           {/* 관련자 — 검색해서 추가 (애플 캘린더 초대 느낌) */}
           {participants.length > 0 && (
