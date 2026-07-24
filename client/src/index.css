@@ -4743,30 +4743,36 @@ input:focus {
   outline: none;
 }
 
-/* 시작~종료 한 줄 — 좁은 패널에 4개 인풋이 들어가야 해서 최대한 컴팩트 */
+/* 시작/종료 한 줄 — 라벨 포함 6개 요소가 좁은 패널에 들어가게 최대한 컴팩트 */
 .msched-se {
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
+}
+
+.msched-se-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+  flex: none;
 }
 
 .msched-se input[type='date'] {
-  flex: 1 1 90px;
+  flex: 1 1 74px;
   min-width: 0;
   padding: 5px 2px;
   font-size: 11px;
 }
 
+/* 달력 아이콘 숨겨 폭 확보 — 클릭하면 showPicker로 달력이 열림 */
+.msched-se input[type='date']::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
 .msched-se input[type='time'] {
-  width: 64px;
+  width: 60px;
   flex: none;
   padding: 5px 2px;
   font-size: 11px;
-}
-
-.msched-se .msched-times-sep {
-  color: var(--text-sub);
-  font-weight: 600;
-  flex: none;
 }
 
 .msched-pop-remind {

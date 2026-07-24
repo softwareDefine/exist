@@ -888,12 +888,14 @@ export default function MeetingSchedule({
               </button>
             )}
           </div>
-          {/* 시작~종료 한 줄 — 날짜+시간 함께 (종료 날짜가 뒤면 여러 날 일정) */}
+          {/* 시작/종료 한 줄 — 라벨 + 날짜 + 시간 (종료 날짜가 뒤면 여러 날 일정) */}
           <div className="msched-add-remind msched-se">
+            <span className="msched-se-label">시작</span>
             <input
               type="date"
               value={selected}
               onChange={(e) => e.target.value && setSelected(e.target.value)}
+              onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
               title="시작 날짜"
             />
             {!allDay && (
@@ -904,7 +906,7 @@ export default function MeetingSchedule({
                 title="시작 시간"
               />
             )}
-            <span className="msched-times-sep">~</span>
+            <span className="msched-se-label">종료</span>
             <input
               type="date"
               value={endDate || selected}
@@ -912,6 +914,7 @@ export default function MeetingSchedule({
               onChange={(e) =>
                 setEndDate(!e.target.value || e.target.value <= selected ? '' : e.target.value)
               }
+              onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
               title="종료 날짜"
             />
             {!allDay && (
