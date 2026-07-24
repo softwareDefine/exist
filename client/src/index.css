@@ -4300,7 +4300,8 @@ input:focus {
 }
 
 .msched-day.sel {
-  background: rgba(33, 200, 24, 0.08);
+  /* 초록 틴트는 칩 틴트와 겹쳐 일정이 묻힘 — 선택은 중립 회색으로 (애플식) */
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 /* 날짜 숫자 — 오늘/선택일은 원형 강조 (구글 캘린더식) */
@@ -4356,12 +4357,6 @@ input:focus {
   text-overflow: ellipsis;
 }
 
-/* 선택된 날짜 셀 — 셀의 초록 틴트와 칩 틴트가 비슷해 묻히므로 칩을 카드색으로 띄움 */
-.msched-day.sel .msched-chip {
-  background: var(--surface);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--evc, var(--green)) 40%, transparent);
-}
-
 /* 여러 날 걸친 일정 — 애플처럼 셀 경계(패딩 5px + 그리드 간격 4px)를 넘어 이어지는 바 */
 .msched-chip.span-start,
 .msched-chip.span-mid,
@@ -4372,24 +4367,24 @@ input:focus {
   color: #fff;
 }
 
+/* 딱 붙이면 고배율 줌에서 반올림 헤어라인이 생김 — 2px 겹치게 브리지 */
 .msched-chip.span-start {
   border-radius: 4px 0 0 4px;
-  margin-right: -7px;
+  margin-right: -9px;
 }
 
 .msched-chip.span-mid {
   border-radius: 0;
-  margin-left: -7px;
-  margin-right: -7px;
+  margin-left: -9px;
+  margin-right: -9px;
 }
 
 .msched-chip.span-end {
   border-radius: 0 4px 4px 0;
-  margin-left: -7px;
+  margin-left: -9px;
 }
 
-/* 주 끝(토)에서 다음 주로 이어지면 오른쪽도 끝까지, 주 시작(일)은 왼쪽도 끝까지 —
-   음수 마진이 그리드 밖으로 나가지 않게 7번째/1번째 칸은 살짝만 */
+/* 주 시작(일)·끝(토) 칸은 그리드 밖으로 나가지 않게 살짝만 */
 .msched-day:nth-child(7n + 1) .msched-chip.span-mid,
 .msched-day:nth-child(7n + 1) .msched-chip.span-end {
   margin-left: -5px;
@@ -4790,7 +4785,7 @@ input:focus {
 /* 시작/종료 한 줄 — 라벨·물결 포함 7개 요소가 좁은 패널에 들어가게 최대한 컴팩트 */
 .msched-se {
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 2px;
 }
 
 .msched-se .msched-times-sep {
@@ -4807,12 +4802,12 @@ input:focus {
 }
 
 .msched-se input[type='date'] {
-  /* grow 금지 — 남는 공간을 먹고 커지지 않게, 날짜 글자에 딱 맞는 고정폭 */
+  /* grow 금지 — 남는 공간을 먹고 커지지 않게, 날짜 글자에 맞는 고정폭 */
   flex: none;
-  width: 76px;
+  width: 84px;
   box-sizing: border-box;
   padding: 5px 2px;
-  font-size: 11px;
+  font-size: 11.5px;
   text-align: center;
 }
 
@@ -4822,10 +4817,11 @@ input:focus {
 }
 
 .msched-se input[type='time'] {
-  width: 57px;
+  width: 52px;
   flex: none;
-  padding: 5px 2px;
+  padding: 5px 1px;
   font-size: 11px;
+  text-align: center;
 }
 
 .msched-pop-remind {
