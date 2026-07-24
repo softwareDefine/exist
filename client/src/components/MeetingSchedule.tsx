@@ -1487,7 +1487,10 @@ export default function MeetingSchedule({
             </span>
           ))}
           {cells.map((c, i) => {
-            const evs = byDate.get(c.key) ?? [];
+            // 여러 날 걸친 일정(seg)은 맨 위로 — 이웃 셀과 같은 줄에 놓여 바가 이어져 보이게
+            const evs = [...(byDate.get(c.key) ?? [])].sort(
+              (a, b) => (b.seg ? 1 : 0) - (a.seg ? 1 : 0) || a.id - b.id,
+            );
             const isMeetingDay = isMeetingDayKey(c.key);
             const chips = evs.slice(0, isMeetingDay ? 1 : 2);
             const overflow = evs.length - chips.length;
@@ -1516,12 +1519,23 @@ export default function MeetingSchedule({
                       <i className="msched-chip-dot" />이 그룹
                     </span>
                   )}
-                  {chips.map((e) => (
-                    <span key={e.id} className="msched-chip" style={evColorStyle(e.color)} title={e.title}>
-                      {e.time && <b className="msched-chip-time">{ampmShort(e.time)}</b>}
-                      {e.title}
-                    </span>
-                  ))}
+                  {chips.map((e) => {
+                    // 기간 일정 — 애플처럼 셀을 넘어 이어지는 바 (제목은 첫날·주 시작에만)
+                    const showText = !e.seg || e.seg === 'start' || i % 7 === 0;
+                    return (
+                      <span
+                        key={e.id}
+                        className={'msched-chip' + (e.seg ? ` span-${e.seg}` : '')}
+                        style={evColorStyle(e.color)}
+                        title={e.title}
+                      >
+                        {!e.seg && e.time && (
+                          <b className="msched-chip-time">{ampmShort(e.time)}</b>
+                        )}
+                        {showText ? e.title : ' '}
+                      </span>
+                    );
+                  })}
                   {overflow > 0 && <span className="msched-more">+{overflow}</span>}
                 </span>
               </button>

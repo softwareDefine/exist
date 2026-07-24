@@ -4362,6 +4362,44 @@ input:focus {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--evc, var(--green)) 40%, transparent);
 }
 
+/* 여러 날 걸친 일정 — 애플처럼 셀 경계(패딩 5px + 그리드 간격 4px)를 넘어 이어지는 바 */
+.msched-chip.span-start,
+.msched-chip.span-mid,
+.msched-chip.span-end {
+  position: relative;
+  z-index: 1;
+  background: color-mix(in srgb, var(--evc, var(--green)) 55%, var(--surface));
+  color: #fff;
+}
+
+.msched-chip.span-start {
+  border-radius: 4px 0 0 4px;
+  margin-right: -7px;
+}
+
+.msched-chip.span-mid {
+  border-radius: 0;
+  margin-left: -7px;
+  margin-right: -7px;
+}
+
+.msched-chip.span-end {
+  border-radius: 0 4px 4px 0;
+  margin-left: -7px;
+}
+
+/* 주 끝(토)에서 다음 주로 이어지면 오른쪽도 끝까지, 주 시작(일)은 왼쪽도 끝까지 —
+   음수 마진이 그리드 밖으로 나가지 않게 7번째/1번째 칸은 살짝만 */
+.msched-day:nth-child(7n + 1) .msched-chip.span-mid,
+.msched-day:nth-child(7n + 1) .msched-chip.span-end {
+  margin-left: -5px;
+}
+
+.msched-day:nth-child(7n) .msched-chip.span-start,
+.msched-day:nth-child(7n) .msched-chip.span-mid {
+  margin-right: -5px;
+}
+
 .msched-chip-time {
   font-weight: 600;
   flex-shrink: 0;
@@ -4769,10 +4807,13 @@ input:focus {
 }
 
 .msched-se input[type='date'] {
-  flex: 1 1 68px;
-  min-width: 0;
+  /* grow 금지 — 남는 공간을 먹고 커지지 않게, 날짜 글자에 딱 맞는 고정폭 */
+  flex: none;
+  width: 76px;
+  box-sizing: border-box;
   padding: 5px 2px;
   font-size: 11px;
+  text-align: center;
 }
 
 /* 달력 아이콘 숨겨 폭 확보 — 클릭하면 showPicker로 달력이 열림 */
