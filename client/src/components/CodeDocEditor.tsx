@@ -29,7 +29,17 @@ import { yCollab } from 'y-codemirror.next';
 import { useAuthStore } from '../store';
 import Marquee from './Marquee';
 import { api } from '../api';
-import { PlusIcon, CloseIcon, CodeIcon, PlayIcon, DownloadIcon } from './Icons';
+import {
+  PlusIcon,
+  CloseIcon,
+  CodeIcon,
+  PlayIcon,
+  DownloadIcon,
+  DocIcon,
+  SheetIcon,
+  SlideIcon,
+  PenIcon,
+} from './Icons';
 
 const CURSOR_COLORS = ['#30a46c', '#e5484d', '#f76808', '#4f7cff', '#8e4ec6', '#0091ff', '#d6409f'];
 
@@ -172,7 +182,24 @@ function fileIcon(name: string): string {
 }
 
 /** VS Code식 코드 공동편집 — 파일 탐색기 + 멀티파일 탭, Yjs 실시간 */
-export default function CodeDocEditor({ roomId }: { roomId: string }) {
+/** 탐색기(공동편집)에서 같은 폴더에 있는 이웃 문서 — 사이드바 하단에 표시해 바로 전환 */
+export interface SiblingDoc {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export default function CodeDocEditor({
+  roomId,
+  siblings,
+  currentSibId,
+  onOpenSibling,
+}: {
+  roomId: string;
+  siblings?: SiblingDoc[];
+  currentSibId?: number;
+  onOpenSibling?: (id: number) => void;
+}) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -755,6 +782,34 @@ export default function CodeDocEditor({ roomId }: { roomId: string }) {
             <div className="vsc-empty">파일/폴더를 만들어보세요</div>
           )}
         </div>
+
+        {/* 공동편집 현재 폴더의 이웃 문서 — 뒤로 안 나가고 바로 전환 */}
+        {siblings && siblings.length > 1 && (
+          <div className="vsc-siblings">
+            <div className="vsc-sidebar-sub">같은 폴더</div>
+            {siblings.map((s) => (
+              <button
+                key={s.id}
+                className={`vsc-sib${s.id === currentSibId ? ' on' : ''}`}
+                title={s.name}
+                onClick={() => s.id !== currentSibId && onOpenSibling?.(s.id)}
+              >
+                {s.type === 'doc' ? (
+                  <DocIcon size={12} />
+                ) : s.type === 'sheet' ? (
+                  <SheetIcon size={12} />
+                ) : s.type === 'slide' ? (
+                  <SlideIcon size={12} />
+                ) : s.type === 'canvas' ? (
+                  <PenIcon size={12} />
+                ) : (
+                  <CodeIcon size={12} />
+                )}
+                <span className="vsc-sib-name">{s.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 에디터 영역 */}

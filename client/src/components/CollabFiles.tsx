@@ -816,7 +816,20 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
             className="cf-editor-host"
             style={{ display: f.id === activeId ? 'flex' : 'none' }}
           >
-            {f.type === 'code' && <CodeDocEditor roomId={f.room!} />}
+            {f.type === 'code' && (
+              <CodeDocEditor
+                roomId={f.room!}
+                // 같은 폴더의 이웃 문서 — 에디터 사이드바에서 바로 전환
+                siblings={(byParent.get(f.parent_id) ?? [])
+                  .filter((s) => s.type !== 'folder')
+                  .map((s) => ({ id: s.id, name: s.name, type: s.type }))}
+                currentSibId={f.id}
+                onOpenSibling={(id) => {
+                  const target = files.find((x) => x.id === id);
+                  if (target) openFile(target);
+                }}
+              />
+            )}
             {f.type === 'doc' && <DocEditor roomId={f.room!} />}
             {f.type === 'sheet' && <SheetEditor roomId={f.room!} />}
             {f.type === 'slide' && <SlideEditor roomId={f.room!} />}
