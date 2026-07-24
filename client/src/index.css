@@ -6628,6 +6628,290 @@ input:focus {
   white-space: nowrap;
 }
 
+/* 문서 툴바 드롭다운 공통 */
+.doc-dd-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.doc-dd-back {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+}
+
+.doc-dd {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  padding: 5px;
+  min-width: 118px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.doc-dd.right {
+  left: auto;
+  right: 0;
+}
+
+.doc-dd .item {
+  text-align: left;
+  padding: 7px 11px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.doc-dd .item:hover {
+  background: var(--surface-3);
+}
+
+.doc-dd .item.on {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.doc-dd .item.danger {
+  color: #e5484d;
+}
+
+.doc-dd.sw {
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 140px;
+  min-width: 0;
+  gap: 7px;
+  padding: 10px;
+}
+
+.doc-sw {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  cursor: pointer;
+  padding: 0;
+}
+
+.doc-sw:hover {
+  transform: scale(1.12);
+}
+
+.doc-sw.none {
+  background: repeating-linear-gradient(45deg, #fff, #fff 4px, #e4e6ea 4px, #e4e6ea 8px);
+}
+
+.doc-colorA {
+  position: relative;
+  font-weight: 700;
+  line-height: 1;
+  padding-bottom: 3px;
+}
+
+.doc-colorA::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--c, #1c2024);
+}
+
+.doc-hl-ico {
+  background: #fff59d;
+  border-radius: 3px;
+  padding: 0 3px;
+  line-height: 1.25;
+}
+
+/* 링크·찾기/바꾸기 팝오버 */
+.doc-find {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  padding: 10px;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.doc-find input {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+
+.doc-find input:focus {
+  border-color: var(--green);
+}
+
+.doc-find-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.doc-find-btns button {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.doc-find-btns button:hover {
+  background: var(--surface-3);
+}
+
+.doc-find-btns .doc-find-go {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.doc-find-count {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+
+/* 문서 본문 — 링크·이미지·형광펜 */
+.doc-prose a {
+  color: #4f7cff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.doc-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.doc-prose img.ProseMirror-selectednode {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.doc-prose mark {
+  border-radius: 3px;
+  padding: 1px 2px;
+}
+
+/* 문서 본문 — 체크리스트 */
+.doc-prose ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0.2em;
+}
+
+.doc-prose ul[data-type='taskList'] li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.doc-prose ul[data-type='taskList'] li > label {
+  flex: none;
+  margin-top: 0.32em;
+  user-select: none;
+}
+
+.doc-prose ul[data-type='taskList'] li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.doc-prose ul[data-type='taskList'] input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.doc-prose ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--text-sub);
+  text-decoration: line-through;
+}
+
+/* 문서 본문 — 표 */
+.doc-prose .tableWrapper {
+  overflow-x: auto;
+  margin: 0.7em 0;
+}
+
+.doc-prose table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+}
+
+.doc-prose th,
+.doc-prose td {
+  border: 1px solid var(--border);
+  padding: 7px 10px;
+  vertical-align: top;
+  position: relative;
+  min-width: 2em;
+}
+
+.doc-prose th {
+  background: var(--surface-3);
+  font-weight: 600;
+  text-align: left;
+}
+
+.doc-prose .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(33, 200, 24, 0.09);
+  pointer-events: none;
+}
+
+.doc-prose .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -1px;
+  width: 4px;
+  background: var(--green);
+  pointer-events: none;
+}
+
+.doc-prose.resize-cursor,
+.doc-editor .resize-cursor {
+  cursor: col-resize;
+}
+
 /* 협업 스프레드시트 */
 .sheet-editor {
   position: absolute;
