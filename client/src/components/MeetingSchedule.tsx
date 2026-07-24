@@ -309,6 +309,8 @@ export default function MeetingSchedule({
       showTitle: boolean;
     }[]
   >([]);
+  /** 월 셀 하나에 들어가는 표시 줄 수 — 셀 높이 실측으로 계산 (칩 한 줄 ≈ 18px) */
+  const [cellCap, setCellCap] = useState(2);
 
   function closePop() {
     setPop((p) => {
@@ -618,6 +620,14 @@ export default function MeetingSchedule({
       const grid = gridRef.current;
       if (!grid) return;
       const gr = grid.getBoundingClientRect();
+      // 셀 높이 → 표시 가능한 칩 줄 수 (넘치면 +N이 한 줄 차지)
+      const anyCell = cellElsRef.current.get(cells[0]?.key);
+      if (anyCell) {
+        const cr = anyCell.getBoundingClientRect();
+        const ea = anyCell.querySelector('.msched-day-events')?.getBoundingClientRect();
+        const availH = cr.bottom - (ea ? ea.top : cr.top + 34) - 4;
+        setCellCap(Math.max(1, Math.floor(availH / 18)));
+      }
       const bars: typeof monthBars = [];
       for (let r = 0; r < cells.length / 7; r++) {
         const row = cells.slice(r * 7, r * 7 + 7);
@@ -1587,10 +1597,12 @@ export default function MeetingSchedule({
           {cells.map((c, i) => {
             const all = byDate.get(c.key) ?? [];
             // 기간 일정(seg)은 오버레이 바로 그림 — 셀 칩에서는 제외하고 자리만 비워둠
-            const spanCount = Math.min(all.filter((e) => e.seg).length, 2);
+            const spanCount = Math.min(all.filter((e) => e.seg).length, Math.min(cellCap, 2));
             const evs = all.filter((e) => !e.seg);
             const isMeetingDay = isMeetingDayKey(c.key);
-            const chips = evs.slice(0, Math.max(0, (isMeetingDay ? 1 : 2) - spanCount));
+            // 셀 높이만큼 최대한 채우고, 안 들어가면 마지막 한 줄은 +N
+            const avail = Math.max(0, cellCap - spanCount - (isMeetingDay ? 1 : 0));
+            const chips = evs.length > avail ? evs.slice(0, Math.max(0, avail - 1)) : evs;
             const overflow = evs.length - chips.length;
             return (
               <button
