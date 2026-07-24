@@ -4882,16 +4882,17 @@ input:focus {
 
 /* 패널이 좁아 한 줄이 안 되면 시작/종료를 그룹째 2줄로 (글씨 짤림 방지) */
 @container (max-width: 336px) {
-  .msched-se .msched-times-sep {
-    display: none;
+  /* 시작 [날짜][시간] ~ 까지가 첫 줄, 종료는 통째로 다음 줄 */
+  .msched-se-group {
+    flex: none;
   }
 
-  .msched-se-group {
+  .msched-se-group + .msched-se-group {
     flex: 1 1 100%;
   }
 
   .msched-se-group input[type='date'] {
-    flex: 1 1 auto;
+    width: 108px;
     font-size: 12px;
   }
 
