@@ -7580,6 +7580,7 @@ input:focus {
 .slide-tools {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap; /* 좁은 화면(모바일·태블릿)에서 줄바꿈 */
 }
 
 .slide-tools button {
@@ -7694,6 +7695,34 @@ input:focus {
   display: inline-flex;
 }
 
+/* 슬라이드 복제·순서 버튼 (호버 시) */
+.slide-thumb-acts {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  display: none;
+  gap: 2px;
+}
+
+.slide-thumb:hover .slide-thumb-acts {
+  display: inline-flex;
+}
+
+.slide-thumb-acts button {
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 4px;
+}
+
+.slide-thumb-acts button:hover {
+  background: var(--green);
+}
+
 .slide-add {
   display: inline-flex;
   align-items: center;
@@ -7718,10 +7747,113 @@ input:focus {
   flex: 1;
   min-width: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   padding: 24px;
   overflow: auto;
+}
+
+/* 발표자 노트 */
+.slide-notes {
+  width: 100%;
+  max-width: 900px;
+  min-height: 54px;
+  max-height: 120px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 9px 12px;
+  outline: none;
+  flex: none;
+}
+
+.slide-notes:focus {
+  border-color: var(--green);
+}
+
+/* 정렬 보조선 */
+.slide-guide-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1.5px dashed #e5484d;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.slide-guide-h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1.5px dashed #e5484d;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* PDF 버튼 */
+.slide-pdf-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.slide-pdf-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* PDF 인쇄 전용 — 화면에선 숨김 */
+.slide-print {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .slide-print,
+  .slide-print * {
+    visibility: visible;
+  }
+  .slide-print {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: #fff;
+  }
+  .slide-print-page {
+    page-break-after: always;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100vh;
+  }
+  .slide-print-canvas {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    position: relative;
+    overflow: hidden;
+    background: #fff;
+  }
+}
+
+@page {
+  size: A4 landscape;
+  margin: 8mm;
 }
 
 .slide-canvas {
@@ -7864,13 +7996,19 @@ input:focus {
 }
 
 .slide-prop-btn {
-  width: 28px;
+  min-width: 28px;
   height: 28px;
+  padding: 0 6px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
 }
 
 /* 발표 모드 */

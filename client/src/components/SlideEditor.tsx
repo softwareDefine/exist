@@ -7,6 +7,7 @@ import { PlusIcon, CloseIcon, PlayIcon } from './Icons';
 interface SlideMeta {
   id: string;
   ord: number;
+  note?: string;
 }
 type ShapeKind = 'rect' | 'ellipse' | 'triangle' | 'line' | 'arrow';
 interface ElData {
@@ -15,6 +16,7 @@ interface ElData {
   y: number;
   w: number;
   h: number;
+  z?: number; // 쌓임 순서 (클수록 앞)
   // 텍스트
   text?: string;
   size?: number;
@@ -37,7 +39,7 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const ydocRef = useRef<Y.Doc | null>(null);
-  const slidesMapRef = useRef<Y.Map<{ ord: number }> | null>(null);
+  const slidesMapRef = useRef<Y.Map<{ ord: number; note?: string }> | null>(null);
   const elsRef = useRef<Y.Map<ElData> | null>(null);
   const [, bump] = useState(0);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
@@ -53,6 +55,8 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
   const resizeRef = useRef<{ id: string; sx: number; sy: number; ow: number; oh: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [shapeMenu, setShapeMenu] = useState(false);
+  const [guides, setGuides] = useState<{ v: number[]; h: number[] }>({ v: [], h: [] });
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     const ydoc = new Y.Doc();
@@ -60,14 +64,14 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
     const provider = new WebsocketProvider(`${proto}://${location.host}/yjs`, roomId, ydoc, {
       params: { token: token ?? '' },
     });
-    const slidesMap = ydoc.getMap<{ ord: number }>('slides');
+    const slidesMap = ydoc.getMap<{ ord: number; note?: string }>('slides');
     ydocRef.current = ydoc;
     slidesMapRef.current = slidesMap;
     setStatus(provider.wsconnected ? 'connected' : 'connecting');
 
     const syncSlides = () => {
       const list: SlideMeta[] = [];
-      slidesMap.forEach((v, id) => list.push({ id, ord: v.ord }));
+      slidesMap.forEach((v, id) => list.push({ id, ord: v.ord, note: v.note }));
       list.sort((a, b) => a.ord - b.ord);
       setSlides(list);
       setActiveSlideId((cur) => (cur && list.some((s) => s.id === cur) ? cur : list[0]?.id ?? null));
@@ -114,7 +118,11 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
 
   function elsOf(slideId: string): [string, ElData][] {
     const m = ydocRef.current?.getMap<ElData>(`slide-els:${slideId}`);
-    return m ? ([...m.entries()] as [string, ElData][]) : [];
+    if (!m) return [];
+    // z 오름차순 (뒤→앞), 같은 z는 키 순서로 고정
+    return ([...m.entries()] as [string, ElData][]).sort(
+      (a, b) => (a[1].z ?? 0) - (b[1].z ?? 0) || a[0].localeCompare(b[0]),
+    );
   }
   const activeEls = activeSlideId ? elsOf(activeSlideId) : [];
 
@@ -198,6 +206,86 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
     setEditingEl(null);
   }
 
+  // ── z-순서 / 복제 ──
+  function zBounds(): { min: number; max: number } {
+    let min = 0;
+    let max = 0;
+    elsRef.current?.forEach((el) => {
+      const z = el.z ?? 0;
+      min = Math.min(min, z);
+      max = Math.max(max, z);
+    });
+    return { min, max };
+  }
+  function bringFront(id: string) {
+    updateEl(id, { z: zBounds().max + 1 });
+  }
+  function sendBack(id: string) {
+    updateEl(id, { z: zBounds().min - 1 });
+  }
+  function duplicateEl(id: string) {
+    const els = elsRef.current;
+    const cur = els?.get(id);
+    if (!els || !cur) return;
+    const nid = crypto.randomUUID();
+    els.set(nid, { ...cur, x: Math.min(95, cur.x + 3), y: Math.min(95, cur.y + 3), z: zBounds().max + 1 });
+    setSelEl(nid);
+  }
+
+  // ── 슬라이드 복제 / 순서 변경 / 노트 ──
+  function duplicateSlide(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    const map = slidesMapRef.current;
+    const ydoc = ydocRef.current;
+    const src = map?.get(id);
+    if (!map || !ydoc || !src) return;
+    const nid = crypto.randomUUID();
+    ydoc.transact(() => {
+      // 원본 바로 뒤로 — 뒤 슬라이드 ord 한 칸씩 밀기
+      map.forEach((v, k) => {
+        if (v.ord > src.ord) map.set(k, { ...v, ord: v.ord + 1 });
+      });
+      map.set(nid, { ord: src.ord + 1, note: src.note });
+      const srcEls = ydoc.getMap<ElData>(`slide-els:${id}`);
+      const dstEls = ydoc.getMap<ElData>(`slide-els:${nid}`);
+      srcEls.forEach((el, k) => dstEls.set(k, { ...el }));
+    });
+    setActiveSlideId(nid);
+  }
+  function moveSlide(id: string, dir: -1 | 1, e: React.MouseEvent) {
+    e.stopPropagation();
+    const map = slidesMapRef.current;
+    if (!map) return;
+    const idx = slides.findIndex((s) => s.id === id);
+    const other = slides[idx + dir];
+    if (idx === -1 || !other) return;
+    const a = map.get(id);
+    const b = map.get(other.id);
+    if (!a || !b) return;
+    ydocRef.current?.transact(() => {
+      map.set(id, { ...a, ord: b.ord });
+      map.set(other.id, { ...b, ord: a.ord });
+    });
+  }
+  function setNote(text: string) {
+    const map = slidesMapRef.current;
+    if (!map || !activeSlideId) return;
+    const cur = map.get(activeSlideId);
+    if (cur) map.set(activeSlideId, { ...cur, note: text });
+  }
+
+  // ── PDF 내보내기 — 인쇄 전용 레이아웃 렌더 후 브라우저 인쇄(PDF 저장) ──
+  useEffect(() => {
+    if (!printing) return;
+    const t = setTimeout(() => window.print(), 150);
+    const done = () => setPrinting(false);
+    window.addEventListener('afterprint', done);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('afterprint', done);
+    };
+  }, [printing]);
+
   // 드래그 이동 / 크기 조절 — Pointer Events (터치·마우스 공용, 모바일 드래그 지원)
   useEffect(() => {
     function onMove(e: PointerEvent) {
@@ -208,10 +296,42 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
       if (d) {
         const dx = ((e.clientX - d.sx) / rect.width) * 100;
         const dy = ((e.clientY - d.sy) / rect.height) * 100;
-        updateEl(d.id, {
-          x: Math.max(0, Math.min(98, d.ox + dx)),
-          y: Math.max(0, Math.min(98, d.oy + dy)),
-        });
+        let nx = Math.max(0, Math.min(98, d.ox + dx));
+        let ny = Math.max(0, Math.min(98, d.oy + dy));
+        // 정렬 보조선 — 캔버스 중앙·다른 요소 가장자리/중앙에 스냅
+        const SNAP = 1.2;
+        const el = elsRef.current?.get(d.id);
+        const gv: number[] = [];
+        const gh: number[] = [];
+        if (el) {
+          const w = el.w;
+          const h = el.h;
+          const vT: { line: number; at: 'left' | 'center' | 'right' }[] = [{ line: 50, at: 'center' }];
+          const hT: { line: number; at: 'top' | 'center' | 'bottom' }[] = [{ line: 50, at: 'center' }];
+          elsRef.current?.forEach((o, k) => {
+            if (k === d.id) return;
+            vT.push({ line: o.x, at: 'left' }, { line: o.x + o.w / 2, at: 'center' }, { line: o.x + o.w, at: 'right' });
+            hT.push({ line: o.y, at: 'top' }, { line: o.y + o.h / 2, at: 'center' }, { line: o.y + o.h, at: 'bottom' });
+          });
+          for (const t of vT) {
+            const pos = t.at === 'left' ? nx : t.at === 'center' ? nx + w / 2 : nx + w;
+            if (Math.abs(pos - t.line) < SNAP) {
+              nx += t.line - pos;
+              gv.push(t.line);
+              break;
+            }
+          }
+          for (const t of hT) {
+            const pos = t.at === 'top' ? ny : t.at === 'center' ? ny + h / 2 : ny + h;
+            if (Math.abs(pos - t.line) < SNAP) {
+              ny += t.line - pos;
+              gh.push(t.line);
+              break;
+            }
+          }
+        }
+        setGuides({ v: gv, h: gh });
+        updateEl(d.id, { x: nx, y: ny });
       }
       const z = resizeRef.current;
       if (z) {
@@ -228,6 +348,7 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
         dragRef.current = null;
         resizeRef.current = null;
         document.body.style.userSelect = '';
+        setGuides({ v: [], h: [] });
       }
     }
     window.addEventListener('pointermove', onMove);
@@ -402,6 +523,15 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
           {selElData && (
             <div className="slide-props">
               <span className="sht-sep" />
+              <button className="slide-prop-btn" onClick={() => duplicateEl(selEl!)} title="복제">
+                ⧉
+              </button>
+              <button className="slide-prop-btn" onClick={() => bringFront(selEl!)} title="맨 앞으로">
+                ⬆앞
+              </button>
+              <button className="slide-prop-btn" onClick={() => sendBack(selEl!)} title="맨 뒤로">
+                ⬇뒤
+              </button>
               {selElData.type === 'shape' && (
                 <>
                   <span className="slide-prop-label">채움</span>
@@ -432,6 +562,21 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
                   <button className="slide-prop-btn" onClick={() => updateEl(selEl!, { bold: !selElData.bold })}>
                     <b>B</b>
                   </button>
+                  <button
+                    className="slide-prop-btn"
+                    title="글자 작게"
+                    onClick={() => updateEl(selEl!, { size: Math.max(10, (selElData.size ?? 22) - 2) })}
+                  >
+                    A−
+                  </button>
+                  <span className="slide-prop-label">{selElData.size ?? 22}</span>
+                  <button
+                    className="slide-prop-btn"
+                    title="글자 크게"
+                    onClick={() => updateEl(selEl!, { size: Math.min(80, (selElData.size ?? 22) + 2) })}
+                  >
+                    A＋
+                  </button>
                   <span className="slide-prop-label">글자색</span>
                   {PALETTE.slice(0, 8).map((col) => (
                     <button
@@ -447,6 +592,9 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
           )}
         </div>
         <div className="slide-right">
+          <button className="slide-pdf-btn" onClick={() => setPrinting(true)} title="PDF로 저장 (인쇄)">
+            PDF
+          </button>
           <button
             className="slide-present-btn"
             onClick={() => {
@@ -498,6 +646,15 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
                   <CloseIcon size={10} />
                 </button>
               )}
+              <div className="slide-thumb-acts">
+                <button title="복제" onClick={(e) => duplicateSlide(s.id, e)}>⧉</button>
+                {i > 0 && (
+                  <button title="위로" onClick={(e) => moveSlide(s.id, -1, e)}>↑</button>
+                )}
+                {i < slides.length - 1 && (
+                  <button title="아래로" onClick={(e) => moveSlide(s.id, 1, e)}>↓</button>
+                )}
+              </div>
             </div>
           ))}
           <button className="slide-add" onClick={addSlide}>
@@ -508,9 +665,35 @@ export default function SlideEditor({ roomId }: { roomId: string }) {
         <div className="slide-stage">
           <div className="slide-canvas" ref={canvasRef} onMouseDown={() => setSelEl(null)}>
             {activeEls.map(([id, el]) => renderEl(id, el, true))}
+            {guides.v.map((x) => (
+              <div key={`v${x}`} className="slide-guide-v" style={{ left: `${x}%` }} />
+            ))}
+            {guides.h.map((y) => (
+              <div key={`h${y}`} className="slide-guide-h" style={{ top: `${y}%` }} />
+            ))}
           </div>
+          {/* 발표자 노트 */}
+          <textarea
+            className="slide-notes"
+            placeholder="발표자 노트 — 이 슬라이드에서 말할 내용 (발표 화면엔 안 나와요)"
+            value={slides.find((s) => s.id === activeSlideId)?.note ?? ''}
+            onChange={(e) => setNote(e.target.value)}
+          />
         </div>
       </div>
+
+      {/* PDF 인쇄 전용 렌더 — 화면에선 숨김, 인쇄 시 슬라이드만 한 장씩 */}
+      {printing && (
+        <div className="slide-print">
+          {slides.map((s) => (
+            <div key={s.id} className="slide-print-page">
+              <div className="slide-print-canvas">
+                {elsOf(s.id).map(([id, el]) => renderEl(id, el, false))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
