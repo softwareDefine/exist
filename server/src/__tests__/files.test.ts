@@ -154,19 +154,48 @@ describe('공동편집 파일시스템', () => {
     const bin = path.join(YDOCS_DIR, `file-${file.body.id}.bin`);
     fs.writeFileSync(bin, Buffer.alloc(4));
 
+    // 삭제 = 휴지통(소프트) — 하위까지 묶이고 .bin은 보존
     const del = await request(app)
       .delete(`/api/meetings/${code}/files/${folder.body.id}`)
       .set('Authorization', `Bearer ${host.token}`);
     expect(del.status).toBe(200);
-    expect(del.body.deleted).toBe(3);
-    expect(fs.existsSync(bin)).toBe(false);
+    expect(del.body.trashed).toBe(3);
+    expect(fs.existsSync(bin)).toBe(true);
 
     const list = await request(app)
       .get(`/api/meetings/${code}/files`)
       .set('Authorization', `Bearer ${host.token}`);
-    // 기본 "새 폴더"만 남는다
+    // 목록에선 사라지고 기본 "새 폴더"만 남는다
     expect(list.body).toHaveLength(1);
     expect(list.body[0].name).toBe('새 폴더');
+
+    // 휴지통 목록 — 루트 1건 (하위 2개 포함)
+    const trash = await request(app)
+      .get(`/api/meetings/${code}/files/trash/list`)
+      .set('Authorization', `Bearer ${host.token}`);
+    expect(trash.body).toHaveLength(1);
+    expect(trash.body[0].children).toBe(2);
+
+    // 복원 — 전부 되살아남
+    const restore = await request(app)
+      .post(`/api/meetings/${code}/files/trash/${folder.body.id}/restore`)
+      .set('Authorization', `Bearer ${host.token}`);
+    expect(restore.status).toBe(200);
+    const list2 = await request(app)
+      .get(`/api/meetings/${code}/files`)
+      .set('Authorization', `Bearer ${host.token}`);
+    expect(list2.body).toHaveLength(4); // 새 폴더 + 자료/하위/깊은 시트
+
+    // 다시 삭제 → 영구 삭제하면 .bin까지 정리
+    await request(app)
+      .delete(`/api/meetings/${code}/files/${folder.body.id}`)
+      .set('Authorization', `Bearer ${host.token}`);
+    const purge = await request(app)
+      .delete(`/api/meetings/${code}/files/trash/${folder.body.id}`)
+      .set('Authorization', `Bearer ${host.token}`);
+    expect(purge.status).toBe(200);
+    expect(purge.body.purged).toBe(3);
+    expect(fs.existsSync(bin)).toBe(false);
   });
 
   it('비참가자 403', async () => {

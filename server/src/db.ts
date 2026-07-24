@@ -361,6 +361,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_cfiles_meeting ON collab_files(meeting_id, parent_id);
 `);
 
+// 마이그레이션: 공동편집 휴지통 — 소프트 삭제 (deleted_root = 삭제 묶음의 루트 id)
+try {
+  db.exec(`ALTER TABLE collab_files ADD COLUMN deleted_at TEXT`);
+  db.exec(`ALTER TABLE collab_files ADD COLUMN deleted_root INTEGER`);
+} catch {
+  /* 이미 존재 */
+}
+
+
 /* 통화 음성 전사 — 각 참가자 브라우저의 STT(Web Speech) 결과.
  * recap·결정 원장·AI 총무의 근거로 채팅과 함께 쓰인다. */
 db.exec(`

@@ -116,6 +116,21 @@ export function copyYdoc(src: string, dst: string) {
   }
 }
 
+/** 룸 상태를 읽기 전용 스냅샷으로 — 미리보기용. docs 맵에 올리지 않아 메모리 잔류 없음 */
+export function readYdocSnapshot(name: string): Y.Doc | null {
+  const open = docs.get(name);
+  const doc = new Y.Doc();
+  try {
+    if (open) Y.applyUpdate(doc, Y.encodeStateAsUpdate(open));
+    else if (fs.existsSync(filePath(name)))
+      Y.applyUpdate(doc, new Uint8Array(fs.readFileSync(filePath(name))));
+    else return null;
+  } catch {
+    return null;
+  }
+  return doc;
+}
+
 /** 룸 완전 삭제 — 접속 종료 + 메모리 해제 + .bin 제거 (파일 삭제 시) */
 export function deleteYdoc(name: string) {
   const doc = docs.get(name);

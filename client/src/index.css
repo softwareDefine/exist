@@ -13213,3 +13213,278 @@ input:focus {
   }
 
 }
+
+/* ══ 공동편집 탐색기 — 윈도우 상호작용 확장 (우클릭·다중선택·드래그·상태바·휴지통·즐겨찾기) ══ */
+
+/* 우클릭 컨텍스트 메뉴 */
+.cf-ctx {
+  position: fixed;
+  z-index: 720;
+  min-width: 176px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+  padding: 5px;
+}
+
+.cf-ctx button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: none;
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-ctx button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cf-ctx button.danger {
+  color: #e5484d;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cf-ctx button:not(:disabled):hover {
+    background: var(--surface-2);
+  }
+}
+
+.cf-menu-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 6px;
+}
+
+.cf-menu-label {
+  padding: 5px 10px 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+/* 러버밴드 (드래그 박스 선택) */
+.cf-rubber {
+  position: fixed;
+  z-index: 30;
+  border: 1px solid var(--green);
+  background: rgba(33, 200, 24, 0.08);
+  pointer-events: none;
+}
+
+/* 드래그 이동 대상 하이라이트 */
+.cf-entry.droptarget {
+  outline: 2px solid var(--green);
+  outline-offset: -2px;
+  background: rgba(33, 200, 24, 0.08);
+}
+
+.cf-crumb.droptarget {
+  outline: 2px solid var(--green);
+  border-radius: 6px;
+}
+
+/* 하단 상태바 */
+.cf-statusbar {
+  flex: none;
+  border-top: 1px solid var(--border);
+  padding: 4px 12px;
+  font-size: 11.5px;
+  color: var(--text-sub);
+}
+
+/* 목록 뷰 헤더 (클릭 정렬) */
+.cf-listhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 10px 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.cf-listhead button {
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.cf-listhead button:first-child {
+  flex: 1;
+  padding-left: 26px; /* 아이콘 자리만큼 */
+}
+
+.cf-listhead button:not(:first-child) {
+  width: 90px;
+  flex: none;
+}
+
+/* 즐겨찾기 바 */
+.cf-favbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cf-favbar-label {
+  font-size: 12px;
+  color: #e0a13f;
+  flex: none;
+}
+
+.cf-fav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cf-fav-chip:hover {
+    border-color: var(--green);
+  }
+}
+
+/* 상세 패널 즐겨찾기 별 */
+.cf-fav-star {
+  border: none;
+  background: none;
+  color: #c9c9c9;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 0 2px;
+  vertical-align: 1px;
+}
+
+.cf-fav-star.on {
+  color: #e0a13f;
+}
+
+/* 상세 패널 미리보기 */
+.cf-details-preview {
+  width: 100%;
+  border-top: 1px solid var(--border);
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.cf-details-prevtitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-bottom: 5px;
+}
+
+.cf-details-previtem {
+  font-size: 12px;
+  color: var(--text);
+  padding: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 휴지통 패널 */
+.cf-trash {
+  position: absolute;
+  right: 12px;
+  top: 84px;
+  width: 340px;
+  max-height: 60%;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 10px;
+  z-index: 40;
+}
+
+.cf-trash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.cf-trash-close {
+  border: none;
+  background: none;
+  color: var(--text-sub);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.cf-trash-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 4px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.cf-trash-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-trash-meta {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+
+.cf-trash-row button {
+  flex: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.cf-trash-row button.danger {
+  color: #e5484d;
+}
+
+/* 탐색기 포커스 아웃라인 제거 (키보드 조작용 tabIndex) */
+.cf-explorer:focus {
+  outline: none;
+}
+
+/* 툴바 토글(휴지통 열림) 표시 */
+.cf-tool.on {
+  background: var(--surface-2);
+}

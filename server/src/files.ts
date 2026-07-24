@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from './db.js';
 import type { AuthedRequest } from './auth.js';
-import { ydocExists, deleteYdoc, copyYdoc } from './ydoc.js';
+import { ydocExists, deleteYdoc, copyYdoc, readYdocSnapshot } from './ydoc.js';
 
 /*
  * 공동편집 파일시스템 — 그룹 안에서 코드/문서/시트/발표 파일을 여러 개 만들고 폴더로 정리.
@@ -122,7 +122,7 @@ router.get('/', (req: AuthedRequest, res) => {
     .prepare(
       `SELECT f.id, f.parent_id, f.name, f.type, f.room, f.created_at, u.username AS author
        FROM collab_files f JOIN users u ON u.id = f.created_by
-       WHERE f.meeting_id = ? ORDER BY f.type = 'folder' DESC, f.name`,
+       WHERE f.meeting_id = ? AND f.deleted_at IS NULL ORDER BY f.type = 'folder' DESC, f.name`,
     )
     .all(r.meeting.id);
   res.json(rows);
@@ -140,7 +140,7 @@ router.post('/', (req: AuthedRequest, res) => {
   const parentId = req.body?.parent_id != null ? Number(req.body.parent_id) : null;
   if (parentId != null) {
     const parent = db
-      .prepare('SELECT type FROM collab_files WHERE id = ? AND meeting_id = ?')
+      .prepare('SELECT type FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
       .get(parentId, r.meeting.id) as { type: string } | undefined;
     if (!parent || parent.type !== 'folder')
       return res.status(400).json({ error: '폴더 안에만 만들 수 있어요' });
@@ -150,7 +150,7 @@ router.post('/', (req: AuthedRequest, res) => {
   }
 
   const count = (
-    db.prepare('SELECT COUNT(*) AS n FROM collab_files WHERE meeting_id = ?').get(r.meeting.id) as {
+    db.prepare('SELECT COUNT(*) AS n FROM collab_files WHERE meeting_id = ? AND deleted_at IS NULL').get(r.meeting.id) as {
       n: number;
     }
   ).n;
@@ -158,7 +158,7 @@ router.post('/', (req: AuthedRequest, res) => {
 
   const dup = db
     .prepare(
-      'SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ?',
+      'SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ? AND deleted_at IS NULL',
     )
     .get(r.meeting.id, name, parentId);
   if (dup) return res.status(409).json({ error: '같은 위치에 같은 이름이 있어요' });
@@ -183,7 +183,7 @@ router.patch('/:fileId', (req: AuthedRequest, res) => {
   const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   const f = db
-    .prepare('SELECT id, parent_id, name, type, created_by FROM collab_files WHERE id = ? AND meeting_id = ?')
+    .prepare('SELECT id, parent_id, name, type, created_by FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
     .get(req.params.fileId, r.meeting.id) as FileRow | undefined;
   if (!f) return res.status(404).json({ error: '존재하지 않는 파일이에요' });
   if (f.created_by !== req.userId && r.meeting.host_id !== req.userId) {
@@ -195,7 +195,7 @@ router.patch('/:fileId', (req: AuthedRequest, res) => {
     const target = req.body.parent_id == null ? null : Number(req.body.parent_id);
     if (target != null) {
       const parent = db
-        .prepare('SELECT id, type FROM collab_files WHERE id = ? AND meeting_id = ?')
+        .prepare('SELECT id, type FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
         .get(target, r.meeting.id) as { id: number; type: string } | undefined;
       if (!parent || parent.type !== 'folder')
         return res.status(400).json({ error: '폴더로만 이동할 수 있어요' });
@@ -213,7 +213,7 @@ router.patch('/:fileId', (req: AuthedRequest, res) => {
         return res.status(400).json({ error: `폴더는 ${MAX_DEPTH}단계까지예요` });
     }
     const dup = db
-      .prepare('SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ? AND id != ?')
+      .prepare('SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ? AND id != ? AND deleted_at IS NULL')
       .get(r.meeting.id, f.name, target, f.id);
     if (dup) return res.status(409).json({ error: '옮길 위치에 같은 이름이 있어요' });
     db.prepare('UPDATE collab_files SET parent_id = ? WHERE id = ?').run(target, f.id);
@@ -224,7 +224,7 @@ router.patch('/:fileId', (req: AuthedRequest, res) => {
   if (!name) return res.status(400).json({ error: '이름을 입력하세요' });
   const dup = db
     .prepare(
-      'SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ? AND id != ?',
+      'SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ? AND id != ? AND deleted_at IS NULL',
     )
     .get(r.meeting.id, name, f.parent_id, f.id);
   if (dup) return res.status(409).json({ error: '같은 위치에 같은 이름이 있어요' });
@@ -237,14 +237,14 @@ router.post('/:fileId/copy', (req: AuthedRequest, res) => {
   const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   const src = db
-    .prepare('SELECT id, parent_id, name, type, room, created_by FROM collab_files WHERE id = ? AND meeting_id = ?')
+    .prepare('SELECT id, parent_id, name, type, room, created_by FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
     .get(req.params.fileId, r.meeting.id) as (FileRow & { room: string | null }) | undefined;
   if (!src) return res.status(404).json({ error: '존재하지 않는 파일이에요' });
 
   const target = req.body?.parent_id == null ? null : Number(req.body.parent_id);
   if (target != null) {
     const parent = db
-      .prepare('SELECT type FROM collab_files WHERE id = ? AND meeting_id = ?')
+      .prepare('SELECT type FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
       .get(target, r.meeting.id) as { type: string } | undefined;
     if (!parent || parent.type !== 'folder')
       return res.status(400).json({ error: '폴더에만 붙여넣을 수 있어요' });
@@ -252,7 +252,7 @@ router.post('/:fileId/copy', (req: AuthedRequest, res) => {
 
   const meetingId = r.meeting.id;
   const count = (
-    db.prepare('SELECT COUNT(*) AS n FROM collab_files WHERE meeting_id = ?').get(meetingId) as {
+    db.prepare('SELECT COUNT(*) AS n FROM collab_files WHERE meeting_id = ? AND deleted_at IS NULL').get(meetingId) as {
       n: number;
     }
   ).n;
@@ -262,7 +262,7 @@ router.post('/:fileId/copy', (req: AuthedRequest, res) => {
     let name = base;
     for (let i = 2; ; i++) {
       const dup = db
-        .prepare('SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ?')
+        .prepare('SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ? AND deleted_at IS NULL')
         .get(meetingId, name, parentId);
       if (!dup) return name;
       name = `${base} (${i})`.slice(0, 60);
@@ -286,7 +286,7 @@ router.post('/:fileId/copy', (req: AuthedRequest, res) => {
       if (node.room) copyYdoc(node.room, room);
     } else {
       const children = db
-        .prepare('SELECT id, parent_id, name, type, room, created_by FROM collab_files WHERE parent_id = ?')
+        .prepare('SELECT id, parent_id, name, type, room, created_by FROM collab_files WHERE parent_id = ? AND deleted_at IS NULL')
         .all(node.id) as (FileRow & { room: string | null })[];
       for (const c of children) copyRec(c, newId);
     }
@@ -303,38 +303,158 @@ router.post('/:fileId/copy', (req: AuthedRequest, res) => {
   }
 });
 
-/** 삭제 — 호스트나 만든 사람. 폴더는 하위까지 재귀 삭제, Yjs 상태도 제거 */
+/** 하위 트리 id 수집 (BFS) — 삭제되지 않은 것만 */
+function collectSubtree(rootId: number): number[] {
+  const ids: number[] = [rootId];
+  const queue = [rootId];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    const children = db
+      .prepare('SELECT id FROM collab_files WHERE parent_id = ? AND deleted_at IS NULL')
+      .all(cur) as { id: number }[];
+    for (const c of children) {
+      ids.push(c.id);
+      queue.push(c.id);
+    }
+  }
+  return ids;
+}
+
+/** 삭제 → 휴지통 (소프트) — 호스트나 만든 사람. 폴더는 하위까지 묶어서. Yjs는 보존 */
 router.delete('/:fileId', (req: AuthedRequest, res) => {
   const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   const f = db
-    .prepare('SELECT id, created_by FROM collab_files WHERE id = ? AND meeting_id = ?')
+    .prepare('SELECT id, created_by FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
     .get(req.params.fileId, r.meeting.id) as FileRow | undefined;
   if (!f) return res.status(404).json({ error: '존재하지 않는 파일이에요' });
   if (f.created_by !== req.userId && r.meeting.host_id !== req.userId) {
     return res.status(403).json({ error: '호스트나 만든 사람만 삭제할 수 있어요' });
   }
 
-  // 재귀 수집 (BFS) 후 일괄 삭제
-  const toDelete: number[] = [f.id];
-  const queue = [f.id];
-  while (queue.length) {
-    const cur = queue.shift()!;
-    const children = db
-      .prepare('SELECT id FROM collab_files WHERE parent_id = ?')
-      .all(cur) as { id: number }[];
-    for (const c of children) {
-      toDelete.push(c.id);
-      queue.push(c.id);
-    }
+  const ids = collectSubtree(f.id);
+  const ph = ids.map(() => '?').join(',');
+  db.prepare(
+    `UPDATE collab_files SET deleted_at = datetime('now'), deleted_root = ? WHERE id IN (${ph})`,
+  ).run(f.id, ...ids);
+  res.json({ ok: true, trashed: ids.length });
+});
+
+/** 휴지통 목록 — 삭제 묶음의 루트만 (하위 개수 포함) */
+router.get('/trash/list', (req: AuthedRequest, res) => {
+  const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const rows = db
+    .prepare(
+      `SELECT f.id, f.name, f.type, f.deleted_at, u.username AS author,
+              (SELECT COUNT(*) - 1 FROM collab_files c WHERE c.deleted_root = f.id) AS children
+       FROM collab_files f JOIN users u ON u.id = f.created_by
+       WHERE f.meeting_id = ? AND f.deleted_root = f.id
+       ORDER BY f.deleted_at DESC`,
+    )
+    .all(r.meeting.id);
+  res.json(rows);
+});
+
+/** 휴지통 복원 — 원래 자리로 (부모가 삭제됐으면 루트로, 이름 겹치면 (2) 붙임) */
+router.post('/trash/:fileId/restore', (req: AuthedRequest, res) => {
+  const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const f = db
+    .prepare(
+      'SELECT id, parent_id, name, created_by FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_root = id',
+    )
+    .get(req.params.fileId, r.meeting.id) as
+    | { id: number; parent_id: number | null; name: string; created_by: number }
+    | undefined;
+  if (!f) return res.status(404).json({ error: '휴지통에 없는 항목이에요' });
+  if (f.created_by !== req.userId && r.meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트나 만든 사람만 복원할 수 있어요' });
   }
-  const ph = toDelete.map(() => '?').join(',');
+
+  // 원래 부모가 삭제됐거나 없어졌으면 루트로
+  let target: number | null = f.parent_id;
+  if (target != null) {
+    const parent = db
+      .prepare('SELECT 1 FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
+      .get(target, r.meeting.id);
+    if (!parent) target = null;
+  }
+  // 복원 위치 이름 충돌 → "이름 (2)"
+  let name = f.name;
+  for (let i = 2; ; i++) {
+    const dup = db
+      .prepare(
+        'SELECT 1 FROM collab_files WHERE meeting_id = ? AND name = ? AND parent_id IS ? AND deleted_at IS NULL AND id != ?',
+      )
+      .get(r.meeting.id, name, target, f.id);
+    if (!dup) break;
+    name = `${f.name} (${i})`.slice(0, 60);
+  }
+  db.prepare('UPDATE collab_files SET deleted_at = NULL, deleted_root = NULL WHERE deleted_root = ?').run(
+    f.id,
+  );
+  db.prepare('UPDATE collab_files SET parent_id = ?, name = ? WHERE id = ?').run(target, name, f.id);
+  res.json({ ok: true, parent_id: target, name });
+});
+
+/** 휴지통 영구 삭제 — Yjs 상태까지 제거 */
+router.delete('/trash/:fileId', (req: AuthedRequest, res) => {
+  const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const f = db
+    .prepare('SELECT id, created_by FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_root = id')
+    .get(req.params.fileId, r.meeting.id) as FileRow | undefined;
+  if (!f) return res.status(404).json({ error: '휴지통에 없는 항목이에요' });
+  if (f.created_by !== req.userId && r.meeting.host_id !== req.userId) {
+    return res.status(403).json({ error: '호스트나 만든 사람만 지울 수 있어요' });
+  }
   const rooms = db
-    .prepare(`SELECT room FROM collab_files WHERE id IN (${ph}) AND room IS NOT NULL`)
-    .all(...toDelete) as { room: string }[];
+    .prepare('SELECT room FROM collab_files WHERE deleted_root = ? AND room IS NOT NULL')
+    .all(f.id) as { room: string }[];
   for (const row of rooms) deleteYdoc(row.room);
-  db.prepare(`DELETE FROM collab_files WHERE id IN (${ph})`).run(...toDelete);
-  res.json({ ok: true, deleted: toDelete.length });
+  const info = db.prepare('DELETE FROM collab_files WHERE deleted_root = ?').run(f.id);
+  res.json({ ok: true, purged: info.changes });
+});
+
+/** 미리보기 — 문서 안에 뭐가 들었는지 (코드 파일/문서/시트 이름들, 슬라이드 수) */
+router.get('/:fileId/preview', (req: AuthedRequest, res) => {
+  const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const f = db
+    .prepare('SELECT type, room FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
+    .get(req.params.fileId, r.meeting.id) as { type: FileType; room: string | null } | undefined;
+  if (!f) return res.status(404).json({ error: '존재하지 않는 파일이에요' });
+  if (f.type === 'folder' || !f.room) return res.json({ items: [] });
+
+  const doc = readYdocSnapshot(f.room);
+  if (!doc) return res.json({ items: [] });
+  try {
+    if (f.type === 'code') {
+      const items: { name: string; ord: number; dir?: boolean }[] = [];
+      doc.getMap<{ name: string; ord: number; dir?: boolean }>('files').forEach((v) => items.push(v));
+      items.sort((a, b) => a.ord - b.ord);
+      return res.json({ items: items.slice(0, 12).map((i) => (i.dir ? `${i.name}/` : i.name)) });
+    }
+    if (f.type === 'doc') {
+      const items: { name: string; ord: number }[] = [];
+      doc.getMap<{ name: string; ord: number }>('docs').forEach((v) => items.push(v));
+      items.sort((a, b) => a.ord - b.ord);
+      return res.json({ items: items.slice(0, 12).map((i) => i.name) });
+    }
+    if (f.type === 'sheet') {
+      const items: { name: string; ord: number }[] = [];
+      doc.getMap<{ name: string; ord: number }>('sheets').forEach((v) => items.push(v));
+      items.sort((a, b) => a.ord - b.ord);
+      return res.json({ items: items.slice(0, 12).map((i) => i.name) });
+    }
+    if (f.type === 'slide') {
+      return res.json({ items: [], count: doc.getMap('slides').size });
+    }
+    return res.json({ items: [] });
+  } finally {
+    doc.destroy();
+  }
 });
 
 export default router;
