@@ -1596,6 +1596,10 @@ input:focus {
   padding: 26px;
   width: 380px;
   max-width: calc(100vw - 32px);
+  /* 내용이 화면보다 길면 (모바일 설정 등) 카드 안에서 스크롤 */
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: modal-up 0.22s cubic-bezier(0.34, 1.2, 0.64, 1);
 }
 
@@ -7324,6 +7328,78 @@ input:focus {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 채우기 핸들 (엑셀식 초록 사각형) */
+.sheet-grid td {
+  position: relative;
+}
+
+.sheet-fillhandle {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 8px;
+  height: 8px;
+  background: var(--green);
+  border: 1.5px solid var(--surface);
+  border-radius: 1px;
+  cursor: crosshair;
+  z-index: 4;
+}
+
+.sheet-grid td.infill {
+  outline: 1.5px dashed var(--green);
+  outline-offset: -1.5px;
+  background: rgba(33, 200, 24, 0.06);
+}
+
+/* 행높이·열너비 조절 그립 */
+.sheet-grid thead th {
+  position: sticky;
+}
+
+.sheet-grip-c {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 4;
+}
+
+.sheet-grip-r {
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 7px;
+  width: 100%;
+  cursor: row-resize;
+  z-index: 4;
+}
+
+.sheet-grip-c:hover,
+.sheet-grip-r:hover {
+  background: rgba(33, 200, 24, 0.35);
+}
+
+/* 틀 고정 — 첫 데이터 행을 열 머리글 바로 아래 고정 */
+.sheet-grid.freeze tbody tr:first-child td,
+.sheet-grid.freeze tbody tr:first-child th {
+  position: sticky;
+  top: 27px;
+  z-index: 2;
+  background: var(--surface);
+}
+
+.sheet-grid.freeze tbody tr:first-child th.sheet-rownum {
+  z-index: 3;
+  background: var(--surface-2);
+}
+
+.dark .sheet-grid.freeze tbody tr:first-child td {
+  background: var(--surface-2);
 }
 
 .sheet-cell-input {

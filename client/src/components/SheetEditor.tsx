@@ -155,7 +155,10 @@ function evalCell(
       'IF', 'AND', 'OR', 'NOT', 'ROUND', 'ROUNDUP', 'ROUNDDOWN', 'ABS', 'SQRT',
       'POWER', 'MOD', 'INT', 'IFERROR', 'CONCAT', 'CONCATENATE', 'LEN', 'LEFT',
       'RIGHT', 'MID', 'UPPER', 'LOWER', 'TRIM', 'MINF', 'MAXF', 'SUMF',
+      'TODAY', 'NOW', 'DATE', 'YEAR', 'MONTH', 'DAY', 'WEEKDAY', 'DATEDIF',
     ];
+    const fmtDate = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const impl: Record<string, unknown> = {
       IF: (c: unknown, t: unknown, f: unknown = false) => (c ? t : f),
       AND: (...a: unknown[]) => a.every(Boolean),
@@ -182,6 +185,23 @@ function evalCell(
       MINF: (...a: number[]) => Math.min(...a),
       MAXF: (...a: number[]) => Math.max(...a),
       SUMF: (...a: number[]) => a.reduce((s, n) => s + (Number(n) || 0), 0),
+      TODAY: () => fmtDate(new Date()),
+      NOW: () => {
+        const d = new Date();
+        return `${fmtDate(d)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      },
+      DATE: (y: number, m: number, d: number) => fmtDate(new Date(y, m - 1, d)),
+      YEAR: (s: unknown) => new Date(String(s)).getFullYear(),
+      MONTH: (s: unknown) => new Date(String(s)).getMonth() + 1,
+      DAY: (s: unknown) => new Date(String(s)).getDate(),
+      WEEKDAY: (s: unknown) => new Date(String(s)).getDay() + 1, // 1=일요일 (엑셀 기본)
+      DATEDIF: (a: unknown, b: unknown, unit: unknown = 'D') => {
+        const d1 = new Date(String(a)).getTime();
+        const d2 = new Date(String(b)).getTime();
+        const days = Math.floor((d2 - d1) / 86400000);
+        const u = String(unit).toUpperCase();
+        return u === 'M' ? Math.floor(days / 30) : u === 'Y' ? Math.floor(days / 365) : days;
+      },
     };
     // 남은 MIN(/MAX(/SUM(/COUNT( 스칼라 인자형 → MINF 등으로
     expr = expr.replace(/\bMIN\s*\(/gi, 'MINF(').replace(/\bMAX\s*\(/gi, 'MAXF(').replace(/\bSUM\s*\(/gi, 'SUMF(');
@@ -218,6 +238,29 @@ interface CellStyle {
   br?: boolean;
   bb?: boolean;
   bl?: boolean;
+  fmt?: 'won' | 'pct' | 'comma'; // 숫자 서식
+  dec?: number; // 소수점 자릿수
+}
+
+/** 숫자 서식 적용 — 값이 숫자일 때만 (₩1,234 / 12.3% / 1,234.5) */
+function formatDisplay(s: string, sty: CellStyle): string {
+  if (!sty.fmt && sty.dec === undefined) return s;
+  if (s.trim() === '') return s;
+  const n = parseFloat(s);
+  if (isNaN(n) || !/^-?[\d.]+(e-?\d+)?$/i.test(s.trim())) return s;
+  const dec = sty.dec;
+  if (sty.fmt === 'pct') {
+    const v = n * 100;
+    const txt = dec !== undefined ? v.toFixed(dec) : String(Math.round(v * 100) / 100);
+    return txt + '%';
+  }
+  let txt = dec !== undefined ? n.toFixed(dec) : String(n);
+  if (sty.fmt === 'won' || sty.fmt === 'comma') {
+    const [int, fr] = txt.split('.');
+    const withComma = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    txt = fr ? `${withComma}.${fr}` : withComma;
+  }
+  return sty.fmt === 'won' ? '₩' + txt : txt;
 }
 
 interface MergeRange {
@@ -358,6 +401,8 @@ interface SheetCellProps {
   rowSpan?: number;
   active: boolean;
   inRange: boolean;
+  inFill: boolean;
+  fillHandle: boolean;
   isFormula: boolean;
   cfBg?: string;
   editing: boolean;
@@ -369,6 +414,7 @@ interface SheetCellProps {
   onEditChange: (r: number, c: number, v: string) => void;
   onEditKey: (r: number, c: number, e: React.KeyboardEvent) => void;
   onEditBlur: () => void;
+  onFillStart: () => void;
 }
 
 /** 메모이즈된 셀 — 자기 props가 바뀔 때만 리렌더 (드래그 시 1560칸 전체 리렌더 방지) */
@@ -381,6 +427,8 @@ const SheetCell = memo(function SheetCell({
   rowSpan,
   active,
   inRange,
+  inFill,
+  fillHandle,
   isFormula,
   cfBg,
   editing,
@@ -392,6 +440,7 @@ const SheetCell = memo(function SheetCell({
   onEditChange,
   onEditKey,
   onEditBlur,
+  onFillStart,
 }: SheetCellProps) {
   const cellStyle: React.CSSProperties = {
     fontWeight: sty.b ? 700 : undefined,
@@ -409,7 +458,7 @@ const SheetCell = memo(function SheetCell({
       colSpan={colSpan}
       rowSpan={rowSpan}
       style={cellStyle}
-      className={`${active ? 'sel' : ''}${inRange ? ' inrange' : ''}${isFormula ? ' formula' : ''}`}
+      className={`${active ? 'sel' : ''}${inRange ? ' inrange' : ''}${inFill ? ' infill' : ''}${isFormula ? ' formula' : ''}`}
       onMouseDown={(e) => {
         if (!editing) onDown(r, c, e.shiftKey);
       }}
@@ -427,6 +476,16 @@ const SheetCell = memo(function SheetCell({
         />
       ) : (
         <span className="sheet-cell-val">{value}</span>
+      )}
+      {fillHandle && !editing && (
+        <span
+          className="sheet-fillhandle"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onFillStart();
+          }}
+        />
       )}
     </td>
   );
@@ -453,7 +512,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   const [cfForm, setCfForm] = useState<{ op: CFRule['op']; value: string; color: string } | null>(null);
   const [chart, setChart] = useState<{ type: 'bar' | 'line' | 'pie' } | null>(null);
   const [merges, setMerges] = useState<MergeRange[]>([]);
-  const [menu, setMenu] = useState<'fill' | 'text' | 'border' | null>(null);
+  const [menu, setMenu] = useState<'fill' | 'text' | 'border' | 'fmt' | null>(null);
   const [, bump] = useState(0);
   const [contentVer, setContentVer] = useState(0); // 셀 값 변경 버전 (값 메모이즈용)
   const rafRef = useRef(0);
@@ -468,11 +527,27 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   const [editing, setEditing] = useState<{ r: number; c: number; value: string } | null>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const draggingRef = useRef(false);
+  // 행높이·열너비 (Yjs 공유) — 키 'c:3'|'r:5' → px
+  const dimsRef = useRef<Y.Map<number> | null>(null);
+  const [dims, setDims] = useState<Record<string, number>>({});
+  const [freeze, setFreeze] = useState(false); // 틀 고정 (첫 데이터 행)
+  // 채우기 핸들 드래그
+  const fillingRef = useRef<MergeRange | null>(null);
+  const [fillPrev, setFillPrev] = useState<MergeRange | null>(null);
+  const fillPrevRef = useRef<MergeRange | null>(null);
+  fillPrevRef.current = fillPrev;
 
-  // 드래그 종료 (그리드 밖에서 마우스 떼도 처리)
+  // 드래그 종료 (그리드 밖에서 마우스 떼도 처리) + 채우기 핸들 확정
   useEffect(() => {
     const up = () => {
       draggingRef.current = false;
+      if (fillingRef.current) {
+        const src = fillingRef.current;
+        const target = fillPrevRef.current;
+        fillingRef.current = null;
+        setFillPrev(null);
+        if (target) applyFillRef.current(src, target);
+      }
     };
     window.addEventListener('mouseup', up);
     return () => window.removeEventListener('mouseup', up);
@@ -546,28 +621,34 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     const styles = ydoc.getMap<CellStyle>(`${activeSheet.cellsKey}:style`);
     const mergeArr = ydoc.getArray<MergeRange>(`${activeSheet.cellsKey}:merge`);
     const cfArr = ydoc.getArray<CFRule>(`${activeSheet.cellsKey}:cf`);
+    const dimMap = ydoc.getMap<number>(`${activeSheet.cellsKey}:dim`);
     cellsRef.current = cells;
     stylesRef.current = styles;
     mergesRef.current = mergeArr;
     cfRef.current = cfArr;
+    dimsRef.current = dimMap;
     const um = new Y.UndoManager([cells, styles, mergeArr], { captureTimeout: 350 });
     undoRef.current = um;
     setMerges(mergeArr.toArray());
     setCfRules(cfArr.toArray());
+    setDims(dimMap.toJSON() as Record<string, number>);
     setContentVer((n) => n + 1);
     const onCells = () => setContentVer((n) => n + 1);
     const onStyles = () => bump((n) => n + 1);
     const onMerges = () => setMerges(mergeArr.toArray());
     const onCf = () => setCfRules(cfArr.toArray());
+    const onDims = () => setDims(dimMap.toJSON() as Record<string, number>);
     cells.observe(onCells);
     styles.observe(onStyles);
     mergeArr.observe(onMerges);
     cfArr.observe(onCf);
+    dimMap.observe(onDims);
     return () => {
       cells.unobserve(onCells);
       styles.unobserve(onStyles);
       mergeArr.unobserve(onMerges);
       cfArr.unobserve(onCf);
+      dimMap.unobserve(onDims);
       um.destroy();
     };
   }, [activeSheet?.cellsKey]);
@@ -689,6 +770,139 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
       if (r >= m.r1 && r <= m.r2 && c >= m.c1 && c <= m.c2) return m;
     }
     return null;
+  }
+
+  // ── 숫자 서식 ──
+  function setNumFmt(fmt: CellStyle['fmt'] | 'clear' | 'dec+' | 'dec-') {
+    patchStyleRange((cur) => {
+      if (fmt === 'clear') return { ...cur, fmt: undefined, dec: undefined };
+      if (fmt === 'dec+') return { ...cur, dec: Math.min((cur.dec ?? 0) + 1, 8) };
+      if (fmt === 'dec-') {
+        const next = (cur.dec ?? 2) - 1;
+        return { ...cur, dec: next <= 0 ? 0 : next };
+      }
+      return { ...cur, fmt };
+    });
+    if (fmt !== 'dec+' && fmt !== 'dec-') setMenu(null);
+  }
+
+  // ── 채우기 핸들 ──
+  /** 상대 참조 이동 (채우기용) — 범위 밖은 #REF */
+  function shiftRel(f: string, dr: number, dc: number): string {
+    return f.replace(/\b([A-Za-z])(\d+)\b/g, (m, col: string, row: string) => {
+      const ref = parseRef(`${col}${row}`.toUpperCase());
+      if (!ref) return m;
+      const nc = ref.c + dc;
+      const nr = ref.r + dr;
+      if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) return '#REF';
+      return String.fromCharCode(65 + nc) + (nr + 1);
+    });
+  }
+  function applyFill(src: MergeRange, target: MergeRange) {
+    const cells = cellsRef.current;
+    const styles = stylesRef.current;
+    const ydoc = ydocRef.current;
+    if (!cells || !styles || !ydoc) return;
+    const down = target.r1 > src.r2; // 아니면 오른쪽 채우기
+    undoRef.current?.stopCapturing();
+    ydoc.transact(() => {
+      if (down) {
+        for (let c = src.c1; c <= src.c2; c++) {
+          const srcVals: string[] = [];
+          for (let r = src.r1; r <= src.r2; r++) srcVals.push(raw(r, c));
+          const nums = srcVals.map((v) => parseFloat(v));
+          const numericSeq =
+            srcVals.length >= 2 &&
+            srcVals.every((v, i) => v.trim() !== '' && !isNaN(nums[i]) && v[0] !== '=');
+          const step = numericSeq ? nums[nums.length - 1] - nums[nums.length - 2] : 0;
+          for (let r = target.r1; r <= target.r2; r++) {
+            const k = r - src.r1;
+            const si = k % srcVals.length;
+            const srcR = src.r1 + si;
+            const v = srcVals[si];
+            let nv = v;
+            if (v[0] === '=') nv = shiftRel(v, r - srcR, 0);
+            else if (numericSeq) nv = String(nums[nums.length - 1] + step * (r - src.r2));
+            setCell(r, c, nv);
+            const s = stylesRef.current?.get(cellKey(srcR, c));
+            if (s && Object.keys(s).length) styles.set(cellKey(r, c), { ...s });
+            else styles.delete(cellKey(r, c));
+          }
+        }
+      } else {
+        for (let r = src.r1; r <= src.r2; r++) {
+          const srcVals: string[] = [];
+          for (let c = src.c1; c <= src.c2; c++) srcVals.push(raw(r, c));
+          const nums = srcVals.map((v) => parseFloat(v));
+          const numericSeq =
+            srcVals.length >= 2 &&
+            srcVals.every((v, i) => v.trim() !== '' && !isNaN(nums[i]) && v[0] !== '=');
+          const step = numericSeq ? nums[nums.length - 1] - nums[nums.length - 2] : 0;
+          for (let c = target.c1; c <= target.c2; c++) {
+            const k = c - src.c1;
+            const si = k % srcVals.length;
+            const srcC = src.c1 + si;
+            const v = srcVals[si];
+            let nv = v;
+            if (v[0] === '=') nv = shiftRel(v, 0, c - srcC);
+            else if (numericSeq) nv = String(nums[nums.length - 1] + step * (c - src.c2));
+            setCell(r, c, nv);
+            const s = stylesRef.current?.get(cellKey(r, srcC));
+            if (s && Object.keys(s).length) styles.set(cellKey(r, c), { ...s });
+            else styles.delete(cellKey(r, c));
+          }
+        }
+      }
+    });
+    // 채운 영역까지 선택 확장 (엑셀과 동일)
+    setAnchor({ r: src.r1, c: src.c1 });
+    setSel({ r: Math.max(src.r2, target.r2), c: Math.max(src.c2, target.c2) });
+  }
+  const applyFillRef = useRef(applyFill);
+  applyFillRef.current = applyFill;
+
+  // ── 행높이·열너비 ──
+  function colW(c: number): number {
+    return dims[`c:${c}`] ?? 96;
+  }
+  function rowH(r: number): number {
+    return dims[`r:${r}`] ?? 26;
+  }
+  function startColResize(c: number, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = colW(c);
+    const onMove = (ev: MouseEvent) => {
+      const w = Math.max(40, Math.round(startW + ev.clientX - startX));
+      setDims((d) => ({ ...d, [`c:${c}`]: w }));
+    };
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      const w = Math.max(40, Math.round(startW + ev.clientX - startX));
+      dimsRef.current?.set(`c:${c}`, w);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+  function startRowResize(r: number, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startH = rowH(r);
+    const onMove = (ev: MouseEvent) => {
+      const h = Math.max(20, Math.round(startH + ev.clientY - startY));
+      setDims((d) => ({ ...d, [`r:${r}`]: h }));
+    };
+    const onUp = (ev: MouseEvent) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      const h = Math.max(20, Math.round(startH + ev.clientY - startY));
+      dimsRef.current?.set(`r:${r}`, h);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   }
 
   // ── 복사 / 잘라내기 / 붙여넣기 ──
@@ -1056,6 +1270,87 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     URL.revokeObjectURL(url);
   }
 
+  /** 진짜 .xlsx (Open XML zip) — 모든 시트 포함, 값은 평가 결과 */
+  async function exportXlsx() {
+    const ydoc = ydocRef.current;
+    if (!ydoc || !sheets.length) return;
+    const { default: JSZip } = await import('jszip');
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const zip = new JSZip();
+    const sheetXmls = sheets.map((sh) => {
+      const cells = ydoc.getMap(sh.cellsKey);
+      const dimMap = ydoc.getMap<number>(`${sh.cellsKey}:dim`);
+      let maxR = 0;
+      let maxC = 0;
+      cells.forEach((_v, k) => {
+        const ref = parseRef(k);
+        if (ref) {
+          maxR = Math.max(maxR, ref.r);
+          maxC = Math.max(maxC, ref.c);
+        }
+      });
+      const cols: string[] = [];
+      for (let c = 0; c <= maxC; c++) {
+        const w = dimMap.get(`c:${c}`);
+        if (w) cols.push(`<col min="${c + 1}" max="${c + 1}" width="${(w / 7).toFixed(1)}" customWidth="1"/>`);
+      }
+      const rows: string[] = [];
+      for (let r = 0; r <= maxR; r++) {
+        const rcells: string[] = [];
+        for (let c = 0; c <= maxC; c++) {
+          const k = cellKey(r, c);
+          const v = evalCell(cells.get(k) as string, cells, new Set(), k);
+          if (v === '') continue;
+          if (/^-?\d+(\.\d+)?$/.test(v.trim())) {
+            rcells.push(`<c r="${k}"><v>${v.trim()}</v></c>`);
+          } else {
+            rcells.push(`<c r="${k}" t="inlineStr"><is><t xml:space="preserve">${esc(v)}</t></is></c>`);
+          }
+        }
+        if (rcells.length) rows.push(`<row r="${r + 1}">${rcells.join('')}</row>`);
+      }
+      return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${cols.length ? `<cols>${cols.join('')}</cols>` : ''}<sheetData>${rows.join('')}</sheetData></worksheet>`;
+    });
+    const sheetEntries = sheets.map((sh, i) => ({
+      name: sh.name.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || `시트${i + 1}`,
+      rid: `rId${i + 1}`,
+      file: `sheet${i + 1}.xml`,
+    }));
+    zip.file(
+      '[Content_Types].xml',
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheetEntries.map((s) => `<Override PartName="/xl/worksheets/${s.file}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`,
+    );
+    zip.file(
+      '_rels/.rels',
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    );
+    zip.file(
+      'xl/workbook.xml',
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheetEntries.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}" r:id="${s.rid}"/>`).join('')}</sheets></workbook>`,
+    );
+    zip.file(
+      'xl/_rels/workbook.xml.rels',
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheetEntries.map((s) => `<Relationship Id="${s.rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/${s.file}"/>`).join('')}</Relationships>`,
+    );
+    sheetXmls.forEach((xml, i) => zip.file(`xl/worksheets/${sheetEntries[i].file}`, xml));
+    const blob = await zip.generateAsync({
+      type: 'blob',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${roomId.replace(/^sheet-/, 'sheet_')}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // 메모이즈 셀에 넘길 안정적 콜백 (ref로 최신 상태 참조 → 매 렌더 동일 함수 ref)
   const cellApiRef = useRef<{
     down: (r: number, c: number, shift: boolean) => void;
@@ -1064,6 +1359,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
     editChange: (r: number, c: number, v: string) => void;
     editKey: (r: number, c: number, e: React.KeyboardEvent) => void;
     editBlur: () => void;
+    fillStart: () => void;
   }>(null!);
   cellApiRef.current = {
     down: (r, c, shift) => {
@@ -1073,6 +1369,17 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
       draggingRef.current = true;
     },
     enter: (r, c) => {
+      // 채우기 핸들 드래그 중 — 아래/오른쪽 방향으로 미리보기 범위 계산
+      if (fillingRef.current) {
+        const s = fillingRef.current;
+        const dDown = r - s.r2;
+        const dRight = c - s.c2;
+        let fp: MergeRange | null = null;
+        if (dDown > 0 && dDown >= dRight) fp = { r1: s.r2 + 1, c1: s.c1, r2: r, c2: s.c2 };
+        else if (dRight > 0) fp = { r1: s.r1, c1: s.c2 + 1, r2: s.r2, c2: c };
+        setFillPrev(fp);
+        return;
+      }
       if (!draggingRef.current || editing) return;
       pendingSelRef.current = { r, c };
       if (!rafRef.current) {
@@ -1082,6 +1389,10 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
           if (p) setSel(p);
         });
       }
+    },
+    fillStart: () => {
+      fillingRef.current = curRange();
+      setFillPrev(null);
     },
     dbl: (r, c) => startEdit(r, c),
     editChange: (r, c, v) => setEditing({ r, c, value: v }),
@@ -1098,6 +1409,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
   const cbEditChange = useCallback((r: number, c: number, v: string) => cellApiRef.current.editChange(r, c, v), []);
   const cbEditKey = useCallback((r: number, c: number, e: React.KeyboardEvent) => cellApiRef.current.editKey(r, c, e), []);
   const cbEditBlur = useCallback(() => cellApiRef.current.editBlur(), []);
+  const cbFillStart = useCallback(() => cellApiRef.current.fillStart(), []);
 
   // 표시값 메모이즈 — 셀 값이 바뀔 때만 재계산(드래그 선택 중엔 재사용)
   const valueGrid = useMemo(() => {
@@ -1142,6 +1454,9 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
         <div className="sheet-right">
           <button className="sheet-csv" onClick={exportCsv} title="CSV로 내보내기">
             <DownloadIcon size={15} /> CSV
+          </button>
+          <button className="sheet-csv" onClick={() => void exportXlsx()} title="엑셀 파일로 내보내기">
+            <DownloadIcon size={15} /> XLSX
           </button>
           <span className="code-doc-peers">{peers}명 참여</span>
           <span className={`code-doc-status ${status}`}>
@@ -1240,6 +1555,29 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
             </>
           )}
         </div>
+        <div className="sht-pop-wrap">
+          <button
+            className={`sht-btn wide${styleOf(sel.r, sel.c).fmt || styleOf(sel.r, sel.c).dec !== undefined ? ' on' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setMenu(menu === 'fmt' ? null : 'fmt')}
+            title="숫자 서식"
+          >
+            123
+          </button>
+          {menu === 'fmt' && (
+            <>
+              <div className="sht-back" onClick={() => setMenu(null)} />
+              <div className="sht-pop sht-pop-border">
+                <button onClick={() => setNumFmt('clear')}>일반</button>
+                <button onClick={() => setNumFmt('won')}>₩ 통화</button>
+                <button onClick={() => setNumFmt('pct')}>% 백분율</button>
+                <button onClick={() => setNumFmt('comma')}>1,000 콤마</button>
+                <button onClick={() => setNumFmt('dec+')}>소수점 늘리기 .0+</button>
+                <button onClick={() => setNumFmt('dec-')}>소수점 줄이기 .0−</button>
+              </div>
+            </>
+          )}
+        </div>
         <span className="sht-sep" />
         <button className="sht-btn wide" onMouseDown={(e) => e.preventDefault()} onClick={mergeSel} title="선택 영역 병합">
           병합
@@ -1286,6 +1624,14 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
         </button>
         <button className="sht-btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setChart({ type: 'bar' })} title="차트 만들기">
           📊 차트
+        </button>
+        <button
+          className={`sht-btn wide${freeze ? ' on' : ''}`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setFreeze((v) => !v)}
+          title="첫 행 틀 고정"
+        >
+          🧊 틀고정
         </button>
       </div>
 
@@ -1362,38 +1708,60 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
       )}
 
       <div className="sheet-scroll" tabIndex={0} onKeyDown={onGridKey}>
-        <table className="sheet-grid">
+        <table className={`sheet-grid${freeze ? ' freeze' : ''}`}>
+          <colgroup>
+            <col style={{ width: 44 }} />
+            {Array.from({ length: COLS }, (_, c) => (
+              <col key={c} style={{ width: colW(c) }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <th className="sheet-corner" />
               {Array.from({ length: COLS }, (_, c) => (
-                <th key={c} className={c >= c1 && c <= c2 ? 'sel' : ''}>
+                <th key={c} className={c >= c1 && c <= c2 ? 'sel' : ''} style={{ width: colW(c), minWidth: colW(c) }}>
                   {colLetter(c)}
+                  <span className="sheet-grip-c" onMouseDown={(e) => startColResize(c, e)} />
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {Array.from({ length: ROWS }, (_, r) => (
-              <tr key={r} style={rowHidden(r, valueGrid) ? { display: 'none' } : undefined}>
-                <th className={`sheet-rownum${r >= r1 && r <= r2 ? ' sel' : ''}`}>{r + 1}</th>
+              <tr
+                key={r}
+                style={rowHidden(r, valueGrid) ? { display: 'none' } : { height: rowH(r) }}
+              >
+                <th className={`sheet-rownum${r >= r1 && r <= r2 ? ' sel' : ''}`}>
+                  {r + 1}
+                  <span className="sheet-grip-r" onMouseDown={(e) => startRowResize(r, e)} />
+                </th>
                 {Array.from({ length: COLS }, (_, c) => {
                   const cov = mergeCovering(r, c);
                   // 병합 영역의 좌상단이 아니면 렌더 안 함
                   if (cov && !(cov.r1 === r && cov.c1 === c)) return null;
                   const isEditing = !!editing && editing.r === r && editing.c === c;
+                  const sty = styleOf(r, c);
                   return (
                     <SheetCell
                       key={c}
                       r={r}
                       c={c}
                       cfBg={cfRules.length ? cfBgFor(r, c, valueGrid[r]?.[c] ?? '') : undefined}
-                      value={valueGrid[r]?.[c] ?? ''}
-                      style={styleOf(r, c)}
+                      value={formatDisplay(valueGrid[r]?.[c] ?? '', sty)}
+                      style={sty}
                       colSpan={cov ? cov.c2 - cov.c1 + 1 : undefined}
                       rowSpan={cov ? cov.r2 - cov.r1 + 1 : undefined}
                       active={sel.r === r && sel.c === c}
                       inRange={multi && r >= r1 && r <= r2 && c >= c1 && c <= c2}
+                      inFill={
+                        !!fillPrev &&
+                        r >= fillPrev.r1 &&
+                        r <= fillPrev.r2 &&
+                        c >= fillPrev.c1 &&
+                        c <= fillPrev.c2
+                      }
+                      fillHandle={r === r2 && c === c2 && !fillPrev}
                       isFormula={raw(r, c)[0] === '='}
                       editing={isEditing}
                       editValue={isEditing ? editing!.value : ''}
@@ -1404,6 +1772,7 @@ export default function SheetEditor({ roomId }: { roomId: string }) {
                       onEditChange={cbEditChange}
                       onEditKey={cbEditKey}
                       onEditBlur={cbEditBlur}
+                      onFillStart={cbFillStart}
                     />
                   );
                 })}
