@@ -4413,6 +4413,7 @@ input:focus {
   padding: 20px 22px;
   min-height: 0;
   overflow-y: auto;
+  container-type: inline-size; /* 폼 줄바꿈을 패널 실폭 기준으로 (컨테이너 쿼리) */
 }
 
 .msched-day-title {
@@ -4781,6 +4782,18 @@ input:focus {
   flex: none;
 }
 
+.msched-se-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.msched-se > .msched-times-sep {
+  font-size: 10px;
+}
+
+
 
 .msched-se-label {
   font-size: 11.5px;
@@ -4864,6 +4877,27 @@ input:focus {
   .msched-add-remind select,
   .msched-ppl-search input {
     font-size: 13.5px;
+  }
+}
+
+/* 패널이 좁아 한 줄이 안 되면 시작/종료를 그룹째 2줄로 (글씨 짤림 방지) */
+@container (max-width: 336px) {
+  .msched-se .msched-times-sep {
+    display: none;
+  }
+
+  .msched-se-group {
+    flex: 1 1 100%;
+  }
+
+  .msched-se-group input[type='date'] {
+    flex: 1 1 auto;
+    font-size: 12px;
+  }
+
+  .msched-se-group input[type='time'] {
+    width: 70px;
+    font-size: 12px;
   }
 }
 

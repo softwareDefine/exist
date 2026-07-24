@@ -982,45 +982,49 @@ export default function MeetingSchedule({
               </button>
             )}
           </div>
-          {/* 시작/종료 한 줄 — 라벨 + 날짜 + 시간 (종료 날짜가 뒤면 여러 날 일정) */}
+          {/* 시작/종료 — 넓으면 한 줄, 패널이 좁으면 그룹 단위로 2줄 (글씨 짤림 방지) */}
           <div className="msched-add-remind msched-se">
-            <span className="msched-se-label">시작</span>
-            <input
-              type="date"
-              value={selected}
-              onChange={(e) => e.target.value && setSelected(e.target.value)}
-              onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-              title="시작 날짜"
-            />
-            {!allDay && (
+            <span className="msched-se-group">
+              <span className="msched-se-label">시작</span>
               <input
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-                title="시작 시간"
+                type="date"
+                value={selected}
+                onChange={(e) => e.target.value && setSelected(e.target.value)}
+                onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                title="시작 날짜"
               />
-            )}
+              {!allDay && (
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  title="시작 시간"
+                />
+              )}
+            </span>
             <span className="msched-times-sep">~</span>
-            <span className="msched-se-label">종료</span>
-            <input
-              type="date"
-              value={endDate || selected}
-              min={selected}
-              onChange={(e) =>
-                setEndDate(!e.target.value || e.target.value <= selected ? '' : e.target.value)
-              }
-              onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
-              title="종료 날짜"
-            />
-            {!allDay && (
+            <span className="msched-se-group">
+              <span className="msched-se-label">종료</span>
               <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                disabled={!time}
-                title="종료 시간"
+                type="date"
+                value={endDate || selected}
+                min={selected}
+                onChange={(e) =>
+                  setEndDate(!e.target.value || e.target.value <= selected ? '' : e.target.value)
+                }
+                onClick={(e) => (e.currentTarget as HTMLInputElement).showPicker?.()}
+                title="종료 날짜"
               />
-            )}
+              {!allDay && (
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  disabled={!time}
+                  title="종료 시간"
+                />
+              )}
+            </span>
           </div>
           {/* 알림 시점 — 애플식 선택 (시간 일정에만 의미) */}
           {!allDay && (
