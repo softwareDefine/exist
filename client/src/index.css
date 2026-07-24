@@ -4269,6 +4269,7 @@ input:focus {
   grid-auto-rows: 1fr;
   gap: 4px;
   min-height: 0;
+  position: relative; /* 기간 바 오버레이 기준 */
 }
 
 .msched-dow {
@@ -4357,42 +4358,28 @@ input:focus {
   text-overflow: ellipsis;
 }
 
-/* 여러 날 걸친 일정 — 애플처럼 셀 경계(패딩 5px + 그리드 간격 4px)를 넘어 이어지는 바 */
-.msched-chip.span-start,
-.msched-chip.span-mid,
-.msched-chip.span-end {
-  position: relative;
-  z-index: 1;
+/* 여러 날 걸친 일정 — 주(행) 단위 오버레이 연속 바 (애플식). 셀 실측 좌표로 배치 */
+.msched-mbar {
+  position: absolute;
+  height: 16px;
   background: color-mix(in srgb, var(--evc, var(--green)) 55%, var(--surface));
   color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none; /* 클릭은 아래 날짜 셀로 */
+  z-index: 1;
 }
 
-/* 딱 붙이면 고배율 줌에서 반올림 헤어라인이 생김 — 2px 겹치게 브리지 */
-.msched-chip.span-start {
-  border-radius: 4px 0 0 4px;
-  margin-right: -9px;
-}
-
-.msched-chip.span-mid {
-  border-radius: 0;
-  margin-left: -9px;
-  margin-right: -9px;
-}
-
-.msched-chip.span-end {
-  border-radius: 0 4px 4px 0;
-  margin-left: -9px;
-}
-
-/* 주 시작(일)·끝(토) 칸은 그리드 밖으로 나가지 않게 살짝만 */
-.msched-day:nth-child(7n + 1) .msched-chip.span-mid,
-.msched-day:nth-child(7n + 1) .msched-chip.span-end {
-  margin-left: -5px;
-}
-
-.msched-day:nth-child(7n) .msched-chip.span-start,
-.msched-day:nth-child(7n) .msched-chip.span-mid {
-  margin-right: -5px;
+/* 셀 안에서 바가 지나갈 자리 확보 */
+.msched-chip-space {
+  height: 16px;
+  flex: none;
 }
 
 .msched-chip-time {

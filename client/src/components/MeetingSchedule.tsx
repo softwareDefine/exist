@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { useAuthStore } from '../store';
@@ -285,6 +293,22 @@ export default function MeetingSchedule({
   } | null>(null);
   const suppressClick = useRef(false); // 드래그 후 이어지는 click 무시
   const hoursElRef = useRef<HTMLDivElement | null>(null); // 일 뷰 .msched-hours
+  // 월 뷰 기간 바 — 주(행) 단위 연속 오버레이 (셀별 칩은 셀 경계에서 끊겨 보임)
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const cellElsRef = useRef(new Map<string, HTMLElement>());
+  const [monthBars, setMonthBars] = useState<
+    {
+      key: string;
+      left: number;
+      top: number;
+      width: number;
+      title: string;
+      color: string | null;
+      roundL: boolean;
+      roundR: boolean;
+      showTitle: boolean;
+    }[]
+  >([]);
 
   function closePop() {
     setPop((p) => {
@@ -583,6 +607,76 @@ export default function MeetingSchedule({
     const d = cells.length - startDow - daysInMonth + 1;
     cells.push({ key: ymd(new Date(year, month + 1, d)), day: d, cur: false });
   }
+
+  // 월 기간 바 계산 — 셀 DOM 위치 실측으로 주 단위 연속 바를 배치
+  useLayoutEffect(() => {
+    if (view !== 'month') {
+      setMonthBars([]);
+      return;
+    }
+    const compute = () => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      const gr = grid.getBoundingClientRect();
+      const bars: typeof monthBars = [];
+      for (let r = 0; r < cells.length / 7; r++) {
+        const row = cells.slice(r * 7, r * 7 + 7);
+        // 이 주에 걸친 기간 일정을 run(연속 구간)으로 수집
+        const runs = new Map<
+          number,
+          { c0: number; c1: number; ev: MEvent; hasStart: boolean; hasEnd: boolean }
+        >();
+        row.forEach((c, ci) => {
+          for (const e of byDate.get(c.key) ?? []) {
+            if (!e.seg) continue;
+            const run = runs.get(e.id);
+            if (!run)
+              runs.set(e.id, {
+                c0: ci,
+                c1: ci,
+                ev: e,
+                hasStart: e.seg === 'start',
+                hasEnd: e.seg === 'end',
+              });
+            else {
+              run.c1 = ci;
+              run.hasEnd = run.hasEnd || e.seg === 'end';
+            }
+          }
+        });
+        // 겹치면 아랫줄 레인으로
+        const laneEnds: number[] = [];
+        const sorted = [...runs.values()].sort((a, b) => a.c0 - b.c0 || a.ev.id - b.ev.id);
+        for (const run of sorted) {
+          let lane = 0;
+          while (lane < laneEnds.length && laneEnds[lane] >= run.c0) lane++;
+          laneEnds[lane] = run.c1;
+          const el0 = cellElsRef.current.get(row[run.c0].key);
+          const el1 = cellElsRef.current.get(row[run.c1].key);
+          if (!el0 || !el1) continue;
+          const r0 = el0.getBoundingClientRect();
+          const r1 = el1.getBoundingClientRect();
+          const evArea = el0.querySelector('.msched-day-events')?.getBoundingClientRect();
+          bars.push({
+            key: `${run.ev.id}@${r}:${lane}`,
+            left: r0.left - gr.left + 3,
+            width: r1.right - r0.left - 6,
+            top: (evArea ? evArea.top : r0.top + 30) - gr.top + lane * 18,
+            title: run.ev.title,
+            color: run.ev.color,
+            roundL: run.hasStart,
+            roundR: run.hasEnd,
+            showTitle: run.hasStart || run.c0 === 0,
+          });
+        }
+      }
+      setMonthBars(bars);
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, byDate, year, month]);
 
   // 주 뷰: cursor가 속한 주 (일요일 시작)
   const weekDays = useMemo(() => {
@@ -1480,23 +1574,27 @@ export default function MeetingSchedule({
         )}
 
         {view === 'month' && (
-        <div className="msched-grid">
+        <div className="msched-grid" ref={gridRef}>
           {DOW.map((w) => (
             <span key={w} className="msched-dow">
               {w}
             </span>
           ))}
           {cells.map((c, i) => {
-            // 여러 날 걸친 일정(seg)은 맨 위로 — 이웃 셀과 같은 줄에 놓여 바가 이어져 보이게
-            const evs = [...(byDate.get(c.key) ?? [])].sort(
-              (a, b) => (b.seg ? 1 : 0) - (a.seg ? 1 : 0) || a.id - b.id,
-            );
+            const all = byDate.get(c.key) ?? [];
+            // 기간 일정(seg)은 오버레이 바로 그림 — 셀 칩에서는 제외하고 자리만 비워둠
+            const spanCount = Math.min(all.filter((e) => e.seg).length, 2);
+            const evs = all.filter((e) => !e.seg);
             const isMeetingDay = isMeetingDayKey(c.key);
-            const chips = evs.slice(0, isMeetingDay ? 1 : 2);
+            const chips = evs.slice(0, Math.max(0, (isMeetingDay ? 1 : 2) - spanCount));
             const overflow = evs.length - chips.length;
             return (
               <button
                 key={i}
+                ref={(el) => {
+                  if (el) cellElsRef.current.set(c.key, el);
+                  else cellElsRef.current.delete(c.key);
+                }}
                 className={
                   'msched-day' +
                   (c.cur ? '' : ' out') +
@@ -1514,33 +1612,43 @@ export default function MeetingSchedule({
                   {c.day}
                 </span>
                 <span className="msched-day-events">
+                  {/* 오버레이 바가 차지할 자리 */}
+                  {Array.from({ length: spanCount }).map((_, k) => (
+                    <span key={`sp${k}`} className="msched-chip-space" />
+                  ))}
                   {isMeetingDay && (
                     <span className="msched-chip meeting" title="이 그룹 일정">
                       <i className="msched-chip-dot" />이 그룹
                     </span>
                   )}
-                  {chips.map((e) => {
-                    // 기간 일정 — 애플처럼 셀을 넘어 이어지는 바 (제목은 첫날·주 시작에만)
-                    const showText = !e.seg || e.seg === 'start' || i % 7 === 0;
-                    return (
-                      <span
-                        key={e.id}
-                        className={'msched-chip' + (e.seg ? ` span-${e.seg}` : '')}
-                        style={evColorStyle(e.color)}
-                        title={e.title}
-                      >
-                        {!e.seg && e.time && (
-                          <b className="msched-chip-time">{ampmShort(e.time)}</b>
-                        )}
-                        {showText ? e.title : ' '}
-                      </span>
-                    );
-                  })}
+                  {chips.map((e) => (
+                    <span key={e.id} className="msched-chip" style={evColorStyle(e.color)} title={e.title}>
+                      {e.time && <b className="msched-chip-time">{ampmShort(e.time)}</b>}
+                      {e.title}
+                    </span>
+                  ))}
                   {overflow > 0 && <span className="msched-more">+{overflow}</span>}
                 </span>
               </button>
             );
           })}
+          {/* 기간 일정 연속 바 — 주 단위로 셀 위를 하나의 덩어리로 가로지름 (애플식) */}
+          {monthBars.map((b) => (
+            <div
+              key={b.key}
+              className="msched-mbar"
+              style={{
+                ...evColorStyle(b.color),
+                left: b.left,
+                top: b.top,
+                width: b.width,
+                borderRadius: `${b.roundL ? 4 : 0}px ${b.roundR ? 4 : 0}px ${b.roundR ? 4 : 0}px ${b.roundL ? 4 : 0}px`,
+              }}
+              title={b.title}
+            >
+              {b.showTitle ? b.title : ''}
+            </div>
+          ))}
         </div>
         )}
       </div>
