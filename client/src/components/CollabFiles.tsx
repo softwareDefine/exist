@@ -1523,10 +1523,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
             <button className="cf-back" title="파일 목록으로" onClick={() => setActiveId(null)}>
               ←
             </button>
-            <span className={`cf-icon ${active.type}`}>
-              <TypeIcon type={active.type} />
-            </span>
-            {/* 경로 › 파일명 */}
+            {/* 경로 › [타입 아이콘] 파일명 — 아이콘은 파일명 바로 옆에 */}
             <span className="cf-editor-path">
               {(() => {
                 const parts: string[] = [];
@@ -1539,6 +1536,9 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
                 }
                 return ['공동편집', ...parts].map((s) => `${s} › `).join('');
               })()}
+            </span>
+            <span className={`cf-icon ${active.type}`}>
+              <TypeIcon type={active.type} />
             </span>
             <Marquee className="cf-editor-name">{active.name}</Marquee>
           </div>
