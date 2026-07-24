@@ -8657,6 +8657,15 @@ input:focus {
   margin-bottom: 8px;
 }
 
+/* .cf-icon의 inline-flex가 grid 중앙정렬을 덮어 아이콘이 왼쪽에 붙던 문제 —
+   두 클래스가 같이 붙는 상세 패널에서만 중앙 고정 */
+.cf-details-icon.cf-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+}
+
 .cf-details-name {
   font-size: 14.5px;
   font-weight: 700;
