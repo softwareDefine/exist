@@ -8858,6 +8858,24 @@ input:focus {
   padding: 6px 10px;
 }
 
+/* 아이콘 보기에선 생성 폼도 타일 모양으로 — 목록 줄이 그리드를 깨던 문제 */
+.cf-main.grid .cf-main-new {
+  width: 108px;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 6px 10px;
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+}
+
+.cf-main.grid .cf-main-new .cf-name-input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 12px;
+}
+
 /* 탐색기 모드 — 파일을 열기 전엔 트리가 전체 화면 */
 .cf-side {
   width: 100%;

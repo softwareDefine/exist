@@ -497,3 +497,46 @@ export function ListIcon({ size }: IconProps) {
     </Svg>
   );
 }
+
+export function TrashIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M5 7h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M9.5 7V5.6c0-.9.7-1.6 1.6-1.6h1.8c.9 0 1.6.7 1.6 1.6V7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6.7 7l.75 12.1c.05.9.8 1.6 1.7 1.6h5.7c.9 0 1.65-.7 1.7-1.6L17.3 7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M10.2 10.8v5.6M13.8 10.8v5.6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ShareIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 3.5v10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M8.5 6.8L12 3.3l3.5 3.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 10.5H6.8c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h10.4c1.1 0 2-.9 2-2v-6c0-1.1-.9-2-2-2H16"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

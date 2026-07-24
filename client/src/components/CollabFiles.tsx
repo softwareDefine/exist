@@ -17,6 +17,8 @@ import {
   ChevronIcon,
   PlusIcon,
   CopyIcon,
+  TrashIcon,
+  ShareIcon,
 } from './Icons';
 
 /*
@@ -892,10 +894,10 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
             ✎ 이름 바꾸기
           </button>
           <button className="cf-tool" disabled={!selected} onClick={() => selected && share(selected)}>
-            ↗ 공유
+            <ShareIcon size={13} /> 공유
           </button>
           <button className="cf-tool danger" disabled={cantTouch} onClick={() => void deleteSelection()}>
-            🗑 삭제
+            <TrashIcon size={13} /> 삭제
           </button>
           <button
             className={`cf-tool${trashOpen ? ' on' : ''}`}
@@ -1077,7 +1079,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
           {creating && (
             <form className="cf-new cf-main-new" onSubmit={createEntry} onClick={(e) => e.stopPropagation()}>
               <span className={`cf-icon ${creating.type}`}>
-                <TypeIcon type={creating.type} />
+                <TypeIcon type={creating.type} size={view === 'grid' ? 30 : 15} />
               </span>
               <input
                 className="cf-name-input"
