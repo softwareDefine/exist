@@ -3974,6 +3974,7 @@ input:focus {
 
 .msched-dblock {
   --evc: var(--green); /* 일정 색 — 인라인 스타일로 덮어씀 */
+  container-type: inline-size; /* 분할로 좁아지면 부가 정보를 숨기기 위한 기준 */
   position: absolute;
   left: 0;
   width: 100%;
@@ -4021,6 +4022,19 @@ input:focus {
   cursor: grabbing;
   opacity: 0.9;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+}
+
+/* 분할로 좁아진 블록 — 제목이 우선, 작성자·시간 순으로 숨김 */
+@container (max-width: 230px) {
+  .msched-event-author {
+    display: none;
+  }
+}
+
+@container (max-width: 190px) {
+  .msched-dblock .msched-event-time {
+    display: none;
+  }
 }
 
 /* 아래 가장자리 = 길이 조절 핸들 */
