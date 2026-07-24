@@ -192,15 +192,29 @@ router.post('/logout', requireAuth, (req: AuthedRequest, res) => {
 /** 내 정보 */
 router.get('/me', requireAuth, (req: AuthedRequest, res) => {
   const me = db
-    .prepare('SELECT id, username, avatar, name FROM users WHERE id = ?')
-    .get(req.userId) as { id: number; username: string; avatar: string; name: string | null };
+    .prepare('SELECT id, username, avatar, name, email, phone, address FROM users WHERE id = ?')
+    .get(req.userId) as {
+    id: number;
+    username: string;
+    avatar: string;
+    name: string | null;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+  };
   res.json(me);
 });
 
-/** 프로필 수정 — 아바타 이모지·표시 이름 (있는 필드만 갱신) */
+/** 프로필 수정 — 아바타·이름·이메일·전화번호·주소 (넘어온 필드만 갱신, 빈 문자열 = 지움) */
 router.patch('/me', requireAuth, (req: AuthedRequest, res) => {
-  const { avatar, name } = req.body ?? {};
-  if (avatar === undefined && name === undefined) {
+  const { avatar, name, email, phone, address } = req.body ?? {};
+  if (
+    avatar === undefined &&
+    name === undefined &&
+    email === undefined &&
+    phone === undefined &&
+    address === undefined
+  ) {
     return res.status(400).json({ error: '변경할 항목이 없어요' });
   }
   if (avatar !== undefined) {
@@ -209,11 +223,30 @@ router.patch('/me', requireAuth, (req: AuthedRequest, res) => {
     }
     db.prepare('UPDATE users SET avatar = ? WHERE id = ?').run(avatar, req.userId);
   }
+  let displayName: string | null | undefined;
   if (name !== undefined) {
-    const displayName = cleanDisplayName(name);
+    displayName = cleanDisplayName(name);
     db.prepare('UPDATE users SET name = ? WHERE id = ?').run(displayName, req.userId);
-    return res.json({ ok: true, name: displayName });
   }
+  if (email !== undefined) {
+    const v = String(email ?? '').trim().slice(0, 80) || null;
+    if (v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      return res.status(400).json({ error: '이메일 형식이 올바르지 않아요' });
+    }
+    db.prepare('UPDATE users SET email = ? WHERE id = ?').run(v, req.userId);
+  }
+  if (phone !== undefined) {
+    const v = String(phone ?? '').trim().slice(0, 30) || null;
+    if (v && !/^[0-9+\-() ]+$/.test(v)) {
+      return res.status(400).json({ error: '전화번호는 숫자와 - + ( )만 쓸 수 있어요' });
+    }
+    db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(v, req.userId);
+  }
+  if (address !== undefined) {
+    const v = String(address ?? '').trim().slice(0, 120) || null;
+    db.prepare('UPDATE users SET address = ? WHERE id = ?').run(v, req.userId);
+  }
+  if (displayName !== undefined) return res.json({ ok: true, name: displayName });
   res.json({ ok: true });
 });
 

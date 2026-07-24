@@ -20,32 +20,63 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [pwError, setPwError] = useState('');
-  const [pwDone, setPwDone] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveDone, setSaveDone] = useState('');
+  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // 표시 이름
+  // 계정 정보
   const [nameInput, setNameInput] = useState(user?.name ?? '');
-  const [nameSaving, setNameSaving] = useState(false);
-  const [nameSaved, setNameSaved] = useState(false);
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
 
-  async function saveName() {
-    setNameSaving(true);
-    setNameSaved(false);
+  /** 저장 하나로 통합 — 비어있지 않은 필드만 반영, 새 비밀번호가 있으면 비밀번호도 변경 */
+  async function saveAll(e: React.FormEvent) {
+    e.preventDefault();
+    setSaveError('');
+    setSaveDone('');
+    // 비밀번호를 바꾸려는 경우만 사전 검증
+    if (next || confirm || current) {
+      if (!next) return setSaveError('새 비밀번호를 입력해주세요');
+      if (next.length < 8) return setSaveError('새 비밀번호는 8자 이상이어야 합니다');
+      if (next !== confirm) return setSaveError('새 비밀번호가 서로 다릅니다');
+      if (!current) return setSaveError('현재 비밀번호를 입력해주세요');
+    }
+    setSaving(true);
     try {
-      const r = await api<{ ok: boolean; name: string | null }>('/api/auth/me', {
-        method: 'PATCH',
-        body: { name: nameInput },
-      });
-      const u = useAuthStore.getState().user;
-      if (u) useAuthStore.setState({ user: { ...u, name: r.name } });
-      setNameInput(r.name ?? '');
-      setNameSaved(true);
-    } catch {
-      /* 전역 토스트 */
+      const body: Record<string, string> = {};
+      if (nameInput.trim()) body.name = nameInput.trim();
+      if (email.trim()) body.email = email.trim();
+      if (phone.trim()) body.phone = phone.trim();
+      if (address.trim()) body.address = address.trim();
+      if (Object.keys(body).length > 0) {
+        const r = await api<{ ok: boolean; name?: string | null }>('/api/auth/me', {
+          method: 'PATCH',
+          body,
+        });
+        if (r.name !== undefined) {
+          const u = useAuthStore.getState().user;
+          if (u) useAuthStore.setState({ user: { ...u, name: r.name } });
+        }
+      }
+      if (next) {
+        await api('/api/auth/password', {
+          method: 'POST',
+          body: { currentPassword: current, newPassword: next },
+        });
+        setCurrent('');
+        setNext('');
+        setConfirm('');
+        setSaveDone('✓ 저장됐어요 (비밀번호 변경 — 다른 기기 세션은 모두 로그아웃됨)');
+      } else {
+        setSaveDone('✓ 저장됐어요');
+      }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : '저장에 실패했습니다');
     } finally {
-      setNameSaving(false);
+      setSaving(false);
     }
   }
 
@@ -63,10 +94,18 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
     setCurrent('');
     setNext('');
     setConfirm('');
-    setPwError('');
-    setPwDone(false);
+    setSaveError('');
+    setSaveDone('');
     setNameInput(useAuthStore.getState().user?.name ?? '');
-    setNameSaved(false);
+    // 저장된 연락처 정보 프리필
+    void api<{ name: string | null; email: string | null; phone: string | null; address: string | null }>(
+      '/api/auth/me',
+    ).then((me) => {
+      setNameInput(me.name ?? '');
+      setEmail(me.email ?? '');
+      setPhone(me.phone ?? '');
+      setAddress(me.address ?? '');
+    }).catch(() => {});
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
@@ -111,26 +150,6 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
     }
   }
 
-  async function changePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPwError('');
-    setPwDone(false);
-    if (next.length < 8) return setPwError('새 비밀번호는 8자 이상이어야 합니다');
-    if (next !== confirm) return setPwError('새 비밀번호가 서로 다릅니다');
-    try {
-      await api('/api/auth/password', {
-        method: 'POST',
-        body: { currentPassword: current, newPassword: next },
-      });
-      setPwDone(true);
-      setCurrent('');
-      setNext('');
-      setConfirm('');
-    } catch (err) {
-      setPwError(err instanceof Error ? err.message : '변경에 실패했습니다');
-    }
-  }
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
@@ -144,25 +163,6 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
             로그아웃
           </button>
         </div>
-
-        <div className="settings-section">이름</div>
-        <form
-          className="settings-name"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void saveName();
-          }}
-        >
-          <input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            placeholder="표시할 이름 (비우면 아이디로 표시)"
-            maxLength={20}
-          />
-          <button type="submit" disabled={nameSaving || nameInput.trim() === (user?.name ?? '')}>
-            {nameSaved ? '✓ 저장됨' : nameSaving ? '저장 중…' : '저장'}
-          </button>
-        </form>
 
         <div className="settings-theme">
           <div className="settings-section">화면 테마</div>
@@ -213,8 +213,51 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
           ))}
         </div>
 
-        <div className="settings-section">비밀번호 변경</div>
-        <form onSubmit={changePassword}>
+        <div className="settings-section">계정 정보</div>
+        <form onSubmit={saveAll}>
+          <label className="modal-label">
+            이름
+            <input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="표시할 이름"
+              maxLength={20}
+            />
+          </label>
+          <label className="modal-label">
+            이메일
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="example@mail.com"
+              maxLength={80}
+              autoComplete="email"
+            />
+          </label>
+          <label className="modal-label">
+            전화번호
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="010-0000-0000"
+              maxLength={30}
+              autoComplete="tel"
+            />
+          </label>
+          <label className="modal-label">
+            주소
+            <input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="주소"
+              maxLength={120}
+              autoComplete="street-address"
+            />
+          </label>
+
+          <div className="settings-section">비밀번호 변경 (바꿀 때만 입력)</div>
           <label className="modal-label">
             현재 비밀번호
             <input
@@ -242,22 +285,18 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
               autoComplete="new-password"
             />
           </label>
-          {pwError && <div className="error" style={{ color: '#d33', fontSize: 13 }}>{pwError}</div>}
-          {pwDone && (
-            <div style={{ color: 'var(--green)', fontSize: 13, fontWeight: 700 }}>
-              ✓ 비밀번호가 변경됐어요 (다른 기기 세션은 모두 로그아웃됨)
-            </div>
+          {saveError && (
+            <div className="error" style={{ color: '#d33', fontSize: 13 }}>{saveError}</div>
+          )}
+          {saveDone && (
+            <div style={{ color: 'var(--green)', fontSize: 13, fontWeight: 700 }}>{saveDone}</div>
           )}
           <div className="modal-actions">
             <button type="button" className="modal-cancel" onClick={onClose}>
               닫기
             </button>
-            <button
-              type="submit"
-              className="modal-primary"
-              disabled={!current || !next || !confirm}
-            >
-              비밀번호 변경
+            <button type="submit" className="modal-primary" disabled={saving}>
+              {saving ? '저장 중…' : '저장'}
             </button>
           </div>
         </form>

@@ -144,6 +144,23 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 계정 연락처 정보 (이메일·전화번호·주소)
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN email TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN phone TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN address TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 회의 조직 소속 (기존 DB에 컬럼 없으면 추가, null = 개인 회의)
 try {
   db.exec(`ALTER TABLE meetings ADD COLUMN org_id INTEGER REFERENCES organizations(id)`);

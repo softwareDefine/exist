@@ -51,6 +51,38 @@ describe('인증 API (AUTH-02·03·04·08)', () => {
     const r = await request(app).get('/api/auth/me').set('Authorization', 'Bearer invalid-token');
     expect(r.status).toBe(401);
   });
+
+  it('계정 정보 부분 수정 — 이메일·전화번호·주소, 넘어온 필드만 갱신', async () => {
+    const reg = await registerUser('contact_user');
+    const token = reg.body.token as string;
+    const patch = await request(app)
+      .patch('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ email: 'juho@example.com', phone: '010-1234-5678' });
+    expect(patch.status).toBe(200);
+
+    // 주소만 추가로 수정 — 기존 이메일·전화번호는 유지돼야 함
+    await request(app)
+      .patch('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ address: '서울시 어딘가 123' });
+    const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+    expect(me.body.email).toBe('juho@example.com');
+    expect(me.body.phone).toBe('010-1234-5678');
+    expect(me.body.address).toBe('서울시 어딘가 123');
+
+    // 형식 검증 — 잘못된 이메일·전화번호 400
+    const badEmail = await request(app)
+      .patch('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ email: 'not-an-email' });
+    expect(badEmail.status).toBe(400);
+    const badPhone = await request(app)
+      .patch('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ phone: '전화번호아님' });
+    expect(badPhone.status).toBe(400);
+  });
 });
 
 describe('보안 (NFR-04 · RUN-04 · INS-01)', () => {
