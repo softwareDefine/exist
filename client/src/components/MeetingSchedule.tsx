@@ -906,6 +906,7 @@ export default function MeetingSchedule({
                 title="시작 시간"
               />
             )}
+            <span className="msched-times-sep">~</span>
             <span className="msched-se-label">종료</span>
             <input
               type="date"

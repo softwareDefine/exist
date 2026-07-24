@@ -4356,6 +4356,12 @@ input:focus {
   text-overflow: ellipsis;
 }
 
+/* 선택된 날짜 셀 — 셀의 초록 틴트와 칩 틴트가 비슷해 묻히므로 칩을 카드색으로 띄움 */
+.msched-day.sel .msched-chip {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--evc, var(--green)) 40%, transparent);
+}
+
 .msched-chip-time {
   font-weight: 600;
   flex-shrink: 0;
@@ -4743,10 +4749,16 @@ input:focus {
   outline: none;
 }
 
-/* 시작/종료 한 줄 — 라벨 포함 6개 요소가 좁은 패널에 들어가게 최대한 컴팩트 */
+/* 시작/종료 한 줄 — 라벨·물결 포함 7개 요소가 좁은 패널에 들어가게 최대한 컴팩트 */
 .msched-se {
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
+}
+
+.msched-se .msched-times-sep {
+  color: var(--text-sub);
+  font-weight: 600;
+  flex: none;
 }
 
 .msched-se-label {
@@ -4757,7 +4769,7 @@ input:focus {
 }
 
 .msched-se input[type='date'] {
-  flex: 1 1 74px;
+  flex: 1 1 68px;
   min-width: 0;
   padding: 5px 2px;
   font-size: 11px;
@@ -4769,7 +4781,7 @@ input:focus {
 }
 
 .msched-se input[type='time'] {
-  width: 60px;
+  width: 57px;
   flex: none;
   padding: 5px 2px;
   font-size: 11px;
