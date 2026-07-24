@@ -876,19 +876,21 @@ export default function MeetingSchedule({
             )}
           </div>
           {/* 색 — 애플 캘린더 팔레트 */}
-          <div className="msched-add-people">
+          <div className="msched-add-remind">
             <span className="msched-people-label">색</span>
-            {COLOR_CHOICES.map((c) => (
-              <button
-                type="button"
-                key={c.value}
-                className={'msched-color-dot' + (evColor === c.value ? ' on' : '')}
-                style={{ background: c.value || 'var(--green)' }}
-                title={c.label}
-                aria-label={`색 ${c.label}`}
-                onClick={() => setEvColor(c.value)}
-              />
-            ))}
+            <select value={evColor} onChange={(e) => setEvColor(e.target.value)} aria-label="일정 색">
+              {COLOR_CHOICES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            {/* 현재 선택 색 미리보기 */}
+            <span
+              className="msched-color-dot preview"
+              style={{ background: evColor || 'var(--green)' }}
+              aria-hidden
+            />
           </div>
           {/* 관련자 — 검색해서 추가 (애플 캘린더 초대 느낌) */}
           {participants.length > 0 && (

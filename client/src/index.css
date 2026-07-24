@@ -4747,21 +4747,14 @@ input:focus {
   margin: -4px 0 8px;
 }
 
-/* 일정 색 팔레트 점 */
+/* 일정 색 미리보기 점 (드롭다운 옆) */
 .msched-color-dot {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2px solid transparent;
+  border: none;
   padding: 0;
-  cursor: pointer;
   flex: none;
-}
-
-.msched-color-dot.on {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 4px var(--text-sub);
 }
 
 /* 일정 메모 입력 */
