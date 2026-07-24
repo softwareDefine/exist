@@ -874,50 +874,49 @@ export default function MeetingSchedule({
               </span>
             </button>
             {!allDay && (
-              <>
-                <label>
-                  <span>시작</span>
-                  <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-                </label>
-                <span className="msched-times-sep">~</span>
-                <label>
-                  <span>종료</span>
-                  <input
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    disabled={!time}
-                  />
-                </label>
-                <button
-                  type="button"
-                  className={`msched-call-sw${isCall ? ' on' : ''}`}
-                  onClick={() => time && setIsCall((v) => !v)}
-                  disabled={!time}
-                  title={time ? '통화로 등록 (10분 전 알림)' : '시작 시간을 먼저 정하세요'}
-                >
-                  <PhoneIcon size={14} /> 통화
-                  <span className={`msched-sw${isCall ? ' on' : ''}`}>
-                    <i />
-                  </span>
-                </button>
-              </>
+              <button
+                type="button"
+                className={`msched-call-sw${isCall ? ' on' : ''}`}
+                onClick={() => time && setIsCall((v) => !v)}
+                disabled={!time}
+                title={time ? '통화로 등록 (10분 전 알림)' : '시작 시간을 먼저 정하세요'}
+              >
+                <PhoneIcon size={14} /> 통화
+                <span className={`msched-sw${isCall ? ' on' : ''}`}>
+                  <i />
+                </span>
+              </button>
             )}
           </div>
-          {/* 종료일 — 비우면 하루짜리, 뒤 날짜를 고르면 여러 날 걸침 (애플식) */}
+          {/* 시작/종료 — 애플처럼 각 줄에서 날짜+시간을 함께 고름 (종료 날짜가 뒤면 여러 날 일정) */}
           <div className="msched-add-remind">
-            <span className="msched-people-label">종료일</span>
+            <span className="msched-people-label">시작</span>
             <input
               type="date"
-              value={endDate}
-              min={addDays(selected, 1)}
-              onChange={(e) => setEndDate(e.target.value)}
-              title="비우면 하루짜리 일정"
+              value={selected}
+              onChange={(e) => e.target.value && setSelected(e.target.value)}
             />
-            {endDate && endDate > selected && (
-              <button type="button" className="msched-add-cancel small" onClick={() => setEndDate('')}>
-                하루로
-              </button>
+            {!allDay && (
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+            )}
+          </div>
+          <div className="msched-add-remind">
+            <span className="msched-people-label">종료</span>
+            <input
+              type="date"
+              value={endDate || selected}
+              min={selected}
+              onChange={(e) =>
+                setEndDate(!e.target.value || e.target.value <= selected ? '' : e.target.value)
+              }
+            />
+            {!allDay && (
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                disabled={!time}
+              />
             )}
           </div>
           {/* 알림 시점 — 애플식 선택 (시간 일정에만 의미) */}
@@ -1509,7 +1508,7 @@ export default function MeetingSchedule({
                     </span>
                   )}
                   {chips.map((e) => (
-                    <span key={e.id} className="msched-chip" title={e.title}>
+                    <span key={e.id} className="msched-chip" style={evColorStyle(e.color)} title={e.title}>
                       {e.time && <b className="msched-chip-time">{ampmShort(e.time)}</b>}
                       {e.title}
                     </span>
