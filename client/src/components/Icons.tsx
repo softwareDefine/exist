@@ -540,3 +540,18 @@ export function ShareIcon({ size }: IconProps) {
     </Svg>
   );
 }
+
+export function ClipboardIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <rect x="5.5" y="4.8" width="13" height="16.2" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M9.3 4.8v-.6c0-.8.6-1.4 1.4-1.4h2.6c.8 0 1.4.6 1.4 1.4v.6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M9.3 11h5.4M9.3 14.6h5.4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </Svg>
+  );
+}

@@ -19,6 +19,7 @@ import {
   CopyIcon,
   TrashIcon,
   ShareIcon,
+  ClipboardIcon,
 } from './Icons';
 
 /*
@@ -884,7 +885,7 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
             <CopyIcon size={13} /> 복사
           </button>
           <button className="cf-tool" disabled={!clipboard} onClick={() => void paste()}>
-            📋 붙여넣기
+            <ClipboardIcon size={13} /> 붙여넣기
           </button>
           <button
             className="cf-tool"
