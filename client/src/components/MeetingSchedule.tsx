@@ -888,20 +888,23 @@ export default function MeetingSchedule({
               </button>
             )}
           </div>
-          {/* 시작/종료 — 애플처럼 각 줄에서 날짜+시간을 함께 고름 (종료 날짜가 뒤면 여러 날 일정) */}
-          <div className="msched-add-remind">
-            <span className="msched-people-label">시작</span>
+          {/* 시작~종료 한 줄 — 날짜+시간 함께 (종료 날짜가 뒤면 여러 날 일정) */}
+          <div className="msched-add-remind msched-se">
             <input
               type="date"
               value={selected}
               onChange={(e) => e.target.value && setSelected(e.target.value)}
+              title="시작 날짜"
             />
             {!allDay && (
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              <input
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                title="시작 시간"
+              />
             )}
-          </div>
-          <div className="msched-add-remind">
-            <span className="msched-people-label">종료</span>
+            <span className="msched-times-sep">~</span>
             <input
               type="date"
               value={endDate || selected}
@@ -909,6 +912,7 @@ export default function MeetingSchedule({
               onChange={(e) =>
                 setEndDate(!e.target.value || e.target.value <= selected ? '' : e.target.value)
               }
+              title="종료 날짜"
             />
             {!allDay && (
               <input
@@ -916,6 +920,7 @@ export default function MeetingSchedule({
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 disabled={!time}
+                title="종료 시간"
               />
             )}
           </div>

@@ -4743,6 +4743,32 @@ input:focus {
   outline: none;
 }
 
+/* 시작~종료 한 줄 — 좁은 패널에 4개 인풋이 들어가야 해서 최대한 컴팩트 */
+.msched-se {
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.msched-se input[type='date'] {
+  flex: 1 1 90px;
+  min-width: 0;
+  padding: 5px 2px;
+  font-size: 11px;
+}
+
+.msched-se input[type='time'] {
+  width: 64px;
+  flex: none;
+  padding: 5px 2px;
+  font-size: 11px;
+}
+
+.msched-se .msched-times-sep {
+  color: var(--text-sub);
+  font-weight: 600;
+  flex: none;
+}
+
 .msched-pop-remind {
   font-size: 12px;
   font-weight: 600;
