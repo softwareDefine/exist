@@ -269,6 +269,14 @@ export default function MeetingSchedule({
   const [now, setNow] = useState<Date>(() => new Date()); // 일·주 뷰 "지금" 선
   const dayviewRef = useRef<HTMLDivElement | null>(null);
   const weekRef = useRef<HTMLDivElement | null>(null);
+  // 모바일 — 주 뷰를 2일 단위로 (CSS의 767px 그리드 오버라이드와 짝)
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 767px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const on = () => setNarrow(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
 
   // ── 애플식 인터랙션: 팝오버 + 드래그 ──
   /** 이벤트 클릭 팝오버 — view(상세) / edit(수정 폼) / create(드래그 생성 폼) */
@@ -440,9 +448,9 @@ export default function MeetingSchedule({
       const sm = Math.max(0, Math.min(24 * 60 - dur, d.origSm! + dMin));
       let dayIdx = d.origIdx!;
       let dx = 0;
-      if (weekMode && d.colLefts && d.colLefts.length === 7) {
+      if (weekMode && d.colLefts && d.colLefts.length >= 2) {
         dayIdx = 0;
-        for (let i = 0; i < 7; i++) if (e.clientX >= d.colLefts[i]) dayIdx = i;
+        for (let i = 0; i < d.colLefts.length; i++) if (e.clientX >= d.colLefts[i]) dayIdx = i;
         dx = d.colLefts[dayIdx] - d.colLefts[d.origIdx!];
       }
       setDrag({ kind: 'move', id: d.id!, sm, em: sm + dur, dayIdx, origIdx: d.origIdx!, dx });
@@ -688,16 +696,17 @@ export default function MeetingSchedule({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, byDate, year, month]);
 
-  // 주 뷰: cursor가 속한 주 (일요일 시작)
+  // 주 뷰: 데스크탑은 cursor가 속한 주(일요일 시작), 모바일은 cursor부터 2일
   const weekDays = useMemo(() => {
     const start = new Date(cursor);
-    start.setDate(start.getDate() - start.getDay());
-    return Array.from({ length: 7 }, (_, i) => {
+    if (!narrow) start.setDate(start.getDate() - start.getDay());
+    const len = narrow ? 2 : 7;
+    return Array.from({ length: len }, (_, i) => {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
       return d;
     });
-  }, [cursor]);
+  }, [cursor, narrow]);
 
   const dayEvents = byDate.get(selected) ?? [];
 
@@ -707,7 +716,7 @@ export default function MeetingSchedule({
       c.setDate(1);
       c.setMonth(c.getMonth() + dir);
     } else if (view === 'week') {
-      c.setDate(c.getDate() + 7 * dir);
+      c.setDate(c.getDate() + (narrow ? 2 : 7) * dir);
     } else {
       c.setDate(c.getDate() + dir);
     }
@@ -723,15 +732,15 @@ export default function MeetingSchedule({
 
   function switchView(v: ViewMode) {
     setView(v);
-    // 일 뷰는 커서=선택 날짜로 정렬
-    if (v === 'day') setCursor(new Date(selected + 'T00:00'));
+    // 일 뷰(그리고 모바일 2일 주 뷰)는 커서=선택 날짜로 정렬
+    if (v === 'day' || (v === 'week' && narrow)) setCursor(new Date(selected + 'T00:00'));
   }
 
   function headLabel(): string {
     if (view === 'month') return `${year}년 ${month + 1}월`;
     if (view === 'week') {
       const a = weekDays[0];
-      const b = weekDays[6];
+      const b = weekDays[weekDays.length - 1];
       const left = `${a.getMonth() + 1}월 ${a.getDate()}일`;
       const right =
         a.getMonth() === b.getMonth() ? `${b.getDate()}일` : `${b.getMonth() + 1}월 ${b.getDate()}일`;

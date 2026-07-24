@@ -3756,6 +3756,15 @@ input:focus {
   display: contents;
 }
 
+/* 모바일 — 7일은 칸이 너무 좁아서 주 뷰를 2일 단위로 (JS도 767px 기준으로 2일만 렌더) */
+@media (max-width: 767px) {
+  .msched-week-head,
+  .msched-week-allday,
+  .msched-week-body {
+    grid-template-columns: 60px repeat(2, minmax(0, 1fr));
+  }
+}
+
 .msched-week-hlabel {
   height: 40px;
   flex: none;
