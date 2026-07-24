@@ -263,6 +263,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 여러 날 걸친 일정 — 종료 날짜 (null=하루짜리)
+try {
+  db.exec(`ALTER TABLE meeting_events ADD COLUMN end_date TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 알림이 어느 회의에서 왔는지 — meeting_code (null이면 회의 무관)
 try {
   db.exec(`ALTER TABLE notifications ADD COLUMN meeting_code TEXT`);

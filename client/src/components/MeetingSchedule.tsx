@@ -17,8 +17,11 @@ interface MEvent {
   recur: string | null; // 반복 — daily/weekly/biweekly/monthly (null=없음)
   recur_until: string | null; // 반복 종료일
   color: string | null; // 일정 색 (#rrggbb, null=기본)
+  end_date: string | null; // 여러 날 걸친 일정의 종료일 (null=하루)
   /** 반복 확장 occurrence면 원본 날짜 (수정 폼은 이 날짜 기준) */
   baseDate?: string;
+  /** 여러 날 일정의 하루 조각 — start(첫날)/mid(중간)/end(마지막) */
+  seg?: 'start' | 'mid' | 'end';
   people: { id: number; username: string; name: string | null }[]; // 관련자
   author: string;
   created_by: number;
@@ -54,6 +57,15 @@ const pad = (n: number) => String(n).padStart(2, '0');
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
+
+const addDays = (ds: string, n: number): string => {
+  const d = new Date(ds + 'T00:00');
+  d.setDate(d.getDate() + n);
+  return ymd(d);
+};
+
+const daysBetween = (a: string, b: string): number =>
+  Math.round((new Date(b + 'T00:00').getTime() - new Date(a + 'T00:00').getTime()) / 86_400_000);
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 /** "7월 23일 (수)" — 팝오버 날짜 표기 */
@@ -139,6 +151,14 @@ function ampmRange(t: string, end: string | null | undefined): string {
   return `${ampm(t)}~${same ? ampm(end).replace(/^오[전후] /, '') : ampm(end)}`;
 }
 
+/** 일정 시간 표기 — 여러 날 조각은 화살표로 이어짐 표시 */
+function evTimeText(ev: MEvent): string {
+  if (ev.seg === 'start') return ev.time ? `${ampm(ev.time)} →` : '';
+  if (ev.seg === 'mid') return '계속';
+  if (ev.seg === 'end') return ev.end_time ? `→ ${ampm(ev.end_time)}` : '→ 종일';
+  return ev.time ? ampmRange(ev.time, ev.end_time) : '';
+}
+
 /** 월 칩용 짧은 표기 — 정각이면 "오후 3시" */
 function ampmShort(t: string): string {
   const h = parseInt(t.slice(0, 2), 10);
@@ -221,6 +241,7 @@ export default function MeetingSchedule({
   const [evRecur, setEvRecur] = useState('none'); // 개별 일정 반복
   const [evUntil, setEvUntil] = useState(''); // 반복 종료일 (''=계속)
   const [evColor, setEvColor] = useState(''); // 일정 색 (''=기본)
+  const [endDate, setEndDate] = useState(''); // 여러 날 일정 종료일 (''=하루)
   const [colorOpen, setColorOpen] = useState(false); // 색 팔레트 펼침
 
   // 색 팔레트 바깥 클릭으로 닫기
@@ -342,8 +363,8 @@ export default function MeetingSchedule({
   function blockPointerDown(e: React.PointerEvent, ev: MEvent, dayIdx: number) {
     if ((e.target as HTMLElement).closest('button.msched-event-edit, button.msched-event-del')) return;
     e.stopPropagation();
-    // 반복 일정은 드래그로 옮기면 시리즈 앵커가 통째로 움직여 혼란 — 팝오버 수정만 허용
-    const canEdit = (ev.created_by === userId || isHost) && !ev.recur;
+    // 반복·여러 날 일정은 드래그로 옮기면 앵커/조각이 통째로 움직여 혼란 — 팝오버 수정만 허용
+    const canEdit = (ev.created_by === userId || isHost) && !ev.recur && !ev.end_date;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     if (e.pointerType !== 'mouse' || e.button !== 0) {
       // 터치: 탭 = 상세 팝오버
@@ -501,9 +522,31 @@ export default function MeetingSchedule({
       if (!m.has(d)) m.set(d, []);
       m.get(d)!.push(e);
     };
+    // 여러 날 걸친 일정은 날짜별 조각(seg)으로 분해 — 첫날 시작~자정, 중간 종일, 마지막 0시~종료
+    const pushSpan = (e: MEvent, anchor: string) => {
+      const span = e.end_date && e.end_date > e.date ? daysBetween(e.date, e.end_date) : 0;
+      if (span === 0) {
+        push(anchor, { ...e, date: anchor, baseDate: e.date });
+        return;
+      }
+      for (let k = 0; k <= span && k < 60; k++) {
+        const d = addDays(anchor, k);
+        const seg: 'start' | 'mid' | 'end' = k === 0 ? 'start' : k === span ? 'end' : 'mid';
+        let segTime = e.time;
+        let segEnd = e.end_time;
+        if (e.time) {
+          if (seg === 'start') segEnd = '23:59';
+          else if (seg === 'mid') {
+            segTime = '00:00';
+            segEnd = '23:59';
+          } else segTime = '00:00';
+        }
+        push(d, { ...e, date: d, time: segTime, end_time: segEnd, baseDate: e.date, seg });
+      }
+    };
     for (const e of events) {
       if (!e.recur) {
-        push(e.date, { ...e, baseDate: e.date });
+        pushSpan(e, e.date);
         continue;
       }
       // 종료일 없으면 +6개월까지만 전개 (최대 200회)
@@ -512,7 +555,7 @@ export default function MeetingSchedule({
       const cap = e.recur_until ? new Date(e.recur_until + 'T23:59:59') : fallback;
       let cur = new Date(e.date + 'T00:00');
       for (let i = 0; i < 200 && cur.getTime() <= cap.getTime(); i++) {
-        push(ymd(cur), { ...e, date: ymd(cur), baseDate: e.date });
+        pushSpan(e, ymd(cur));
         cur = stepDate(cur, e.recur);
       }
     }
@@ -620,16 +663,19 @@ export default function MeetingSchedule({
     setEvRecur('none');
     setEvUntil('');
     setEvColor('');
+    setEndDate('');
     setPeople([]);
     setPq('');
     setPplOpen(false);
     setEditingId(null);
   }
 
-  function startEdit(ev: MEvent) {
+  function startEdit(evLike: MEvent) {
+    // 조각(seg)·occurrence 사본은 시간이 변조돼 있음 — 항상 원본 이벤트 기준으로 편집
+    const ev = events.find((x) => x.id === evLike.id) ?? evLike;
     setEditingId(ev.id);
     // 반복 occurrence를 수정해도 원본(앵커) 날짜 기준 — 날짜를 바꾸면 시리즈 전체가 이동
-    setSelected(ev.baseDate ?? ev.date);
+    setSelected(ev.date);
     setTitle(ev.title);
     setAllDay(!ev.time);
     setTime(ev.time ?? '');
@@ -640,6 +686,7 @@ export default function MeetingSchedule({
     setEvRecur(ev.recur ?? 'none');
     setEvUntil(ev.recur_until ?? '');
     setEvColor(ev.color ?? '');
+    setEndDate(ev.end_date ?? '');
     setPeople(ev.people?.map((p) => ({ id: p.id, username: p.name || p.username })) ?? []);
   }
 
@@ -685,7 +732,9 @@ export default function MeetingSchedule({
   async function addEvent(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    if (time && endTime && endTime <= time) {
+    const multiDay = !!endDate && endDate > selected;
+    // 여러 날 걸치면 다음 날 이른 시각도 정상 — 같은 날일 때만 검사
+    if (time && endTime && endTime <= time && !multiDay) {
       window.dispatchEvent(
         new CustomEvent('app:error', { detail: '종료 시간이 시작보다 빨라요' }),
       );
@@ -696,6 +745,7 @@ export default function MeetingSchedule({
       date: selected,
       time: allDay ? null : time || null,
       end_time: !allDay && time ? endTime || null : null,
+      end_date: multiDay ? endDate : null,
       is_call: isCall && !allDay && !!time, // 통화는 시작 시간이 있어야 의미 있음
       memo: memo.trim() || null,
       remind: remind === '' ? null : Number(remind),
@@ -748,7 +798,7 @@ export default function MeetingSchedule({
       style={evColorStyle(ev.color)}
     >
       {!ev.time && <span className="msched-event-time allday">하루 종일</span>}
-      {ev.time && <span className="msched-event-time">{ampmRange(ev.time, ev.end_time)}</span>}
+      {ev.time && <span className="msched-event-time">{evTimeText(ev)}</span>}
       <Marquee className="msched-event-title">
         {ev.is_call ? (
           <span className="msched-call-ic">
@@ -852,6 +902,22 @@ export default function MeetingSchedule({
                   </span>
                 </button>
               </>
+            )}
+          </div>
+          {/* 종료일 — 비우면 하루짜리, 뒤 날짜를 고르면 여러 날 걸침 (애플식) */}
+          <div className="msched-add-remind">
+            <span className="msched-people-label">종료일</span>
+            <input
+              type="date"
+              value={endDate}
+              min={addDays(selected, 1)}
+              onChange={(e) => setEndDate(e.target.value)}
+              title="비우면 하루짜리 일정"
+            />
+            {endDate && endDate > selected && (
+              <button type="button" className="msched-add-cancel small" onClick={() => setEndDate('')}>
+                하루로
+              </button>
             )}
           </div>
           {/* 알림 시점 — 애플식 선택 (시간 일정에만 의미) */}
@@ -1013,6 +1079,8 @@ export default function MeetingSchedule({
         events.find((x) => x.id === pop.evId) ??
         null)
       : null;
+  /** 조각이 아닌 원본 이벤트 — 여러 날 일정의 기간·시간 표시용 */
+  const popBase = popEv ? (events.find((x) => x.id === popEv.id) ?? popEv) : null;
   const popCanEdit = popEv ? popEv.created_by === userId || isHost : false;
 
   return (
@@ -1213,7 +1281,7 @@ export default function MeetingSchedule({
                           {/* 애플처럼 제목 먼저, 시간은 아랫줄 */}
                           <span className="msched-wblock-t">{e.title}</span>
                           <span className="msched-wblock-time">
-                            {dv ? ampmRange(minToHHMM(s), minToHHMM(en)) : ampmRange(e.time!, e.end_time)}
+                            {dv ? ampmRange(minToHHMM(s), minToHHMM(en)) : evTimeText(e)}
                           </span>
                         </button>
                         );
@@ -1369,7 +1437,7 @@ export default function MeetingSchedule({
                       {ev.title}
                     </Marquee>
                     <span className="msched-event-time">
-                      {dv ? ampmRange(minToHHMM(s), minToHHMM(en)) : ampmRange(ev.time!, ev.end_time)}
+                      {dv ? ampmRange(minToHHMM(s), minToHHMM(en)) : evTimeText(ev)}
                     </span>
                     <span className="msched-event-author">{ev.author}</span>
                     {(ev.created_by === userId || isHost) && (
@@ -1527,8 +1595,12 @@ export default function MeetingSchedule({
                   {popEv.title}
                 </div>
                 <div className="msched-pop-time">
-                  {dateLabelOf(popEv.date)} ·{' '}
-                  {popEv.time ? ampmRange(popEv.time, popEv.end_time) : '하루 종일'}
+                  {popBase && popBase.end_date
+                    ? // 여러 날 걸친 일정 — 원본 기준 기간 표시
+                      `${dateLabelOf(popBase.date)}${popBase.time ? ` ${ampm(popBase.time)}` : ''} → ${dateLabelOf(popBase.end_date)}${popBase.end_time ? ` ${ampm(popBase.end_time)}` : ''}`
+                    : popEv.time
+                      ? `${dateLabelOf(popEv.date)} · ${ampmRange(popEv.time, popEv.end_time)}`
+                      : `${dateLabelOf(popEv.date)} · 하루 종일`}
                 </div>
                 {popEv.time && (
                   <div className="msched-pop-remind">

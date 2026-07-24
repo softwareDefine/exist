@@ -379,7 +379,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
   // 회의 안에서 추가한 일정 이벤트(통화 등, 시간 있는 것)도 일정에 포함 — 반복이면 occurrence 전개
   const events = db
     .prepare(
-      `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.end_time, e.recur, e.recur_until,
+      `SELECT e.id AS eid, e.title AS etitle, e.date, e.time, e.end_time, e.end_date, e.recur, e.recur_until,
               m.id AS mid, m.code, m.title AS mtitle, m.thumbnail
        FROM meeting_events e
        JOIN meetings m ON m.id = e.meeting_id
@@ -392,6 +392,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
     date: string;
     time: string;
     end_time: string | null;
+    end_date: string | null;
     recur: string | null;
     recur_until: string | null;
     mid: number;
@@ -415,10 +416,23 @@ router.get('/schedule', (req: AuthedRequest, res) => {
         cur = stepEventDate(cur, e.recur);
       }
     }
+    // 여러 날 걸친 일정 — 종료는 (시작일+span)일의 종료 시각
+    const spanDays =
+      e.end_date && e.end_date > e.date
+        ? Math.round(
+            (new Date(e.end_date + 'T00:00:00').getTime() -
+              new Date(e.date + 'T00:00:00').getTime()) /
+              86_400_000,
+          )
+        : 0;
     for (const d of dates) {
       const startsAt = `${d}T${e.time}`;
       const ts = new Date(startsAt).getTime();
       if (isNaN(ts) || ts < lower || ts > upper) continue;
+      const endD = new Date(d + 'T00:00:00');
+      endD.setDate(endD.getDate() + spanDays);
+      const endYmd = `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}`;
+      const endClock = e.end_time ?? (spanDays > 0 ? '23:59' : null);
       out.push({
         id: e.mid,
         occId: `ev${e.eid}@${d}`,
@@ -427,7 +441,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
         meetingTitle: e.mtitle, // 그룹명(회의 이름) — nowbar 그룹 구성용
         thumbnail: e.thumbnail,
         starts_at: startsAt,
-        ends_at: e.end_time ? `${d}T${e.end_time}` : null,
+        ends_at: endClock ? `${endYmd}T${endClock}` : null,
         recur: e.recur ?? 'none',
         kind: 'event',
       });
@@ -746,7 +760,7 @@ router.get('/:code/events', (req: AuthedRequest, res) => {
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const rows = db
     .prepare(
-      `SELECT e.id, e.title, e.date, e.time, e.end_time, e.is_call, e.memo, e.people, e.remind, e.recur, e.recur_until, e.color, u.username AS author, e.created_by
+      `SELECT e.id, e.title, e.date, e.time, e.end_time, e.end_date, e.is_call, e.memo, e.people, e.remind, e.recur, e.recur_until, e.color, u.username AS author, e.created_by
        FROM meeting_events e JOIN users u ON u.id = e.created_by
        WHERE e.meeting_id = ? ORDER BY e.date, COALESCE(e.time, '99:99')`,
     )
@@ -839,8 +853,20 @@ export function eventOccurrenceOnOrAfter(
 
 /** 회의 일정 이벤트 추가 */
 router.post('/:code/events', (req: AuthedRequest, res) => {
-  const { title, date, time, end_time, is_call, people, memo, remind, recur, recur_until, color } =
-    req.body ?? {};
+  const {
+    title,
+    date,
+    time,
+    end_time,
+    end_date,
+    is_call,
+    people,
+    memo,
+    remind,
+    recur,
+    recur_until,
+    color,
+  } = req.body ?? {};
   if (!title || !String(title).trim()) return res.status(400).json({ error: '일정 제목을 입력하세요' });
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
     return res.status(400).json({ error: '날짜를 확인하세요' });
@@ -851,9 +877,15 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
     .get(code) as { id: number; title: string } | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const hhmm = (v: unknown) => (v && /^\d{2}:\d{2}$/.test(String(v)) ? String(v) : null);
+  // 여러 날 걸친 일정 — 종료일이 시작일보다 뒤일 때만 유효
+  const endDate =
+    typeof end_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(end_date) && end_date > String(date)
+      ? end_date
+      : null;
   const t = hhmm(time);
   const tEnd = t ? hhmm(end_time) : null; // 시작이 있어야 종료 의미 있음
-  if (t && tEnd && tEnd <= t) {
+  // 같은 날일 때만 시작<종료 검사 (여러 날이면 다음 날 이른 시각도 정상)
+  if (t && tEnd && !endDate && tEnd <= t) {
     return res.status(400).json({ error: '종료 시간이 시작보다 빨라요' });
   }
   const isCall = is_call ? 1 : 0;
@@ -866,9 +898,9 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   const colorVal = cleanColor(color);
   const info = db
     .prepare(
-      'INSERT INTO meeting_events (meeting_id, title, date, time, end_time, is_call, people, memo, remind, recur, recur_until, color, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO meeting_events (meeting_id, title, date, time, end_time, end_date, is_call, people, memo, remind, recur, recur_until, color, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(meeting.id, cleanTitle, String(date), t, tEnd, isCall, JSON.stringify(ppl), memoVal, remindVal, recurVal, untilVal, colorVal, req.userId);
+    .run(meeting.id, cleanTitle, String(date), t, tEnd, endDate, isCall, JSON.stringify(ppl), memoVal, remindVal, recurVal, untilVal, colorVal, req.userId);
 
   // 회의 참가자 전원(작성자 제외)에게 일정 알림 — 회의 썸네일과 함께
   const me = db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as
@@ -922,25 +954,42 @@ router.patch('/:code/events/:eventId', (req: AuthedRequest, res) => {
     | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
   const ev = db
-    .prepare('SELECT created_by, title, date, time, end_time, is_call, people, memo, remind, recur, recur_until, color FROM meeting_events WHERE id = ? AND meeting_id = ?')
+    .prepare('SELECT created_by, title, date, time, end_time, end_date, is_call, people, memo, remind, recur, recur_until, color FROM meeting_events WHERE id = ? AND meeting_id = ?')
     .get(req.params.eventId, meeting.id) as
-    | { created_by: number; title: string; date: string; time: string | null; end_time: string | null; is_call: number; people: string | null; memo: string | null; remind: number | null; recur: string | null; recur_until: string | null; color: string | null }
+    | { created_by: number; title: string; date: string; time: string | null; end_time: string | null; end_date: string | null; is_call: number; people: string | null; memo: string | null; remind: number | null; recur: string | null; recur_until: string | null; color: string | null }
     | undefined;
   if (!ev) return res.status(404).json({ error: '존재하지 않는 일정입니다' });
   if (ev.created_by !== req.userId && meeting.host_id !== req.userId) {
     return res.status(403).json({ error: '작성자나 호스트만 수정할 수 있어요' });
   }
 
-  const { title, date, time, end_time, is_call, people, memo, remind, recur, recur_until, color } =
-    req.body ?? {};
+  const {
+    title,
+    date,
+    time,
+    end_time,
+    end_date,
+    is_call,
+    people,
+    memo,
+    remind,
+    recur,
+    recur_until,
+    color,
+  } = req.body ?? {};
   const hhmm = (v: unknown) => (v && /^\d{2}:\d{2}$/.test(String(v)) ? String(v) : null);
   const newTitle = title !== undefined ? String(title).trim().slice(0, 80) : ev.title;
   if (!newTitle) return res.status(400).json({ error: '일정 제목을 입력하세요' });
   const newDate =
     date !== undefined && /^\d{4}-\d{2}-\d{2}$/.test(String(date)) ? String(date) : ev.date;
+  const rawEndDate = end_date !== undefined ? end_date : ev.end_date;
+  const newEndDate =
+    typeof rawEndDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawEndDate) && rawEndDate > newDate
+      ? rawEndDate
+      : null;
   const t = time !== undefined ? hhmm(time) : ev.time;
   const tEnd = t ? (end_time !== undefined ? hhmm(end_time) : ev.end_time) : null;
-  if (t && tEnd && tEnd <= t) {
+  if (t && tEnd && !newEndDate && tEnd <= t) {
     return res.status(400).json({ error: '종료 시간이 시작보다 빨라요' });
   }
   const isCall = is_call !== undefined ? (is_call ? 1 : 0) : ev.is_call;
@@ -962,8 +1011,8 @@ router.patch('/:code/events/:eventId', (req: AuthedRequest, res) => {
   const newColor = color !== undefined ? cleanColor(color) : ev.color;
 
   db.prepare(
-    'UPDATE meeting_events SET title = ?, date = ?, time = ?, end_time = ?, is_call = ?, people = ?, memo = ?, remind = ?, recur = ?, recur_until = ?, color = ? WHERE id = ?',
-  ).run(newTitle, newDate, t, tEnd, t ? isCall : 0, JSON.stringify(newPpl), newMemo, newRemind, newRecur, newUntil, newColor, req.params.eventId);
+    'UPDATE meeting_events SET title = ?, date = ?, time = ?, end_time = ?, end_date = ?, is_call = ?, people = ?, memo = ?, remind = ?, recur = ?, recur_until = ?, color = ? WHERE id = ?',
+  ).run(newTitle, newDate, t, tEnd, newEndDate, t ? isCall : 0, JSON.stringify(newPpl), newMemo, newRemind, newRecur, newUntil, newColor, req.params.eventId);
 
   // 수정으로 새로 지정된 관련자에게만 알림 (원래 있던 사람에게 또 보내지 않음)
   const added = newPpl.filter((id) => !oldPpl.includes(id) && id !== req.userId);

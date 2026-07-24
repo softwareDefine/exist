@@ -4770,6 +4770,12 @@ input:focus {
   align-items: center;
 }
 
+/* 종료일 옆 "하루로" 되돌리기 버튼 */
+.msched-add-cancel.small {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
 .msched-color-pop {
   position: absolute;
   top: calc(100% + 6px);
