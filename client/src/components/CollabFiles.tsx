@@ -645,6 +645,19 @@ export default function CollabFiles({ code, isHost }: { code: string; isHost: bo
     return () => document.removeEventListener('pointerdown', onDown);
   }, [ctxMenu]);
 
+  // 정렬·새로 만들기 드롭다운 — 바깥 클릭으로 닫기
+  useEffect(() => {
+    if (!sortMenu && typeMenuFor === null) return;
+    function onDown(e: PointerEvent) {
+      if (!(e.target as HTMLElement).closest('.cf-type-menu, .cf-tool-wrap, .cf-actions')) {
+        setSortMenu(false);
+        setTypeMenuFor(null);
+      }
+    }
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [sortMenu, typeMenuFor]);
+
   function share(f: CollabFile) {
     const link = `${location.origin}/meeting/${code}`;
     void navigator.clipboard
