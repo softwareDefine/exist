@@ -1207,7 +1207,7 @@ router.post('/:fileId/dm', (req: AuthedRequest, res) => {
 
 /** 파일을 그룹 채널로 공유 — 해당 채널 채팅에 요청자 본인 이름으로 게시. body { channelId }.
  * 업로드 파일(type='file')은 파일 카드(다운로드 경로), 공동편집 문서는 안내 문구 (DM 문구 문법).
- * 채널은 이 그룹 소속이어야 하고 통화 채널(kind='call')은 제외 */
+ * 채널은 이 그룹 소속이어야 함 (통화 채널 포함 — 통화 중 공유 동선) */
 router.post('/:fileId/share-channel', (req: AuthedRequest, res) => {
   const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
@@ -1225,11 +1225,10 @@ router.post('/:fileId/share-channel', (req: AuthedRequest, res) => {
     req.userId!,
   );
   if (channel == null) return res.status(404).json({ error: '존재하지 않는 채널이에요' });
+  // 통화 채널 포함 전 채널 공유 가능 — 통화 중 "이 문서 봐" 하고 던지는 게 자연스러운 동선
   const ch = db.prepare('SELECT name, kind FROM chat_channels WHERE id = ?').get(channel) as
     | { name: string; kind: string | null }
     | undefined;
-  if (ch?.kind === 'call')
-    return res.status(400).json({ error: '통화 채널에는 공유할 수 없어요' });
 
   let text = '';
   let fileJson: string | null = null;

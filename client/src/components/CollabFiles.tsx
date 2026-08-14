@@ -459,7 +459,7 @@ export default function CollabFiles({
     else next.add(v);
     return next;
   };
-  // 이 그룹 채널 목록 — 통화 채널(kind='call')은 로드 시점에 제외
+  // 이 그룹 채널 목록 — 통화 채널 포함 (통화 중 공유)
   const [shareChannels, setShareChannels] = useState<
     { id: number; name: string; kind?: string | null }[] | null
   >(null);
@@ -1190,7 +1190,7 @@ export default function CollabFiles({
       `/api/meetings/${code}/channels`,
       { silent: true },
     )
-      .then((list) => setShareChannels(list.filter((c) => c.kind !== 'call')))
+      .then(setShareChannels) // 통화 채널 포함 — 통화 중 공유 동선
       .catch(() => setShareChannels([]));
     void api<{ id: number; username: string; avatar: string | null }[]>(
       `/api/meetings/${code}/files/members/list`,

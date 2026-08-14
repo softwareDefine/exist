@@ -12252,12 +12252,17 @@ input:focus {
   border-collapse: collapse;
   margin: 12px 0;
   width: 100%;
+  /* 셀 내용이 길어도 표가 카드 밖으로 안 나가게 — 컬럼 폭을 고정 분배하고 안에서 줄바꿈 */
+  table-layout: fixed;
   font-size: 13px;
 }
 .cf-hwpx td {
   border: 1px solid var(--border);
   padding: 6px 9px;
   vertical-align: top;
+  white-space: pre-wrap; /* 셀 안 줄바꿈(lineBreak) 보존 */
+  word-break: break-word;
+  overflow-wrap: anywhere; /* 긴 영문 토큰·URL도 강제 줄바꿈 */
 }
 .cf-hwpx tr:first-child td {
   background: var(--surface-2);
