@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
-import { parseHwpx, type HwpxBlock } from '../lib/hwpx';
+import { parseHwpx, type HwpxBlock, type HwpxRun } from '../lib/hwpx';
 import { useAuthStore } from '../store';
 import { useDisplayName } from '../names';
 import CodeDocEditor from './CodeDocEditor';
@@ -211,40 +211,130 @@ function TextPreview({ url }: { url: string }) {
   );
 }
 
-/* ── 한글(hwpx) 미리보기 — OWPML zip에서 문단·표를 추출해 읽기 전용 렌더.
+/* ── 한글(hwpx) 미리보기 — OWPML zip에서 문단·표·이미지를 추출해 읽기 전용 렌더.
  * 제조 현업 격차 대응: 품의서·공문류가 hwp로 도는 환경. 구형 .hwp(바이너리)는 미지원 ──
  * 파싱 로직은 lib/hwpx.ts(순수 함수)로 분리 — 섹션 발견(spine→글롭→전수 탐색)·
- * 네임스페이스 변형·인코딩·서식 없는 텍스트 폴백까지 그쪽에서 처리 */
+ * 네임스페이스 변형·인코딩·런 서식(charPr)·정렬(paraPr)·셀 병합/폭/배경·
+ * 서식 없는 텍스트 폴백까지 그쪽에서 처리. 이미지 바이트→블롭 URL 변환만 여기 책임 */
+
+/** 런 서식 → 인라인 스타일. 색 지정이 없으면 상속(var(--text)) */
+function hwpxRunStyle(r: HwpxRun): CSSProperties | undefined {
+  const s: CSSProperties = {};
+  if (r.bold) s.fontWeight = 700;
+  if (r.italic) s.fontStyle = 'italic';
+  const deco = [r.underline ? 'underline' : '', r.strike ? 'line-through' : ''].filter(Boolean).join(' ');
+  if (deco) s.textDecoration = deco;
+  if (r.sizePt != null) s.fontSize = `${r.sizePt}pt`;
+  if (r.color) s.color = r.color;
+  return Object.keys(s).length > 0 ? s : undefined;
+}
+
+/** 블록 배열 렌더 — 표 셀 안에서도 재귀 사용. imgUrls: img 블록 → 블롭 URL */
+function HwpxBlocks({ blocks, imgUrls }: { blocks: HwpxBlock[]; imgUrls: Map<HwpxBlock, string> }) {
+  return (
+    <>
+      {blocks.map((b, i) => {
+        if (b.kind === 'p')
+          return (
+            <p key={i} style={b.align && b.align !== 'left' ? { textAlign: b.align } : undefined}>
+              {b.runs
+                ? b.runs.map((r, ri) => (
+                    <span key={ri} style={hwpxRunStyle(r)}>
+                      {r.text}
+                    </span>
+                  ))
+                : b.text}
+            </p>
+          );
+        if (b.kind === 'img') {
+          const src = imgUrls.get(b);
+          if (!src) return null;
+          // widthPt는 상한으로만 — 카드보다 크면 max-width:100%가 줄인다
+          return <img key={i} src={src} alt="" style={b.widthPt ? { width: `${b.widthPt}pt` } : undefined} />;
+        }
+        const total = b.colWidths?.reduce((a, w) => a + w, 0) ?? 0;
+        return (
+          <table key={i}>
+            {b.colWidths && total > 0 && (
+              <colgroup>
+                {b.colWidths.map((w, ci) => (
+                  <col key={ci} style={{ width: `${((w / total) * 100).toFixed(2)}%` }} />
+                ))}
+              </colgroup>
+            )}
+            <tbody>
+              {b.rows.map((r, ri) => (
+                <tr key={ri}>
+                  {r.map((c, ci) => (
+                    <td
+                      key={ci}
+                      colSpan={c.colSpan}
+                      rowSpan={c.rowSpan}
+                      // 문서가 지정한 배경만 칠한다 — 배경색은 검정 글자 전제(밝은 팔레트)라 글자색도 고정
+                      style={c.bg ? { background: c.bg, color: '#1f2328' } : undefined}
+                    >
+                      <HwpxBlocks blocks={c.blocks} imgUrls={imgUrls} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        );
+      })}
+    </>
+  );
+}
 
 function HwpxPreview({ url }: { url: string }) {
-  const [state, setState] = useState<'loading' | 'error' | HwpxBlock[]>('loading');
+  const [state, setState] = useState<
+    'loading' | 'error' | { blocks: HwpxBlock[]; imgUrls: Map<HwpxBlock, string> }
+  >('loading');
   useEffect(() => {
     let alive = true;
+    const urls: string[] = [];
     (async () => {
       try {
         const buf = await (await fetch(url)).arrayBuffer();
         const { default: JSZip } = await import('jszip');
         const zip = await JSZip.loadAsync(buf);
-        // 파서가 볼 만한 엔트리만 추려 바이트로 넘긴다 (XML + spine(.hpf) + 미리보기 텍스트)
+        // 파서가 볼 만한 엔트리만 추려 바이트로 넘긴다
+        // (XML + spine(.hpf) + 미리보기 텍스트 + 삽입 이미지 BinData)
         const files: Record<string, Uint8Array> = {};
         for (const [name, entry] of Object.entries(zip.files)) {
           if (entry.dir) continue;
-          if (!/\.(xml|hpf|txt)$/i.test(name)) continue;
+          if (!/\.(xml|hpf|txt|png|jpe?g|gif|bmp|webp|svg)$/i.test(name) && !/(^|\/)bindata\//i.test(name))
+            continue;
           files[name] = await entry.async('uint8array');
         }
         const blocks = parseHwpx(files);
+        // 이미지 블록(표 셀 안 포함)에 블롭 URL 부여 — 언마운트 시 회수
+        const imgUrls = new Map<HwpxBlock, string>();
+        const collect = (bs: HwpxBlock[]) => {
+          for (const b of bs) {
+            if (b.kind === 'img') {
+              const u = URL.createObjectURL(new Blob([b.data as BlobPart], { type: b.mime }));
+              urls.push(u);
+              imgUrls.set(b, u);
+            } else if (b.kind === 'table') {
+              for (const row of b.rows) for (const cell of row) collect(cell.blocks);
+            }
+          }
+        };
+        collect(blocks);
         if (!alive) return;
-        setState(blocks);
+        setState({ blocks, imgUrls });
       } catch {
         if (alive) setState('error');
       }
     })();
     return () => {
       alive = false;
+      for (const u of urls) URL.revokeObjectURL(u);
     };
   }, [url]);
   if (state === 'loading') return <div className="cf-viewer-loading">불러오는 중…</div>;
-  if (state === 'error' || state.length === 0)
+  if (state === 'error' || state.blocks.length === 0)
     return (
       <div className="cf-viewer-loading">
         내용을 추출하지 못했어요 — 구형 .hwp이거나 지원하지 않는 구조예요. 다운로드로 확인해주세요.
@@ -252,23 +342,7 @@ function HwpxPreview({ url }: { url: string }) {
     );
   return (
     <div className="cf-hwpx">
-      {state.map((b, i) =>
-        b.kind === 'p' ? (
-          <p key={i}>{b.text}</p>
-        ) : (
-          <table key={i}>
-            <tbody>
-              {b.rows.map((r, ri) => (
-                <tr key={ri}>
-                  {r.map((c, ci) => (
-                    <td key={ci}>{c}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ),
-      )}
+      <HwpxBlocks blocks={state.blocks} imgUrls={state.imgUrls} />
     </div>
   );
 }

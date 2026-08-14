@@ -12265,9 +12265,18 @@ input:focus {
   word-break: break-word;
   overflow-wrap: anywhere; /* 긴 영문 토큰·URL도 강제 줄바꿈 */
 }
-.cf-hwpx tr:first-child td {
-  background: var(--surface-2);
-  font-weight: 600;
+/* 셀 배경은 문서가 지정한 색만 인라인으로 칠한다 — 추측 배경(첫 행 회색) 금지 */
+.cf-hwpx td p {
+  margin: 0 0 4px; /* 셀 안 다중 문단은 촘촘하게 */
+}
+.cf-hwpx td p:last-child {
+  margin-bottom: 0;
+}
+.cf-hwpx img {
+  display: block;
+  max-width: 100%; /* 문서 지정 폭이 카드보다 커도 넘치지 않게 */
+  height: auto;
+  margin: 12px auto;
 }
 .cf-viewer-text {
   margin: 0;

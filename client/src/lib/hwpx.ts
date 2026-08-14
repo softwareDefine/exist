@@ -10,15 +10,46 @@
  *  5) 최후 폴백: 구조 파싱이 비면 Contents XML의 텍스트 노드(그마저 없으면 PrvText.txt)를
  *     서식 없는 문단으로 이어붙인다. 그래도 비면 []를 돌려 기존 안내 문구가 뜬다.
  *
+ * 서식 보존(v2): header.xml의 charPr(굵게·기울임·밑줄·크기·색)·paraPr(정렬)·
+ * borderFill(셀 배경)을 id 맵으로 읽고 본문의 charPrIDRef/paraPrIDRef로 매핑한다.
+ * 표는 셀 병합(cellSpan)·상대 폭(cellSz)·셀 안 다중 문단을 유지하고,
+ * hp:pic → binaryItemIDRef → BinData 바이트로 삽입 이미지를 낸다(블롭 URL은 렌더 책임).
+ * 헤더·서식 파싱이 어떤 이유로든 실패해도 서식 없는 기존 결과로 조용히 강등된다.
+ *
  * DOM 의존은 전역 DOMParser·TextDecoder뿐 — Node에서 @xmldom/xmldom을 주입하면 단위 테스트 가능. */
 
-export type HwpxBlock = { kind: 'p'; text: string } | { kind: 'table'; rows: string[][] };
+export type HwpxAlign = 'left' | 'center' | 'right' | 'justify';
+
+/** 문단 안의 서식 조각 — 서식이 하나도 없으면 스타일 필드가 전부 비어 있다 */
+export interface HwpxRun {
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  sizePt?: number; // 글자 크기(pt) — charPr height(1/100pt)에서 환산
+  color?: string; // '#RRGGBB' — 검정(기본색)은 생략해 테마 변수를 따르게 한다
+}
+
+export interface HwpxCell {
+  blocks: HwpxBlock[]; // 셀 안 다중 문단·중첩 표·이미지
+  colSpan?: number;
+  rowSpan?: number;
+  bg?: string; // '#RRGGBB' — 문서가 지정한 셀 배경만 (추측 배경 금지)
+}
+
+export type HwpxBlock =
+  | { kind: 'p'; text: string; runs?: HwpxRun[]; align?: HwpxAlign }
+  | { kind: 'table'; rows: HwpxCell[][]; colWidths?: number[] }
+  | { kind: 'img'; data: Uint8Array; mime: string; widthPt?: number };
 
 /* 기존 상한 유지 + 방어적 가드 */
 const MAX_SECTIONS = 20;
 const MAX_BLOCKS = 3000;
 const MAX_PLAIN_CHARS = 200_000; // 폴백 텍스트 상한 (TextPreview와 동일)
 const MAX_ENTRY_BYTES = 30 * 1024 * 1024; // 비정상적으로 큰 단일 엔트리는 건너뜀
+const MAX_IMG_BYTES = 5 * 1024 * 1024; // 이미지 장당 상한
+const MAX_IMG_TOTAL = 20 * 1024 * 1024; // 이미지 총합 상한
 
 /* ── 저수준 헬퍼: 어떤 DOM 구현에서도 도는 최소 API(childNodes·nodeType·localName)만 사용 ── */
 
@@ -60,6 +91,13 @@ function attrOf(el: Element, name: string): string | null {
   return null;
 }
 
+function intAttr(el: Element, name: string): number | null {
+  const v = attrOf(el, name);
+  if (v == null) return null;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
 /* ── 인코딩 ── */
 
 /** BOM·UTF-16 휴리스틱·XML 선언의 encoding 속성까지 감지해 디코딩 */
@@ -93,7 +131,7 @@ export function decodeBytes(bytes: Uint8Array): string {
 /* ── XML 파싱 (엔티티 강건화 포함) ── */
 
 const HTML_ENTITIES: Record<string, string> = {
-  nbsp: ' ', middot: '·', hellip: '…', mdash: '—', ndash: '–',
+  nbsp: ' ', middot: '·', hellip: '…', mdash: '—', ndash: '–',
   lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', copy: '©', reg: '®',
 };
 
@@ -127,6 +165,79 @@ function parseXmlSafe(xml: string): Document | null {
   return tryParse(hasForeignEntity ? sanitizeEntities(xml) : xml) ?? tryParse(sanitizeEntities(xml));
 }
 
+/* ── 서식 컨텍스트 (header.xml) ── */
+
+type CharStyle = Pick<HwpxRun, 'bold' | 'italic' | 'underline' | 'strike' | 'sizePt' | 'color'>;
+
+interface ParseCtx {
+  char: Map<string, CharStyle>; // charPr id → 런 서식
+  paraAlign: Map<string, HwpxAlign>; // paraPr id → 정렬
+  cellBg: Map<string, string>; // borderFill id → 셀 배경색
+  binLookup?: (idRef: string) => { data: Uint8Array; mime: string } | null;
+}
+
+function emptyCtx(): ParseCtx {
+  return { char: new Map(), paraAlign: new Map(), cellBg: new Map() };
+}
+
+/** '#RRGGBB'만 통과 — 'none'·이상값은 버린다 */
+function normColor(v: string | null): string | null {
+  if (!v) return null;
+  const s = v.trim();
+  return /^#[0-9a-fA-F]{6}$/.test(s) ? s.toUpperCase() : null;
+}
+
+const ALIGN_MAP: Record<string, HwpxAlign> = {
+  left: 'left', center: 'center', right: 'right',
+  justify: 'justify', distribute: 'justify', distribute_space: 'justify',
+};
+
+/** header.xml의 charPr / paraPr / borderFill을 id 맵으로 흡수 */
+function parseHeaderInto(ctx: ParseCtx, doc: Document) {
+  forEachEl(doc, (el) => {
+    const name = ln(el);
+    if (name === 'charpr') {
+      const id = attrOf(el, 'id');
+      if (id == null) return;
+      const st: CharStyle = {};
+      const h = intAttr(el, 'height'); // 1/100pt 단위
+      if (h != null && h >= 100 && h <= 50000) st.sizePt = h / 100;
+      const col = normColor(attrOf(el, 'textColor'));
+      // 검정은 문서 기본색 — 생략해서 뷰어 테마 색(var(--text))을 따르게 한다
+      if (col && col !== '#000000') st.color = col;
+      for (const c of childEls(el)) {
+        const cn = ln(c);
+        if (cn === 'bold') st.bold = true;
+        else if (cn === 'italic') st.italic = true;
+        else if (cn === 'underline') {
+          if ((attrOf(c, 'type') ?? '').toUpperCase() !== 'NONE') st.underline = true;
+        } else if (cn === 'strikeout') {
+          if ((attrOf(c, 'type') ?? '').toUpperCase() !== 'NONE') st.strike = true;
+        }
+      }
+      ctx.char.set(id, st);
+    } else if (name === 'parapr') {
+      const id = attrOf(el, 'id');
+      if (id == null) return;
+      for (const c of childEls(el)) {
+        if (ln(c) !== 'align') continue;
+        const a = ALIGN_MAP[(attrOf(c, 'horizontal') ?? '').toLowerCase()];
+        if (a && a !== 'left') ctx.paraAlign.set(id, a);
+        break;
+      }
+    } else if (name === 'borderfill') {
+      const id = attrOf(el, 'id');
+      if (id == null) return;
+      // fillBrush > winBrush faceColor — 지정된 단색 배경만 (없으면 스타일 없음)
+      forEachEl(el, (c) => {
+        if (ln(c) !== 'winbrush') return;
+        const face = normColor(attrOf(c, 'faceColor'));
+        if (face && !ctx.cellBg.has(id)) ctx.cellBg.set(id, face);
+      });
+    }
+  });
+}
+
 /* ── 본문 추출 ── */
 
 /** t 요소 내부 텍스트 — 안에 끼어드는 tab·lineBreak 마커까지 문자로 */
@@ -146,7 +257,7 @@ function textOfT(t: Node): string {
   return out;
 }
 
-/** el 아래 모든 t 텍스트 수집 (표 셀 등) */
+/** el 아래 모든 t 텍스트 수집 (폴백 경로용) */
 function collectT(el: Node, out: string[]) {
   for (const c of childEls(el)) {
     if (ln(c) === 't') out.push(textOfT(c));
@@ -154,70 +265,173 @@ function collectT(el: Node, out: string[]) {
   }
 }
 
-/** 표 → rows. 중첩 표의 tr이 바깥 표 행으로 새지 않게 tbl 경계에서 하강을 멈춘다 */
-function tableRows(tbl: Element): string[][] {
-  const rows: string[][] = [];
+/** 두 런의 스타일이 같으면 이어붙일 수 있다 */
+function sameStyle(a: CharStyle, b: CharStyle): boolean {
+  return (
+    !a.bold === !b.bold && !a.italic === !b.italic && !a.underline === !b.underline &&
+    !a.strike === !b.strike && a.sizePt === b.sizePt && a.color === b.color
+  );
+}
+
+function hasStyle(s: CharStyle): boolean {
+  return !!(s.bold || s.italic || s.underline || s.strike || s.sizePt != null || s.color);
+}
+
+/** hp:pic 서브트리에서 binaryItemIDRef를 찾아 이미지 블록 생성 (렌더 불가 포맷·용량 초과는 조용히 생략) */
+function imageBlock(pic: Element, ctx: ParseCtx): HwpxBlock | null {
+  const lookup = ctx.binLookup;
+  if (!lookup) return null;
+  let idRef: string | null = attrOf(pic, 'binaryItemIDRef');
+  let widthPt: number | undefined;
+  forEachEl(pic, (c) => {
+    if (idRef == null) {
+      const v = attrOf(c, 'binaryItemIDRef');
+      if (v) idRef = v;
+    }
+    if (widthPt == null && ln(c) === 'sz') {
+      const w = intAttr(c, 'width'); // 1/100pt(HWPUNIT) 단위
+      if (w != null && w > 0) widthPt = w / 100;
+    }
+  });
+  if (!idRef) return null;
+  const bin = lookup(idRef);
+  if (!bin) return null;
+  return widthPt != null
+    ? { kind: 'img', data: bin.data, mime: bin.mime, widthPt }
+    : { kind: 'img', data: bin.data, mime: bin.mime };
+}
+
+/** 표 → 셀 블록 행렬. 중첩 표의 tr이 바깥 표 행으로 새지 않게 tbl 경계에서 하강을 멈춘다 */
+function tableBlock(tbl: Element, ctx: ParseCtx): HwpxBlock | null {
+  const rows: HwpxCell[][] = [];
+  // 열 폭: colSpan 없는 셀의 cellAddr(colAddr)→cellSz(width). 전 열이 모이면 상대 비율로 쓴다
+  const colW = new Map<number, number>();
+  let maxCol = -1;
+
+  const cellOf = (tc: Element): HwpxCell => {
+    const cell: HwpxCell = { blocks: [] };
+    const bfRef = attrOf(tc, 'borderFillIDRef');
+    if (bfRef) {
+      const bg = ctx.cellBg.get(bfRef);
+      if (bg) cell.bg = bg;
+    }
+    let colAddr: number | null = null;
+    let width: number | null = null;
+    for (const c of childEls(tc)) {
+      const name = ln(c);
+      if (name === 'cellspan') {
+        const cs = intAttr(c, 'colSpan');
+        const rs = intAttr(c, 'rowSpan');
+        if (cs != null && cs > 1) cell.colSpan = cs;
+        if (rs != null && rs > 1) cell.rowSpan = rs;
+      } else if (name === 'celladdr') colAddr = intAttr(c, 'colAddr');
+      else if (name === 'cellsz') width = intAttr(c, 'width');
+      else if (name === 'cellmargin') continue;
+      else walkBody(c, cell.blocks, ctx); // subList 등 — 셀 안 다중 문단·중첩 표·이미지
+    }
+    if (colAddr != null && colAddr >= 0) {
+      maxCol = Math.max(maxCol, colAddr + (cell.colSpan ?? 1) - 1);
+      if (!cell.colSpan && width != null && width > 0 && !colW.has(colAddr)) colW.set(colAddr, width);
+    }
+    return cell;
+  };
+
   const findTr = (el: Node) => {
     for (const c of childEls(el)) {
       const name = ln(c);
       if (name === 'tbl') continue;
       if (name === 'tr') {
-        const row: string[] = [];
-        for (const tc of childEls(c)) {
-          if (ln(tc) !== 'tc') continue;
-          const parts: string[] = [];
-          collectT(tc, parts);
-          row.push(parts.join(' ').replace(/\s+/g, ' ').trim());
-        }
+        const row: HwpxCell[] = [];
+        for (const tc of childEls(c)) if (ln(tc) === 'tc') row.push(cellOf(tc));
         if (row.length > 0) rows.push(row);
       } else findTr(c);
     }
   };
   findTr(tbl);
-  return rows;
+  if (rows.length === 0) return null;
+
+  const block: { kind: 'table'; rows: HwpxCell[][]; colWidths?: number[] } = { kind: 'table', rows };
+  // 모든 열의 폭이 확보됐을 때만 colWidths — 부분 정보로 어긋난 비율을 만들지 않는다
+  if (maxCol >= 0 && colW.size === maxCol + 1) {
+    const widths: number[] = [];
+    for (let i = 0; i <= maxCol; i++) widths.push(colW.get(i) ?? 0);
+    if (widths.every((w) => w > 0)) block.colWidths = widths;
+  }
+  return block;
 }
 
-/** 문단 하나 → 텍스트 블록(+안에 든 표 블록). run 유무·깊이와 무관하게 t를 찾는다 */
-function walkPara(p: Element, blocks: HwpxBlock[]) {
-  let buf = '';
-  const flush = () => {
-    if (buf.trim()) blocks.push({ kind: 'p', text: buf.replace(/\s+$/, '') });
-    buf = '';
+/** 문단 하나 → 런 블록(+안에 든 표·이미지 블록). run 유무·깊이와 무관하게 t를 찾는다 */
+function walkPara(p: Element, blocks: HwpxBlock[], ctx: ParseCtx) {
+  const runs: HwpxRun[] = [];
+  const append = (text: string, st: CharStyle) => {
+    if (!text) return;
+    const last = runs[runs.length - 1];
+    if (last && sameStyle(last, st)) last.text += text;
+    else runs.push({ text, ...st });
   };
-  const walk = (el: Node) => {
+  const flush = () => {
+    // 뒤 공백 정리 (기존 replace(/\s+$/) 동작 유지) — 빈 꼬리 런은 버린다
+    while (runs.length > 0) {
+      const last = runs[runs.length - 1];
+      last.text = last.text.replace(/\s+$/, '');
+      if (last.text) break;
+      runs.pop();
+    }
+    const text = runs.map((r) => r.text).join('');
+    if (text.trim()) {
+      const alignRef = attrOf(p, 'paraPrIDRef');
+      const align = alignRef != null ? ctx.paraAlign.get(alignRef) : undefined;
+      const styled = runs.some(hasStyle);
+      const block: { kind: 'p'; text: string; runs?: HwpxRun[]; align?: HwpxAlign } = { kind: 'p', text };
+      if (styled) block.runs = [...runs];
+      if (align) block.align = align;
+      blocks.push(block);
+    }
+    runs.length = 0;
+  };
+  const walk = (el: Node, st: CharStyle) => {
     for (const c of childEls(el)) {
       const name = ln(c);
-      if (name === 't') buf += textOfT(c);
-      else if (name === 'tab') buf += '\t';
-      else if (name === 'br' || name === 'linebreak') buf += '\n';
+      if (name === 't') append(textOfT(c), st);
+      else if (name === 'tab') append('\t', st);
+      else if (name === 'br' || name === 'linebreak') append('\n', st);
       else if (name === 'tbl') {
         flush();
-        const rows = tableRows(c);
-        if (rows.length > 0) blocks.push({ kind: 'table', rows });
+        const t = tableBlock(c, ctx);
+        if (t) blocks.push(t);
+      } else if (name === 'pic') {
+        flush();
+        const img = imageBlock(c, ctx);
+        if (img) blocks.push(img);
       } else if (name === 'lineseg' || name === 'linesegarray' || name === 'secpr') {
         continue; // 레이아웃 메타 — 본문 텍스트 없음
-      } else walk(c); // run·개체(그리기 등) — 내부의 t를 계속 찾는다
+      } else if (name === 'run') {
+        const idRef = attrOf(c, 'charPrIDRef');
+        const next = idRef != null ? ctx.char.get(idRef) : undefined;
+        walk(c, next ?? st); // 런 서식 매핑 — 헤더가 없으면 물려받은 스타일 유지
+      } else walk(c, st); // 개체(그리기 등) — 내부의 t를 계속 찾는다
     }
   };
-  walk(p);
+  walk(p, {});
   flush();
 }
 
-/** 섹션 문서 전체에서 문단·표를 순서대로 추출 (루트가 몇 겹이든 하강) */
-export function extractBlocksFromDoc(doc: Document, blocks: HwpxBlock[]) {
-  const walkTop = (node: Node) => {
+/** node 아래의 문단·표를 순서대로 추출 — 섹션 루트·표 셀(subList) 공용 */
+function walkBody(node: Node, blocks: HwpxBlock[], ctx: ParseCtx) {
+  for (const c of childEls(node)) {
     if (blocks.length > MAX_BLOCKS) return;
-    for (const c of childEls(node)) {
-      if (blocks.length > MAX_BLOCKS) return;
-      const name = ln(c);
-      if (name === 'p') walkPara(c, blocks);
-      else if (name === 'tbl') {
-        const rows = tableRows(c);
-        if (rows.length > 0) blocks.push({ kind: 'table', rows });
-      } else walkTop(c);
-    }
-  };
-  walkTop(doc);
+    const name = ln(c);
+    if (name === 'p') walkPara(c, blocks, ctx);
+    else if (name === 'tbl') {
+      const t = tableBlock(c, ctx);
+      if (t) blocks.push(t);
+    } else walkBody(c, blocks, ctx);
+  }
+}
+
+/** 섹션 문서 전체에서 문단·표를 순서대로 추출 (루트가 몇 겹이든 하강) */
+export function extractBlocksFromDoc(doc: Document, blocks: HwpxBlock[], ctx: ParseCtx = emptyCtx()) {
+  walkBody(doc, blocks, ctx);
 }
 
 /* ── 섹션 파일 발견 ── */
@@ -237,12 +451,11 @@ function resolvePath(dir: string, href: string): string {
   return out.join('/');
 }
 
-/** container.xml → *.hpf(spine) 순으로 본문 XML 경로를 알아낸다 */
-function sectionsFromSpine(
+/** hpf(manifest)의 item id → href 맵 — 섹션 spine·이미지(BinData) 해석 공용 */
+function readManifests(
   names: string[],
   textOf: (name: string) => string | null,
-  realNameOf: (name: string) => string | undefined,
-): string[] {
+): { hpfPath: string; items: Map<string, string>; spineIds: string[] }[] {
   const hpfPaths: string[] = [];
   const containerXml = textOf('META-INF/container.xml');
   if (containerXml) {
@@ -251,34 +464,48 @@ function sectionsFromSpine(
       forEachEl(doc, (el) => {
         if (ln(el) === 'rootfile') {
           const p = attrOf(el, 'full-path');
-          if (p) hpfPaths.push(normName(p));
+          const mt = attrOf(el, 'media-type') ?? '';
+          // container엔 PrvText.txt 같은 rootfile도 나열된다 — spine(.hpf/package)만
+          if (p && (/\.hpf$/i.test(p) || /package/i.test(mt))) hpfPaths.push(normName(p));
         }
       });
   }
-  if (hpfPaths.length === 0) for (const n of names) if (/\.hpf$/i.test(n)) hpfPaths.push(n);
+  for (const n of names) if (/\.hpf$/i.test(n) && !hpfPaths.includes(n)) hpfPaths.push(n);
 
-  const out: string[] = [];
+  const out: { hpfPath: string; items: Map<string, string>; spineIds: string[] }[] = [];
   for (const hpfPath of hpfPaths) {
     const hpfXml = textOf(hpfPath);
     if (!hpfXml) continue;
     const doc = parseXmlSafe(hpfXml);
     if (!doc) continue;
-    const manifest = new Map<string, string>(); // id → href
+    const items = new Map<string, string>(); // id → href
     const spineIds: string[] = [];
     forEachEl(doc, (el) => {
       const name = ln(el);
       if (name === 'item') {
         const id = attrOf(el, 'id');
         const href = attrOf(el, 'href');
-        if (id && href) manifest.set(id, href);
+        if (id && href) items.set(id, href);
       } else if (name === 'itemref') {
         const idref = attrOf(el, 'idref');
         if (idref) spineIds.push(idref);
       }
     });
+    out.push({ hpfPath, items, spineIds });
+  }
+  return out;
+}
+
+/** container.xml → *.hpf(spine) 순으로 본문 XML 경로를 알아낸다 */
+function sectionsFromSpine(
+  manifests: { hpfPath: string; items: Map<string, string>; spineIds: string[] }[],
+  realNameOf: (name: string) => string | undefined,
+): string[] {
+  const out: string[] = [];
+  for (const { hpfPath, items, spineIds } of manifests) {
     const dir = hpfPath.includes('/') ? hpfPath.slice(0, hpfPath.lastIndexOf('/') + 1) : '';
     for (const id of spineIds) {
-      const href = manifest.get(id);
+      const href = items.get(id);
       if (!href || !/\.xml$/i.test(href)) continue;
       // hpf 기준 상대경로와 zip 루트 기준 둘 다 시도
       for (const cand of [resolvePath(dir, href), normName(href)]) {
@@ -325,6 +552,24 @@ function collectTextNodes(n: Node, out: string[]) {
       const v = (c.nodeValue ?? '').trim();
       if (v) out.push(v);
     } else if (c.nodeType === 1) collectTextNodes(c, out);
+  }
+}
+
+/* ── 이미지(BinData) 해석 ── */
+
+/** 브라우저 <img>가 그릴 수 있는 포맷만 — wmf/emf/tif 등은 깨진 아이콘 대신 조용히 생략 */
+function mimeOfImage(path: string): string | null {
+  const m = /\.([a-z0-9]+)$/i.exec(path);
+  const ext = m ? m[1].toLowerCase() : '';
+  switch (ext) {
+    case 'png': return 'image/png';
+    case 'jpg':
+    case 'jpeg': return 'image/jpeg';
+    case 'gif': return 'image/gif';
+    case 'bmp': return 'image/bmp';
+    case 'webp': return 'image/webp';
+    case 'svg': return 'image/svg+xml';
+    default: return null;
   }
 }
 
@@ -375,8 +620,10 @@ export function parseHwpx(files: Record<string, Uint8Array>): HwpxBlock[] {
     return ac - bc || a.localeCompare(b, undefined, { numeric: true });
   };
 
+  const manifests = readManifests(allNames, textOf);
+
   // 1) spine 기준 발견
-  let sectionNames = sectionsFromSpine(allNames, textOf, realNameOf);
+  let sectionNames = sectionsFromSpine(manifests, realNameOf);
   // 2) 폴백: section*.xml 글롭 (경로·대소문자 무관)
   if (sectionNames.length === 0) {
     sectionNames = xmlNames
@@ -399,13 +646,84 @@ export function parseHwpx(files: Record<string, Uint8Array>): HwpxBlock[] {
     }
   }
 
-  // 구조 파싱
-  const blocks: HwpxBlock[] = [];
-  for (const name of sectionNames.slice(0, MAX_SECTIONS)) {
-    const doc = docOf(name);
-    if (!doc) continue;
-    extractBlocksFromDoc(doc, blocks);
-    if (blocks.length > MAX_BLOCKS) break;
+  // 서식 컨텍스트 — 실패해도 서식 없이 계속 (기존 렌더가 퇴화하면 안 됨)
+  const ctx = emptyCtx();
+  try {
+    // header.xml 발견: 글롭 → charPr를 가진 XML 전수 탐색
+    let headerName = xmlNames.find((n) => /(^|\/)header\.xml$/i.test(n));
+    if (!headerName) {
+      headerName = xmlNames.filter(contentish).find((n) => {
+        const doc = docOf(n);
+        if (!doc) return false;
+        let hasCharPr = false;
+        forEachEl(doc, (el) => {
+          if (ln(el) === 'charpr') hasCharPr = true;
+        });
+        return hasCharPr;
+      });
+    }
+    if (headerName) {
+      const doc = docOf(headerName);
+      if (doc) parseHeaderInto(ctx, doc);
+    }
+  } catch {
+    ctx.char.clear();
+    ctx.paraAlign.clear();
+    ctx.cellBg.clear();
+  }
+
+  // 이미지 해석기 — manifest id→href 우선, BinData/* 파일명(stem) 매칭 폴백. 용량 가드 포함
+  try {
+    const binCache = new Map<string, { data: Uint8Array; mime: string } | null>();
+    let imgTotal = 0;
+    ctx.binLookup = (idRef: string) => {
+      if (binCache.has(idRef)) return binCache.get(idRef) ?? null;
+      let real: string | undefined;
+      for (const { hpfPath, items } of manifests) {
+        const href = items.get(idRef);
+        if (!href) continue;
+        const dir = hpfPath.includes('/') ? hpfPath.slice(0, hpfPath.lastIndexOf('/') + 1) : '';
+        real = realNameOf(resolvePath(dir, href)) ?? realNameOf(href);
+        if (real) break;
+      }
+      if (!real) {
+        const lower = idRef.toLowerCase();
+        for (const n of allNames) {
+          if (!/(^|\/)bindata\//i.test(n)) continue;
+          const base = n.slice(n.lastIndexOf('/') + 1).toLowerCase();
+          if (base === lower || base.replace(/\.[^.]+$/, '') === lower) {
+            real = n;
+            break;
+          }
+        }
+      }
+      let resolved: { data: Uint8Array; mime: string } | null = null;
+      if (real) {
+        const bytes = byName.get(real);
+        const mime = mimeOfImage(real);
+        if (bytes && mime && bytes.length <= MAX_IMG_BYTES && imgTotal + bytes.length <= MAX_IMG_TOTAL) {
+          imgTotal += bytes.length;
+          resolved = { data: bytes, mime };
+        }
+      }
+      binCache.set(idRef, resolved);
+      return resolved;
+    };
+  } catch {
+    ctx.binLookup = undefined;
+  }
+
+  // 구조 파싱 — 서식 파싱이 던지면 블록을 비워 아래 서식 없는 텍스트 폴백으로 강등
+  let blocks: HwpxBlock[] = [];
+  try {
+    for (const name of sectionNames.slice(0, MAX_SECTIONS)) {
+      const doc = docOf(name);
+      if (!doc) continue;
+      extractBlocksFromDoc(doc, blocks, ctx);
+      if (blocks.length > MAX_BLOCKS) break;
+    }
+  } catch {
+    blocks = [];
   }
   if (blocks.length > 0) return blocks.slice(0, MAX_BLOCKS);
 
