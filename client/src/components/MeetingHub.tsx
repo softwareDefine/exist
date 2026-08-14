@@ -2356,11 +2356,17 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                   <img className="chat-file-img" src={chatFileHref(m.file.url)} alt={m.file.name} />
                                 ) : (
                                   <span className="chat-file-card">
-                                    <span className="chat-file-ic">{m.file.url ? '📎' : '📄'}</span>
+                                    <span className="chat-file-ic">
+                                      {m.file.url ? '📎' : m.file.folder ? '📁' : '📄'}
+                                    </span>
                                     <span className="chat-file-meta">
                                       <span className="chat-file-name">{m.file.name}</span>
                                       <span className="chat-file-size">
-                                        {m.file.url ? formatBytes(m.file.size ?? 0) : '공동편집 문서'}
+                                        {m.file.url
+                                          ? formatBytes(m.file.size ?? 0)
+                                          : m.file.folder
+                                            ? '폴더'
+                                            : '공동편집 문서'}
                                       </span>
                                     </span>
                                     {m.file.url ? (

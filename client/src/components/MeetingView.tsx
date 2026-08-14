@@ -38,6 +38,8 @@ export interface ChatFile {
   size?: number;
   /** 공동편집 파일 id — 있으면 카드 클릭 = 그룹 탭→공동편집→해당 문서로 착지 */
   fileId?: number;
+  /** 폴더 카드 — 클릭하면 그 폴더로 이동 */
+  folder?: boolean;
 }
 export interface ChatMessage {
   code?: string;

@@ -649,19 +649,26 @@ export default function CollabFiles({
     [],
   );
 
-  // 회의록·일정에서 "다룬 문서" 클릭 → 해당 파일 열기 (목록 로드 전이면 대기 후 소비)
+  // 회의록·일정·공유 딥링크에서 클릭 → 파일은 열고, 폴더는 그 폴더로 이동 (목록 로드 전이면 대기 후 소비)
   const pendingOpenRef = useRef<number | null>(null);
+  const consumeOpen = useCallback(
+    (f: CollabFile) => {
+      pendingOpenRef.current = null;
+      setTrashOpen(false);
+      setHomeOpen(false);
+      if (f.type === 'folder') navigate(f.id);
+      else openFile(f);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   useEffect(() => {
     function onOpenNow(e: Event) {
       const d = (e as CustomEvent).detail as { code?: string; fileId?: number } | undefined;
       if (d?.code !== code || !d.fileId) return;
       pendingOpenRef.current = d.fileId;
       const f = files.find((x) => x.id === d.fileId);
-      if (f && f.type !== 'folder') {
-        pendingOpenRef.current = null;
-        setTrashOpen(false);
-        openFile(f);
-      }
+      if (f) consumeOpen(f);
     }
     window.addEventListener('exist:open-file-now', onOpenNow);
     return () => window.removeEventListener('exist:open-file-now', onOpenNow);
@@ -670,11 +677,7 @@ export default function CollabFiles({
   useEffect(() => {
     if (pendingOpenRef.current == null) return;
     const f = files.find((x) => x.id === pendingOpenRef.current);
-    if (f && f.type !== 'folder') {
-      pendingOpenRef.current = null;
-      setTrashOpen(false);
-      openFile(f);
-    }
+    if (f) consumeOpen(f);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files]);
 
@@ -2151,27 +2154,31 @@ export default function CollabFiles({
   }, [sortMenu, viewMenu, moreMenu, filterMenu, typeMenuFor]);
 
   // 이름만 쓰므로 휴지통 항목도 그대로 공유 가능 (클라 전용 — 그룹 링크 복사)
-  /** 링크 복사 — id가 있으면 그 파일이 바로 열리는 딥링크(?file=), 없으면(폴더·휴지통) 그룹 링크 */
+  /** 링크 복사 — id가 있으면 딥링크(?file= — 파일은 열리고 폴더는 그 위치로 이동), 없으면(휴지통) 그룹 링크 */
   function share(f: { name: string; id?: number; type?: FileType }) {
-    const deep = f.id != null && f.type !== 'folder';
+    const deep = f.id != null;
     // 딥링크는 대시보드(/)가 소비 — /meeting/:code는 통화 입장 페이지라 착지가 다르다
     const link = deep
       ? `${location.origin}/?g=${code}&file=${f.id}`
       : `${location.origin}/meeting/${code}`;
     void navigator.clipboard
       .writeText(`[exist] ${f.name} — ${link}`)
-      .then(() => toast(deep ? '파일 링크를 복사했어요 — 열면 이 문서가 바로 떠요' : '그룹 링크를 복사했어요'))
+      .then(() =>
+        toast(
+          !deep
+            ? '그룹 링크를 복사했어요'
+            : f.type === 'folder'
+              ? '폴더 링크를 복사했어요 — 열면 이 폴더로 이동해요'
+              : '파일 링크를 복사했어요 — 열면 이 문서가 바로 떠요',
+        ),
+      )
       .catch(() => toast('클립보드 복사에 실패했어요', 'error'));
   }
 
   /** 통합 공유 진입점 — 채널·DM·배포·링크 복사 모달.
    * 폴더는 채널·DM·배포가 다 의미 없으니 기존 동작대로 즉시 링크 복사 */
   function openShare(f: CollabFile) {
-    if (f.type === 'folder') {
-      share(f);
-      return;
-    }
-    // 이전 선택 초기화 — 파일마다 새로 고른다
+    // 이전 선택 초기화 — 파일마다 새로 고른다 (폴더도 채널·DM·링크 공유 가능, 배포만 파일 전용)
     setShareSelCh(new Set());
     setShareSelPpl(new Set());
     setShareSelGrp(new Set());
@@ -5158,7 +5165,12 @@ export default function CollabFiles({
                   ))}
                 </>
               )}
-              {shareTab === 'group' && (
+              {shareTab === 'group' && shareFor.type === 'folder' && (
+                <div className="cf-move-empty">
+                  폴더는 다른 그룹으로 배포할 수 없어요 — 안의 파일을 하나씩 배포해주세요
+                </div>
+              )}
+              {shareTab === 'group' && shareFor.type !== 'folder' && (
                 <>
                   <div className="cf-share-hint">
                     사본이 대상 그룹으로 전달돼요 — 서명을 걸면 전원 회람

@@ -1177,8 +1177,10 @@ router.post('/:fileId/dm', (req: AuthedRequest, res) => {
   const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   const f = db
-    .prepare('SELECT id, name FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
-    .get(req.params.fileId, r.meeting.id) as { id: number; name: string } | undefined;
+    .prepare('SELECT id, name, type FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL')
+    .get(req.params.fileId, r.meeting.id) as
+    | { id: number; name: string; type: FileType }
+    | undefined;
   if (!f) return res.status(404).json({ error: '존재하지 않는 파일이에요' });
   const to = Number((req.body as { userId?: unknown })?.userId);
   if (!Number.isInteger(to) || to === req.userId) {
@@ -1191,13 +1193,14 @@ router.post('/:fileId/dm', (req: AuthedRequest, res) => {
   const title = db.prepare('SELECT title FROM meetings WHERE id = ?').get(r.meeting.id) as
     | { title: string }
     | undefined;
-  // 딥링크 포함 — 받은 쪽이 누르면 그룹 탭→공동편집→이 문서로 바로 착지 (클라가 내부 링크로 가로챔)
+  // 딥링크 포함 — 받은 쪽이 누르면 그룹 탭→공동편집→이 문서(폴더면 그 위치)로 바로 착지
+  const isFolder = f.type === 'folder';
   sendDmCore(
     null,
     req.userId!,
     req.username ?? '',
     to,
-    `📄 "${f.name}" 파일을 공유했어요 — "${title?.title ?? r.meeting.code}" 그룹의 공동편집에서 열 수 있어요\n/?g=${r.meeting.code.toUpperCase()}&file=${f.id}`,
+    `${isFolder ? '📁' : '📄'} "${f.name}" ${isFolder ? '폴더' : '파일'}을 공유했어요 — "${title?.title ?? r.meeting.code}" 그룹의 공동편집에서 열 수 있어요\n/?g=${r.meeting.code.toUpperCase()}&file=${f.id}`,
   );
   res.json({ ok: true });
 });
@@ -1216,8 +1219,6 @@ router.post('/:fileId/share-channel', (req: AuthedRequest, res) => {
     | { id: number; name: string; type: FileType; size: number | null }
     | undefined;
   if (!f) return res.status(404).json({ error: '존재하지 않는 파일이에요' });
-  if (f.type === 'folder')
-    return res.status(400).json({ error: '폴더는 채널로 공유할 수 없어요 — 파일만 공유돼요' });
   const channel = resolveChannel(
     r.meeting.id,
     (req.body as { channelId?: unknown })?.channelId,
@@ -1240,6 +1241,10 @@ router.post('/:fileId/share-channel', (req: AuthedRequest, res) => {
       url: `/api/meetings/${r.meeting.code}/files/${f.id}/download`,
       fileId: f.id,
     });
+  } else if (f.type === 'folder') {
+    // 폴더 — url 없는 카드 (클릭 = 그 폴더로 이동)
+    fileJson = JSON.stringify({ name: f.name, fileId: f.id, folder: true });
+    text = `📁 "${f.name}" 폴더를 공유했어요 — 공동편집에서 열어보세요`;
   } else {
     // 공동편집 문서 — url 없는 카드 (클릭 = 열기). 텍스트 폴백도 남긴다 (구 클라 대비)
     fileJson = JSON.stringify({ name: f.name, fileId: f.id });
