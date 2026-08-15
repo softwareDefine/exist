@@ -114,6 +114,13 @@ export default function RecapPanel({
       else {
         setRecapPending(false);
         if (p.state === 'done') load();
+        // 재료 부족 스킵 — 스피너만 사라지면 "고장"으로 보인다. 이유를 말해준다
+        if (p.state === 'skipped')
+          window.dispatchEvent(
+            new CustomEvent('app:info', {
+              detail: '이번 통화는 나눈 대화가 없어 기록을 만들지 않았어요',
+            }),
+          );
       }
     }
     socket.on('agent:notify', onNotify);

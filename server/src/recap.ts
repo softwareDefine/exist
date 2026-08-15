@@ -461,7 +461,7 @@ export async function runRecapForMeeting(
   const msgs: ChatMsg[] = [...chatMsgs, ...voiceMsgs]
     .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
     .map((m) => ({ from: m.from, text: m.text }));
-  if (msgs.length < MIN_MESSAGES) return null;
+  if (msgs.length === 0) return null; // 아무 대화가 없던 통화만 스킵 — 한 마디라도 있으면 기록은 남긴다
 
   // 회의 등록 참가자 전원 (배달 대상) — 직급·부서는 조직 멤버십에서 (개인 회의면 null)
   const members = db
@@ -475,10 +475,22 @@ export async function runRecapForMeeting(
     .all(meeting.org_id, meeting.id) as { id: number; username: string; position: string | null; department: string | null }[];
   if (members.length === 0) return null;
 
-  const recap = await extractRecap(
-    msgs,
-    members.map((m) => m.username),
-  );
+  // 짧은 통화(재료가 MIN_MESSAGES 미만) — AI를 태우면 한두 마디로 환각 위험이라
+  // 규칙 추출 + 발언 원문을 요약으로 남긴다. "나눈 말이 기록에서 증발하면 안 된다" (8/15 실사용 지적)
+  const recap =
+    msgs.length < MIN_MESSAGES
+      ? (() => {
+          const r = ruleBasedRecap(
+            msgs,
+            members.map((m) => m.username),
+          );
+          const said = msgs.map((m) => `${m.from}: "${m.text.trim()}"`).join(' · ');
+          return { ...r, summary: `짧은 통화 — ${said}`.slice(0, 160) };
+        })()
+      : await extractRecap(
+          msgs,
+          members.map((m) => m.username),
+        );
 
   const inCall = new Set(sessionUserIds);
   const attendees = members.filter((m) => inCall.has(m.id)).map((m) => m.username);
@@ -849,7 +861,7 @@ export function runDecisionReminders(): number {
 const pending = new Map<string, ReturnType<typeof setTimeout>>();
 
 /** recap 진행 상태 방송 — 통화 끝~정리 완료 사이 "정리 중" 스피너용 (참가자 전원) */
-function emitRecapStatus(code: string, state: 'generating' | 'done' | 'cleared') {
+function emitRecapStatus(code: string, state: 'generating' | 'done' | 'cleared' | 'skipped') {
   try {
     const m = db.prepare('SELECT id FROM meetings WHERE code = ?').get(code.toUpperCase()) as
       | { id: number }
@@ -883,8 +895,15 @@ export function scheduleRecap(code: string, sessionUserIds: number[]) {
   const timer = setTimeout(() => {
     pending.delete(key);
     runRecapForMeeting(key, sessionUserIds)
-      .catch((err) => console.error('[recap] 실행 실패:', err))
-      .finally(() => emitRecapStatus(key, 'done'));
+      .then((recapId) =>
+        // null = 재료 부족 등으로 생성 안 함 — 이유 없이 스피너만 사라지면
+        // 사용자에겐 "정리가 고장났다"로 보인다 (실사용 문의 3회). skipped로 알린다
+        emitRecapStatus(key, recapId == null ? 'skipped' : 'done'),
+      )
+      .catch((err) => {
+        console.error('[recap] 실행 실패:', err);
+        emitRecapStatus(key, 'done');
+      });
   }, GRACE_MS);
   pending.set(key, timer);
 }

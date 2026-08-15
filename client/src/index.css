@@ -18182,18 +18182,19 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   color: var(--text-sub);
 }
 
-/* 🔴 작업 전 확인 필수 배지 (원장) */
+/* 작업 전 확인 필수 배지 (원장) — 솔리드 레드 테마: 경고는 흐린 틴트가 아니라 원색으로 */
 .ledger-critical {
   display: inline-flex;
   align-items: center;
-  margin-right: 7px;
+  margin-right: 8px;
   font-size: 11px;
   font-weight: 800;
-  color: var(--red, #e5484d);
-  background: color-mix(in srgb, var(--red, #e5484d) 10%, transparent);
-  border-radius: 7px;
+  color: #fff;
+  background: var(--red, #e5484d);
+  border-radius: 8px;
   padding: 2px 8px;
   vertical-align: 1px;
+  letter-spacing: 0.01em;
 }
 .ledger-signs {
   margin-top: 6px;

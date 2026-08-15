@@ -313,7 +313,7 @@ export default function DecisionLedger({ code }: { code: string }) {
                       <div className="ledger-decision">
                         {e.critical && (
                           <span className="ledger-critical" title="확인 시 손 서명이 필요해요">
-                            🔴 작업 전 확인 필수
+                            작업 전 확인 필수
                           </span>
                         )}
                         {e.decision}
