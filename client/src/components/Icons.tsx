@@ -528,6 +528,16 @@ export function AlertIcon({ size }: IconProps) {
   );
 }
 
+/** 느낌표 — 작업 전 확인 필수 등 "멈추고 확인" 표식 (배지 안에서 단독 사용) */
+export function ExclaimIcon({ size }: IconProps) {
+  return (
+    <Svg size={size}>
+      <path d="M12 5v9" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="12" cy="18.6" r="1.5" fill="currentColor" />
+    </Svg>
+  );
+}
+
 /** 전구 — 추천·제안 */
 export function BulbIcon({ size }: IconProps) {
   return (

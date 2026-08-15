@@ -3,7 +3,7 @@ import { api } from '../api';
 import { useAuthStore } from '../store';
 import { getSocket } from '../lib/socket';
 import { useDisplayName } from '../names';
-import { CheckMarkIcon, SparklesIcon, RefreshIcon } from './Icons';
+import { CheckMarkIcon, ExclaimIcon, SparklesIcon, RefreshIcon } from './Icons';
 import PillSeg from './PillSeg';
 import HandoverPanel from './HandoverPanel';
 import MeetingArchive from './MeetingArchive';
@@ -312,7 +312,8 @@ export default function DecisionLedger({ code }: { code: string }) {
                     className={`ledger-item${e.critical ? ' critical' : ''}`}
                   >
                     <span className={`ledger-check${e.critical ? ' critical' : ''}`}>
-                      <CheckMarkIcon size={14} />
+                      {/* 빨간 체크는 "정상"과 충돌 — 위험 결정은 느낌표로 "멈추고 확인" */}
+                      {e.critical ? <ExclaimIcon size={15} /> : <CheckMarkIcon size={14} />}
                     </span>
                     <div className="ledger-body">
                       <div className="ledger-decision">
