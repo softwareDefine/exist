@@ -114,6 +114,28 @@ function BlobFileIcon({ size = 15 }: { size?: number }) {
   );
 }
 
+/** 한글 문서(hwp·hwpx) — 접힌 종이 + "한" (읽기 전용 뷰어로 열림) */
+function HwpFileIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 2.5h8L19 7.5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1Z" />
+      <path d="M14 2.5v5h5" />
+      <text
+        x="12"
+        y="17.5"
+        textAnchor="middle"
+        fontSize="8.5"
+        fontWeight="700"
+        fill="currentColor"
+        stroke="none"
+        fontFamily="sans-serif"
+      >
+        한
+      </text>
+    </svg>
+  );
+}
+
 /* 기본 생성 폴더 → 폴더 안 글리프 (Win11 특수 폴더 문법) — 이름을 바꾸면 일반 폴더로 돌아간다 */
 const FOLDER_GLYPHS: Record<string, FolderGlyph> = {
   '작업·교대 일지': 'log',
@@ -134,8 +156,9 @@ function TypeIcon({ type, size = 15, name }: { type: FileType; size?: number; na
   if (type === 'sheet') return <SheetIcon size={size} />;
   if (type === 'canvas') return <WhiteboardIcon size={size} />;
   if (type === 'file') {
-    // 업로드 파일 — 이름을 알면 종류별 아이콘 (음악 등)
+    // 업로드 파일 — 이름을 알면 종류별 아이콘 (음악·한글 등)
     if (name && viewKindOf(name) === 'audio') return <MusicIcon size={size} />;
+    if (name && /\.hwpx?$/i.test(name)) return <HwpFileIcon size={size} />;
     return <BlobFileIcon size={size} />;
   }
   return <SlideIcon size={size} />;
