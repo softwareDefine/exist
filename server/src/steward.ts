@@ -266,6 +266,8 @@ export interface AgendaItem {
   why: string; // 근거 한 줄 ("지난 통화 미결" / "미완료 할 일" 등)
   /** 안건으로 올라간 회의 횟수 — 2 이상이면 이월 안건 (클라가 "N회째" 배지) */
   rounds?: number;
+  /** agenda_items.id — 있으면 수동 종결 가능 (규칙 폴백 안건은 미영속이라 없음) */
+  id?: number;
 }
 
 export interface Agenda {
@@ -581,8 +583,30 @@ export async function generateAgenda(meetingId: number, channelId: number): Prom
     })),
     ...result.items.filter((it) => !carrySet.has(normTitle(it.title))),
   ].slice(0, 5);
+  // 영속된 안건에 id 부착 — 수동 종결(보류 안건 닫기)의 대상 식별자
+  const idByTitle = new Map(
+    (
+      db
+        .prepare('SELECT id, title FROM agenda_items WHERE meeting_id = ? AND resolved = 0')
+        .all(meetingId) as { id: number; title: string }[]
+    ).map((r) => [normTitle(r.title), r.id]),
+  );
+  result.items = result.items.map((it) => ({ ...it, id: idByTitle.get(normTitle(it.title)) }));
   agendaCache.set(meetingId, result);
   return result;
+}
+
+/** 안건 수동 종결 — "다음에 보시죠"로 보류된 안건이 영원히 이월되는 것을 사람이 끊는 장치.
+ *  AI 정산(settleAgendaAfterRecap)과 달리 결정 대응 없이도 닫는다. */
+export function resolveAgendaItem(meetingId: number, itemId: number): boolean {
+  const r = db
+    .prepare(
+      `UPDATE agenda_items SET resolved = 1, updated_at = datetime('now')
+       WHERE id = ? AND meeting_id = ? AND resolved = 0`,
+    )
+    .run(itemId, meetingId);
+  if (r.changes > 0) invalidateAgenda(meetingId); // 10분 캐시가 닫은 안건을 되살리지 않게
+  return r.changes > 0;
 }
 
 /** io 최소 인터페이스 — 테스트에서 스텁 주입용 */

@@ -876,6 +876,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agenda_items ON agenda_items(meeting_id, resolved);
 `);
 
+// 마이그레이션: 통화 시작 시각 — recap 세션 창의 기준. 메모리가 아닌 DB에 둬서
+// 통화 중 서버 재시작에도 세션 창이 유지된다 (recap 생성 시 NULL로 소비)
+try {
+  db.exec(`ALTER TABLE meetings ADD COLUMN call_started_at TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 개인 DM 지원 — 기존 테이블 org_id가 NOT NULL이면 NULL 허용으로 재생성
 try {
   const col = db

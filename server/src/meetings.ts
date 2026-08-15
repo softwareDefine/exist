@@ -27,7 +27,7 @@ import {
   cleanChannelName,
   setNotifyMode,
 } from './channels.js';
-import { generateAgenda, generateDecisionHistory, invalidateAgenda, ensureAgentUser } from './steward.js';
+import { generateAgenda, generateDecisionHistory, invalidateAgenda, ensureAgentUser, resolveAgendaItem } from './steward.js';
 import { draftHandover, publishHandover, listHandovers, ackHandover, reviewHandover, listChecklist, addChecklistItem, removeChecklistItem } from './handover.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
 import sttRouter from './stt.js';
@@ -1606,6 +1606,18 @@ router.get('/:code/agenda', async (req: AuthedRequest, res) => {
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   const channelId = resolveChannel(r.meeting.id, undefined, req.userId!);
   res.json(await generateAgenda(r.meeting.id, channelId ?? 0));
+});
+
+/** 안건 수동 종결 — 보류된 안건("다음에 보시죠")이 영원히 이월되는 것을 사람이 닫는다 (참가자만) */
+router.post('/:code/agenda/:itemId/resolve', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId <= 0)
+    return res.status(400).json({ error: '잘못된 안건이에요' });
+  const done = resolveAgendaItem(r.meeting.id, itemId);
+  if (!done) return res.status(404).json({ error: '이미 종결됐거나 없는 안건이에요' });
+  res.json({ ok: true });
 });
 
 /** 회의 채팅 히스토리 (채널당 최근 100개) — ?channel=ID, 없으면 기본 채널 */

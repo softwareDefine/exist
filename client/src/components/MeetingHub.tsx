@@ -1080,6 +1080,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     why: string;
     /** 2 이상 = 이월 안건 (결론 없이 N번째 상정) */
     rounds?: number;
+    /** 서버 agenda_items.id — 있으면 수동 종결 가능 */
+    id?: number;
   }
   const [recentDecisions, setRecentDecisions] = useState<LedgerEntry[]>([]);
   async function ackDecisionRow(d: LedgerEntry) {
@@ -1096,6 +1098,16 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     }).catch(() => {});
   }
   const [agenda, setAgenda] = useState<AgendaItem[] | null>(null); // null = 로딩 중
+  /** 안건 수동 종결 — 보류 안건이 영원히 이월되는 것을 닫는다. 낙관 제거, 실패 시 api()가 토스트 */
+  async function closeAgendaItem(itemId: number) {
+    setAgenda((prev) => (prev ? prev.filter((x) => x.id !== itemId) : prev));
+    try {
+      await api(`/api/meetings/${code}/agenda/${itemId}/resolve`, { method: 'POST' });
+      window.dispatchEvent(new CustomEvent('app:info', { detail: '안건을 종결했어요 — 다음 회의에 올라오지 않아요' }));
+    } catch {
+      /* api()가 서버 에러 토스트 처리 */
+    }
+  }
   const [rosterOpen, setRosterOpen] = useState(false); // 참가자 명함 — 기본 접힘(아바타 스택만)
   const [remindSent, setRemindSent] = useState(false);
   /** 미확인 팔로업 — 최신 결정 중 미확인자가 있는 첫 항목 (관리자에게만 노출) */
@@ -1561,6 +1573,15 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                               <span className="pipe-agenda-late" title="지연된 할 일이 안건 후보로 승격됐어요">
                                 지연 → 안건
                               </span>
+                            )}
+                            {a.id != null && (
+                              <button
+                                className="hub-agenda-close"
+                                title="안건 종결 — 다음 회의에 다시 올라오지 않아요"
+                                onClick={() => void closeAgendaItem(a.id!)}
+                              >
+                                ✕
+                              </button>
                             )}
                           </div>
                         ))}

@@ -105,7 +105,8 @@ async function aiRecap(msgs: ChatMsg[], participants: string[]): Promise<RecapRe
     'actions는 구체적인 할 일(최대 5개). assignee는 반드시 participants 목록의 username 중 하나이거나, 로그로 담당자를 특정할 수 없으면 null.\n' +
     'next_meeting은 다음 회의 시각이 로그에서 명시적으로 제안·합의된 경우에만 채운다. ' +
     '상대 표현(내일, 수요일, 다음 주 금요일)은 요일을 직접 계산하지 말고 반드시 calendar 목록에서 해당 요일의 가장 가까운 날짜를 찾아 쓴다. ' +
-    '날짜를 특정할 수 없거나("조만간", "나중에") 언급 자체가 없으면 반드시 null — 추측 금지. 시각 언급이 없으면 time만 null.';
+    '할 일의 기한("화요일까지 정리")은 회의 날짜가 아니다 — 회의 자체를 그 날짜에 하자고 말한 경우가 아니면 그 날짜를 next_meeting에 재사용하지 않는다. ' +
+    '"다음 회의에서 보시죠"처럼 날짜 없는 언급, 날짜를 특정할 수 없는 표현("조만간", "나중에"), 언급 자체가 없으면 반드시 null — 추측 금지. 시각 언급이 없으면 time만 null.';
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
@@ -179,10 +180,17 @@ async function aiRecap(msgs: ChatMsg[], participants: string[]): Promise<RecapRe
     .filter((a) => a.title)
     .slice(0, 5);
 
-  // 다음 회의 제안 — 형식 검증 + 과거 날짜 거부 (틀린 제안이 일정으로 박히는 게 최악이라 보수적으로)
+  // 다음 회의 제안 — 형식 검증 + 과거 날짜 거부 + 날짜 근거 게이트 (틀린 제안이 일정으로 박히는 게 최악이라 보수적으로)
+  // 근거 게이트: 원문에 날짜 표현이 하나도 없으면 AI가 어떤 날짜를 내놓든 버린다 —
+  // "다음 회의에서 보시죠"만 듣고 프롬프트를 뚫고 날짜를 창작하는 사례가 실측됨 (8/15)
   let nextMeeting: NextMeeting | null = null;
   const nm = parsed.next_meeting as { title?: unknown; date?: unknown; time?: unknown } | null;
-  if (nm && typeof nm === 'object') {
+  const hasDateHint = msgs.some((m) =>
+    /내일|모레|글피|다음\s?주|담\s?주|차주|이번\s?주|주말|[월화수목금토일]요일|\d{1,2}\s?월\s?\d{1,2}\s?일|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}일(?=[^가-힣]|$|에|께|쯤|까지|로)/.test(
+      m.text,
+    ),
+  );
+  if (nm && typeof nm === 'object' && hasDateHint) {
     const date = String(nm.date ?? '');
     const time = nm.time == null ? null : String(nm.time);
     const todayKst = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
@@ -383,7 +391,14 @@ export async function runRecapForMeeting(
   // 통화 트리거면 요약 재료 창을 통화 세션으로 좁힌다 — 회의 사이 며칠치 잡담이
   // 통화 전사와 섞여 엉뚱한 결론이 나오는 것 방지. 통화 직전 맥락 공유까지는 재료로
   // 인정 (시작 10분 전부터). 수동 "지금 정리하기"는 기존 창(지난 정리 이후) 유지
-  const callStart = trigger === 'call' ? callStartedAt.get(meeting.code.toUpperCase()) : undefined;
+  const callStart =
+    trigger === 'call'
+      ? ((
+          db.prepare('SELECT call_started_at AS t FROM meetings WHERE id = ?').get(meeting.id) as
+            | { t: string | null }
+            | undefined
+        )?.t ?? undefined)
+      : undefined;
   const sessionSince = (() => {
     if (!callStart) return since;
     const padded = new Date(new Date(callStart.replace(' ', 'T') + 'Z').getTime() - 10 * 60_000)
@@ -493,7 +508,8 @@ export async function runRecapForMeeting(
        ORDER BY fa.file_id LIMIT 12`,
     )
     .all(meeting.id, fileSince) as { id: number; name: string; type: string }[];
-  if (trigger === 'call') callStartedAt.delete(meeting.code.toUpperCase()); // 세션 소비
+  if (trigger === 'call')
+    db.prepare('UPDATE meetings SET call_started_at = NULL WHERE id = ?').run(meeting.id); // 세션 소비
 
   const info = db
     .prepare(
@@ -848,15 +864,15 @@ function emitRecapStatus(code: string, state: 'generating' | 'done' | 'cleared')
   }
 }
 
-/* 통화 시작 시각 — "다룬 문서"의 창을 통화 세션으로 좁히는 기준.
+/* 통화 시작 시각 — "다룬 문서"·요약 재료의 창을 통화 세션으로 좁히는 기준.
  * 없으면(수동 정리 등) 기존대로 "지난 recap 이후" 창을 쓴다.
- * 재입장(유예 취소)은 시작 시각을 유지 — 같은 세션으로 본다 */
-const callStartedAt = new Map<string, string>();
+ * 재입장(유예 취소)은 시작 시각을 유지 — 같은 세션으로 본다.
+ * DB(meetings.call_started_at)에 두는 이유: 통화 중 서버가 재시작돼도 세션 창이 살아야 한다 */
 export function markCallStarted(code: string) {
-  const key = code.toUpperCase();
-  if (!callStartedAt.has(key)) {
-    callStartedAt.set(key, new Date().toISOString().replace('T', ' ').slice(0, 19));
-  }
+  db.prepare(
+    `UPDATE meetings SET call_started_at = COALESCE(call_started_at, datetime('now'))
+     WHERE code = ?`,
+  ).run(code.toUpperCase());
 }
 
 export function scheduleRecap(code: string, sessionUserIds: number[]) {

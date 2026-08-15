@@ -19291,6 +19291,36 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   color: var(--text-sub);
 }
 
+/* 안건 수동 종결 ✕ — 평소엔 흐리게, 행 호버 시 드러남 (제목 크기와 20px 그리드 유지) */
+.hub-agenda-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+}
+.hub-agenda-row:hover .hub-agenda-close {
+  opacity: 0.7;
+}
+.hub-agenda-close:hover {
+  opacity: 1;
+  background: var(--surface-2);
+  color: var(--text);
+}
+@media (hover: none) {
+  .hub-agenda-close {
+    opacity: 0.5; /* 터치 기기 — 호버가 없으니 항상 노출 */
+  }
+}
+
 /* ── 홈: 확인할 결정 카드 (P1 — 홈에서 바로 회람 사인) ── */
 .pd-ack-count {
   min-width: 20px;
