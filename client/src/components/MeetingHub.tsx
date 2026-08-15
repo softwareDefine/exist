@@ -172,6 +172,8 @@ interface MeetingTodo {
   assignees?: string[];
   /** 마감일 YYYY-MM-DD — AI 총무가 임박·지남을 리마인드 */
   due_at?: string | null;
+  /** 태생 recap — 있으면 AI가 회의 정리에서 추출한 할 일 (삭제 = 거부권, recap 기록도 정정됨) */
+  recap_id?: number | null;
 }
 
 function dday(endDate: string): number | null {
@@ -1704,6 +1706,14 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                   <PenIcon size={11} />
                                 </span>
                               )}
+                              {t.recap_id != null && (
+                                <span
+                                  className="hub-todo-ai"
+                                  title="회의 정리에서 AI가 추출한 할 일이에요 — 잘못 기록됐다면 ✕로 취소하세요 (회의 기록에서도 지워져요)"
+                                >
+                                  AI
+                                </span>
+                              )}
                               {t.due_at && dueBadge(t.due_at) ? (
                                 <button
                                   type="button"
@@ -1772,7 +1782,11 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                               <button
                                 className="hub-todo-del"
                                 onClick={() => void deleteTodo(t)}
-                                title="삭제"
+                                title={
+                                  t.recap_id != null
+                                    ? 'AI 기록 취소 — 회의 기록에서도 지워져요'
+                                    : '삭제'
+                                }
                               >
                                 <CloseIcon size={12} />
                               </button>

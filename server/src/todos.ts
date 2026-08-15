@@ -132,7 +132,7 @@ router.get('/', (req: AuthedRequest, res) => {
     if (!mid) return res.json([]);
     const rows = db
       .prepare(
-        `SELECT t.id, t.title, t.done, t.due_at, u.username AS author
+        `SELECT t.id, t.title, t.done, t.due_at, t.recap_id, u.username AS author
          FROM todos t JOIN users u ON u.id = t.user_id
          WHERE t.meeting_id = ? ORDER BY t.created_at`,
       )
@@ -155,7 +155,7 @@ router.get('/', (req: AuthedRequest, res) => {
   // 회의 할 일은 담당자 기준(여러 명 가능), 개인 할 일은 소유자 기준
   const rows = db
     .prepare(
-      `SELECT t.id, t.title, t.done, t.due_at, m.code AS meeting_code, m.title AS meeting_title
+      `SELECT t.id, t.title, t.done, t.due_at, t.recap_id, m.code AS meeting_code, m.title AS meeting_title
        FROM todos t LEFT JOIN meetings m ON m.id = t.meeting_id
        WHERE ((t.meeting_id IS NULL AND t.user_id = ?)
           OR EXISTS (SELECT 1 FROM todo_assignees ta WHERE ta.todo_id = t.id AND ta.user_id = ?))${scopeSql}
@@ -251,14 +251,38 @@ router.patch('/:id', (req: AuthedRequest, res) => {
 
 router.delete('/:id', (req: AuthedRequest, res) => {
   const todo = db
-    .prepare('SELECT id, user_id, meeting_id FROM todos WHERE id = ?')
-    .get(req.params.id) as { id: number; user_id: number; meeting_id: number | null } | undefined;
+    .prepare('SELECT id, user_id, meeting_id, recap_id, title FROM todos WHERE id = ?')
+    .get(req.params.id) as
+    | { id: number; user_id: number; meeting_id: number | null; recap_id: number | null; title: string }
+    | undefined;
   if (!todo) return res.json({ ok: true });
   if (!canTouchTodo(todo, req.userId!)) {
     return res.status(403).json({ error: '담당자·작성자·관리자만 지울 수 있어요' });
   }
   db.prepare('DELETE FROM todo_assignees WHERE todo_id = ?').run(req.params.id);
   db.prepare('DELETE FROM todos WHERE id = ?').run(req.params.id);
+  // AI 추출 할 일(recap 태생)의 삭제 = 사후 거부권 — 결정 [취소]와 대칭.
+  // recap의 actions 기록에서도 걷어내야 정리 보기·인수인계가 가짜 할 일을 계속 전파하지 않는다
+  if (todo.recap_id != null) {
+    try {
+      const rec = db
+        .prepare('SELECT actions FROM meeting_recaps WHERE id = ?')
+        .get(todo.recap_id) as { actions: string } | undefined;
+      if (rec) {
+        const actions = JSON.parse(rec.actions) as { assignee: string | null; title: string }[];
+        const idx = actions.findIndex((a) => a.title.slice(0, 200) === todo.title);
+        if (idx >= 0) {
+          actions.splice(idx, 1);
+          db.prepare('UPDATE meeting_recaps SET actions = ? WHERE id = ?').run(
+            JSON.stringify(actions),
+            todo.recap_id,
+          );
+        }
+      }
+    } catch {
+      /* 기록 정정 실패해도 할 일 삭제 자체는 유지 */
+    }
+  }
   res.json({ ok: true });
 });
 

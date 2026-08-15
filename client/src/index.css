@@ -19248,6 +19248,19 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   color: var(--green-dark);
 }
 
+/* AI 추출 할 일 출처 배지 — 사람이 만든 할 일과 구분 (삭제 = 거부권, recap 기록도 정정) */
+.hub-todo-ai {
+  flex: none;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  letter-spacing: 0.02em;
+  cursor: help;
+}
+
 .hub-agenda-list {
   display: flex;
   flex-direction: column;
