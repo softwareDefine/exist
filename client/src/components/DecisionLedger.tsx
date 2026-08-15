@@ -307,8 +307,11 @@ export default function DecisionLedger({ code }: { code: string }) {
               {g.items.map((e, i) => {
                 const acked = e.acks.some((a) => a.username === user?.username);
                 return (
-                  <div key={`${e.recapId}-${i}`} className="ledger-item">
-                    <span className="ledger-check">
+                  <div
+                    key={`${e.recapId}-${i}`}
+                    className={`ledger-item${e.critical ? ' critical' : ''}`}
+                  >
+                    <span className={`ledger-check${e.critical ? ' critical' : ''}`}>
                       <CheckMarkIcon size={14} />
                     </span>
                     <div className="ledger-body">

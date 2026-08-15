@@ -11893,6 +11893,16 @@ input:focus {
   justify-content: center;
 }
 
+/* 작업 전 확인 필수 결정 — 카드 전체가 한눈에 "빨강"으로 읽히게 (아이콘·배경·테두리) */
+.ledger-item.critical {
+  border-color: color-mix(in srgb, var(--red, #e5484d) 32%, var(--border));
+  background: color-mix(in srgb, var(--red, #e5484d) 5%, var(--surface));
+}
+.ledger-check.critical {
+  background: var(--red, #e5484d);
+  color: #fff;
+}
+
 .ledger-body {
   min-width: 0;
   flex: 1; /* 확인 칩이 행마다 들쭉날쭉하지 않게 오른쪽 끝으로 고정 */
