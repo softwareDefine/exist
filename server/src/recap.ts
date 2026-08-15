@@ -64,12 +64,16 @@ export function ruleBasedRecap(msgs: ChatMsg[], participants: string[]): RecapRe
   for (const m of msgs) {
     const text = m.text.trim();
     if (!text) continue;
-    if (/(하기로|결정|확정|합의|정했)/.test(text) && decisions.length < 5) {
+    // 부정·유보 표현 오탐 방지 — "아직 결정 안 됐어요", "확정은 다음에"가 결정으로 박히면
+    // API 장애 폴백이 가짜 결정을 원장에 넣는다 (불참자 배달까지 이어지는 최악 경로)
+    const negated = /(아직|보류|다음에|나중에|미정|않|안\s|안됐|안 됐|못\s|못했|없)/.test(text);
+    if (!negated && /(하기로|결정|확정|합의|정했)/.test(text) && decisions.length < 5) {
       decisions.push(`${m.from}: ${text.slice(0, 120)}`);
       continue;
     }
     // 할 일 신호: 마감·요청 표현 + "~게요/~겠습니다"류 자기 약속 어미
-    if (/(까지|해주세요|해 주세요|부탁|겠습니다|[가-힣]게요|담당)/.test(text) && actions.length < 5) {
+    const done = /(했어요|했습니다|끝냈|완료했)/.test(text); // 완료 보고는 할 일이 아니다
+    if (!done && /(까지|해주세요|해 주세요|부탁|겠습니다|[가-힣]게요|담당)/.test(text) && actions.length < 5) {
       // @이름 멘션이 참여자와 일치하면 담당자로, "제가/내가 ...게요"면 화자 본인
       const mention = text.match(/@([\w가-힣.-]+)/);
       let assignee: string | null = null;
@@ -408,10 +412,12 @@ export async function runRecapForMeeting(
         `SELECT u.username AS "from", m.text, m.created_at AS at FROM messages m
          JOIN users u ON u.id = m.user_id
          WHERE m.meeting_id = ? AND m.user_id != ? AND m.created_at > ? AND m.text != ''
-         ORDER BY m.id ASC LIMIT 200`,
+         ORDER BY m.id DESC LIMIT 200`,
       )
       .all(meeting.id, agentId, sessionSince) as (ChatMsg & { at: string })[]
-  ) // "@AI"처럼 멘션만 있고 내용이 없는 메시지도 재료가 아님
+  ) // 상한 초과 시 옛 것을 버린다(DESC→reverse) — ASC면 회의 결론부가 잘린다
+    .reverse()
+    // "@AI"처럼 멘션만 있고 내용이 없는 메시지도 재료가 아님
     .filter((m) => m.text.replace(/@[\w가-힣.-]+/g, '').trim().length > 0);
   // whisper 재전사(고품질)가 있으면 그것만, 없으면 Web Speech(live) 기록 —
   // 둘을 합치면 같은 발화가 두 번 들어가 요약·결정 추출이 왜곡된다
@@ -420,9 +426,10 @@ export async function runRecapForMeeting(
       `SELECT u.username AS "from", t.text, t.created_at AS at FROM call_transcripts t
        JOIN users u ON u.id = t.user_id
        WHERE t.meeting_id = ? AND t.created_at > ? AND t.source = 'whisper'
-       ORDER BY t.id ASC LIMIT 300`,
+       ORDER BY t.id DESC LIMIT 300`,
     )
-    .all(meeting.id, sessionSince) as (ChatMsg & { at: string })[];
+    .all(meeting.id, sessionSince)
+    .reverse() as (ChatMsg & { at: string })[];
   const voiceMsgs =
     whisperMsgs.length > 0
       ? whisperMsgs
@@ -431,12 +438,13 @@ export async function runRecapForMeeting(
             `SELECT u.username AS "from", t.text, t.created_at AS at FROM call_transcripts t
              JOIN users u ON u.id = t.user_id
              WHERE t.meeting_id = ? AND t.created_at > ? AND t.source != 'whisper'
-             ORDER BY t.id ASC LIMIT 300`,
+             ORDER BY t.id DESC LIMIT 300`,
           )
-          .all(meeting.id, sessionSince) as (ChatMsg & { at: string })[]);
+          .all(meeting.id, sessionSince)
+          .reverse() as (ChatMsg & { at: string })[]);
   // 화자명은 순수 username 유지 — ruleBasedRecap의 담당자 매칭("제가 …게요")이 깨지지 않도록
   const msgs: ChatMsg[] = [...chatMsgs, ...voiceMsgs]
-    .sort((a, b) => (a.at < b.at ? -1 : 1))
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
     .map((m) => ({ from: m.from, text: m.text }));
   if (msgs.length < MIN_MESSAGES) return null;
 

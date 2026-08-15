@@ -69,22 +69,25 @@ function gatherContext(meetingId: number, channelId: number): AgentContext {
   // AI 자신의 메시지는 근거에서 제외 — 과거 AI 답변을 다시 먹고 반복하는 자기 오염 방지
   const chat = db
     .prepare(
-      `SELECT u.username AS "from", m.text FROM messages m
+      `SELECT u.username AS "from", m.text, m.created_at AS at, m.id FROM messages m
        JOIN users u ON u.id = m.user_id
        WHERE m.meeting_id = ? AND m.user_id != ? AND (m.channel_id = ? OR m.channel_id IS NULL) AND m.text != ''
        ORDER BY m.id DESC LIMIT 30`,
     )
-    .all(meetingId, ensureAgentUser(), channelId)
-    .reverse() as { from: string; text: string }[];
-  // 최근 통화 음성 전사도 근거에 포함
+    .all(meetingId, ensureAgentUser(), channelId) as { from: string; text: string; at: string; id: number }[];
+  // 최근 통화 음성 전사 — 최근 24시간 창 (창 없이 긁으면 지난주 통화가 "최근 대화"로 섞인다)
   const voice = db
     .prepare(
-      `SELECT u.username AS "from", t.text FROM call_transcripts t
+      `SELECT u.username AS "from", t.text, t.created_at AS at, t.id FROM call_transcripts t
        JOIN users u ON u.id = t.user_id
-       WHERE t.meeting_id = ? ORDER BY t.id DESC LIMIT 30`,
+       WHERE t.meeting_id = ? AND t.created_at > datetime('now','-24 hours')
+       ORDER BY t.id DESC LIMIT 30`,
     )
-    .all(meetingId)
-    .reverse() as { from: string; text: string }[];
+    .all(meetingId) as { from: string; text: string; at: string; id: number }[];
+  // 시간순 병합 — voice 뭉치를 앞에 붙이면 대화 순서가 역전된다 (동률은 id 보조키)
+  const mergedChat = [...voice, ...chat]
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id - b.id))
+    .map(({ from, text }) => ({ from, text }));
   // 다가오는 일정 — "다음 회의 언제야?" 류 질문의 근거 (반복 일정 전개는 생략, 기준일 이후만)
   const events = db
     .prepare(
@@ -93,7 +96,7 @@ function gatherContext(meetingId: number, channelId: number): AgentContext {
        ORDER BY date, COALESCE(time, '99') LIMIT 5`,
     )
     .all(meetingId) as { title: string; date: string; time: string | null }[];
-  return { meetingTitle: meeting.title, decisions, recaps, todos, events, chat: [...voice, ...chat] };
+  return { meetingTitle: meeting.title, decisions, recaps, todos, events, chat: mergedChat };
 }
 
 /** 규칙 폴백 — 질문 키워드에 따라 기록을 그대로 보여준다.

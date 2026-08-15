@@ -81,9 +81,10 @@ export async function draftHandover(
       `SELECT u.username AS "from", m.text FROM messages m
        JOIN users u ON u.id = m.user_id
        WHERE m.meeting_id = ? AND m.user_id != ? AND m.created_at > ? AND m.text != ''
-       ORDER BY m.id ASC LIMIT 120`,
+       ORDER BY m.id DESC LIMIT 120`,
     )
-    .all(meetingId, ensureAgentUser(), since) as { from: string; text: string }[];
+    .all(meetingId, ensureAgentUser(), since)
+    .reverse() as { from: string; text: string }[]; // 상한 초과 시 교대 말미(가장 중요)가 남게
   const decisions = db
     .prepare(
       `SELECT decisions, whys FROM meeting_recaps WHERE meeting_id = ? AND created_at > ? ORDER BY id DESC LIMIT 10`,
@@ -171,9 +172,10 @@ export async function reviewHandover(
       `SELECT u.username AS "from", m.text FROM messages m
        JOIN users u ON u.id = m.user_id
        WHERE m.meeting_id = ? AND m.user_id != ? AND m.created_at > ? AND m.text != ''
-       ORDER BY m.id ASC LIMIT 120`,
+       ORDER BY m.id DESC LIMIT 120`,
     )
-    .all(meetingId, ensureAgentUser(), since) as { from: string; text: string }[];
+    .all(meetingId, ensureAgentUser(), since)
+    .reverse() as { from: string; text: string }[]; // 상한 초과 시 교대 말미(가장 중요)가 남게
   const decisions = db
     .prepare(
       `SELECT decisions FROM meeting_recaps WHERE meeting_id = ? AND created_at > ? ORDER BY id DESC LIMIT 10`,
