@@ -38,6 +38,8 @@ import {
   PenIcon,
   CloseIcon,
   ChevronRightIcon,
+  DocIcon,
+  DownloadIcon,
 } from './Icons';
 
 interface Participant {
@@ -2357,7 +2359,11 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                 ) : (
                                   <span className="chat-file-card">
                                     <span className="chat-file-ic">
-                                      {m.file.url ? '📎' : m.file.folder ? '📁' : '📄'}
+                                      {m.file.folder ? (
+                                        <FolderIcon size={16} />
+                                      ) : (
+                                        <DocIcon size={16} />
+                                      )}
                                     </span>
                                     <span className="chat-file-meta">
                                       <span className="chat-file-name">{m.file.name}</span>
@@ -2380,10 +2386,10 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                           download={m.file.name}
                                           onClick={(e) => e.stopPropagation()}
                                         >
-                                          ⬇
+                                          <DownloadIcon size={13} />
                                         </a>
                                       ) : (
-                                        <span className="chat-file-dl">⬇</span>
+                                        <span className="chat-file-dl"><DownloadIcon size={13} /></span>
                                       )
                                     ) : (
                                       <span className="chat-file-dl">열기</span>

@@ -184,6 +184,7 @@ export function afterRevise(p: {
           text: msg,
           kind: 'file-ack',
           meetingCode: p.meetingCode,
+          fileId: p.fileId,
         });
       }
     } catch (e) {
@@ -255,6 +256,7 @@ export function sweepFileAckAutoReminders(): void {
           text: `"${f.name}" 문서 열람 서명이 ${waited} 대기 중이에요 — 확인 부탁해요`,
           kind: 'file-ack',
           meetingCode: f.code,
+          fileId: f.id,
         });
       }
       // 요청자 보고 — 침묵을 발신자에게 보이게 (인수인계 에스컬레이션과 같은 계열)
@@ -266,6 +268,7 @@ export function sweepFileAckAutoReminders(): void {
         text: `"${f.name}" 미확인 ${pending.length}명에게 자동 리마인드를 보냈어요 — ${roster}`,
         kind: 'file-ack',
         meetingCode: f.code,
+        fileId: f.id,
       });
       db.prepare('INSERT INTO file_ack_autoremind (file_id, rev) VALUES (?, ?)').run(f.id, f.rev);
     } catch (e) {

@@ -28,6 +28,13 @@ import {
   CopyIcon,
   TrashIcon,
   ShareIcon,
+  SparklesIcon,
+  BuildingIcon,
+  CalendarIcon,
+  HistoryIcon,
+  BellIcon,
+  ShrinkIcon,
+  ExpandIcon,
   ClipboardIcon,
   CheckMarkIcon,
   CloseIcon,
@@ -4520,7 +4527,7 @@ export default function CollabFiles({
             {/* 이 문서를 다룬 회의 — 클릭하면 기록 탭 해당 회의로 (문서 → 회의 다리) */}
             {(fileMeetings?.length ?? 0) > 0 && (
               <div className="cf-filemeets">
-                <div className="cf-ack-head">🗓 다룬 회의</div>
+                <div className="cf-ack-head"><CalendarIcon size={13} /> 다룬 회의</div>
                 {fileMeetings!.map((m) => (
                   <button
                     key={m.recapId}
@@ -4555,7 +4562,7 @@ export default function CollabFiles({
                   <span className={`side-chevron${versionsOpen ? ' open' : ''}`}>
                     <ChevronIcon size={10} />
                   </span>
-                  🕘 버전 기록 (v{selected.rev ?? 1})
+                  <HistoryIcon size={13} /> 버전 기록 (v{selected.rev ?? 1})
                 </button>
                 {versionsOpen && (
                   <>
@@ -4598,7 +4605,7 @@ export default function CollabFiles({
             )}
             {/* 통합 공유 — 채널 게시·DM·다른 그룹 배포·링크 복사 (폴더는 즉시 링크 복사) */}
             <button className="cf-ack-req" onClick={() => openShare(selected)}>
-              ↗ 공유…
+              <ShareIcon size={13} /> 공유…
             </button>
             {/* 열람 서명 (회람 사인) — 요청·현황·서명 */}
             {selected.type !== 'folder' && (
@@ -4626,7 +4633,7 @@ export default function CollabFiles({
                     {ackStatus?.note && (
                       <div className="cf-ack-note">
                         <div className="cf-ack-note-title">
-                          ✦ 이번 개정에서 바뀐 것{ackStatus.rev ? ` (v${ackStatus.rev})` : ''}
+                          <SparklesIcon size={12} /> 이번 개정에서 바뀐 것{ackStatus.rev ? ` (v${ackStatus.rev})` : ''}
                         </div>
                         {ackStatus.note.split('\n').map((ln, i) => (
                           <div key={i} className="cf-ack-note-line">
@@ -4717,7 +4724,7 @@ export default function CollabFiles({
                           }
                         }}
                       >
-                        🔔 미서명자 리마인드
+                        <BellIcon size={13} /> 미서명자 리마인드
                       </button>
                     )}
                     {/* 자동 에스컬레이션 안내 — 서버 스케줄러(ACK_AUTOREMIND_HOURS, 기본 48시간) */}
@@ -4731,7 +4738,7 @@ export default function CollabFiles({
                         title="개정 번호가 +1 되고 전원 서명이 리셋돼요 — 지난 서명은 이력에 보관"
                         onClick={() => void reviseNow(selected)}
                       >
-                        ↻ 개정 발행 (재회람)
+                        <RefreshIcon size={13} /> 개정 발행 (재회람)
                       </button>
                     )}
                     {canEdit(selected) && (
@@ -5220,7 +5227,7 @@ export default function CollabFiles({
                 className={shareTab === 'group' ? 'on' : undefined}
                 onClick={() => setShareTab('group')}
               >
-                ⇄ 다른 그룹
+                <BuildingIcon size={13} /> 다른 그룹
               </button>
             </div>
             <div className="cf-move-tree cf-share-body">
@@ -5406,7 +5413,7 @@ export default function CollabFiles({
                 title={editorFull ? '창 크기로 (Esc)' : '전체화면'}
                 onClick={() => setEditorFull((v) => !v)}
               >
-                {editorFull ? '⤡' : '⛶'}
+                {editorFull ? <ShrinkIcon size={15} /> : <ExpandIcon size={15} />}
               </button>
             </span>
           </div>
@@ -5442,7 +5449,7 @@ export default function CollabFiles({
                   </div>
                   {signModalNote && (
                     <div className="cf-signmodal-note">
-                      <div className="cf-signmodal-note-t">✦ 이번 개정에서 바뀐 것</div>
+                      <div className="cf-signmodal-note-t"><SparklesIcon size={12} /> 이번 개정에서 바뀐 것</div>
                       {signModalNote.split('\n').map((l, i) => (
                         <div key={i}>{l}</div>
                       ))}

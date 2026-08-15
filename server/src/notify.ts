@@ -34,6 +34,8 @@ export interface NotifyPayload {
     | 'file-ack';
   /** 이 알림이 발생한 회의 코드 — 있으면 알림에 회의 썸네일 표시 + 클릭 시 열기 */
   meetingCode?: string;
+  /** 이 알림이 가리키는 공동편집 문서 id — 있으면 [문서 열기]로 바로 착지 (회람 알림) */
+  fileId?: number;
 }
 
 /** userId에게 알림 — DB 저장 후 접속 소켓에 푸시(저장된 id·시각 포함) */
@@ -63,9 +65,9 @@ export function notifyUser(userId: number, payload: NotifyPayload) {
 
   const info = db
     .prepare(
-      'INSERT INTO notifications (user_id, from_name, text, kind, meeting_code) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO notifications (user_id, from_name, text, kind, meeting_code, file_id) VALUES (?, ?, ?, ?, ?, ?)',
     )
-    .run(userId, from, payload.text, payload.kind ?? null, payload.meetingCode ?? null);
+    .run(userId, from, payload.text, payload.kind ?? null, payload.meetingCode ?? null, payload.fileId ?? null);
 
   if (!io) return;
   // 회의 알림이면 썸네일 표시용 회의 정보를 함께 실어 보낸다
@@ -82,6 +84,7 @@ export function notifyUser(userId: number, payload: NotifyPayload) {
     text: payload.text,
     kind: payload.kind,
     meeting,
+    fileId: payload.fileId ?? null,
     created_at: new Date().toISOString(),
   };
   let delivered = false;

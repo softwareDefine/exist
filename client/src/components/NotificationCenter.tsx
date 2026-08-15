@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
 import { useDisplayName } from '../names';
-import { BellIcon, PhoneIcon, SparklesIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { BellIcon, PhoneIcon, SparklesIcon, ChevronLeftIcon, ChevronRightIcon, DocIcon } from './Icons';
 import MeetingThumb from './MeetingThumb';
 
 interface Notification {
@@ -14,6 +14,8 @@ interface Notification {
   cleared?: boolean;
   ts: number;
   meeting?: { id: number; code?: string | null; title: string; thumbnail: string | null };
+  /** 회람 알림이 가리키는 문서 — [문서 열기]로 바로 착지 */
+  fileId?: number | null;
 }
 
 function relTime(ts: number): string {
@@ -187,6 +189,30 @@ export default function NotificationCenter() {
                         }}
                       >
                         <PhoneIcon size={13} /> 지금 들어가기
+                      </button>
+                    )}
+                    {/* 회람 알림 — 클릭 한 번에 그룹 탭→공동편집→그 문서로 착지 (받는 사람 동선의 완성) */}
+                    {n.kind === 'file-ack' && n.meeting?.code && (
+                      <button
+                        className="notif-join"
+                        onClick={() => {
+                          if (n.fileId) {
+                            window.dispatchEvent(
+                              new CustomEvent('exist:deeplink', {
+                                detail: { code: n.meeting!.code, fileId: n.fileId },
+                              }),
+                            );
+                          } else {
+                            window.dispatchEvent(
+                              new CustomEvent('exist:open-meeting', {
+                                detail: { code: n.meeting!.code, title: n.meeting!.title, tab: 'files' },
+                              }),
+                            );
+                          }
+                          setOpen(false);
+                        }}
+                      >
+                        <DocIcon size={13} /> 문서 열기
                       </button>
                     )}
                     {n.kind === 'recap' && n.meeting?.code && (

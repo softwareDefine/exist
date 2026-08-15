@@ -402,6 +402,7 @@ router.post('/:fileId/ack-request', (req: AuthedRequest, res) => {
         text: `"${f.name}" 문서의 열람 확인 서명을 요청했어요`,
         kind: 'file-ack',
         meetingCode: r.meeting.code,
+        fileId: f.id,
       });
     }
   }
@@ -434,6 +435,7 @@ router.post('/:fileId/ack', (req: AuthedRequest, res) => {
       text: `"${f.name}" 문서를 열람 확인(서명)했어요`,
       kind: 'file-ack',
       meetingCode: r.meeting.code,
+      fileId: f.id,
     });
   }
   res.json({ ok: true });
@@ -476,6 +478,7 @@ router.post('/:fileId/ack-remind', (req: AuthedRequest, res) => {
       text: `"${f.name}" 문서 열람 서명이 아직이에요 — 확인 부탁해요`,
       kind: 'file-ack',
       meetingCode: r.meeting.code,
+      fileId: f.id,
     });
   }
   if (targets.length > 0) ackRemindLast.set(f.id, Date.now());
@@ -1414,6 +1417,7 @@ router.post('/:fileId/distribute', (req: AuthedRequest, res) => {
         : `『${name}』 문서가 배포됐어요`,
       kind: requestAck ? 'file-ack' : undefined,
       meetingCode: target.code,
+      fileId: newId,
     });
   }
   // 자동 방송은 원본 그룹(code) 몫 — 대상 그룹 목록도 즉시 갱신

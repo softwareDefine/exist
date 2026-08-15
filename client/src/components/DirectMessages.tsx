@@ -6,7 +6,7 @@ import { useAuthStore } from '../store';
 import { useDisplayName } from '../names';
 import Avatar from './Avatar';
 import Marquee from './Marquee';
-import { ChatIcon, CloseIcon } from './Icons';
+import { ChatIcon, CloseIcon, DocIcon } from './Icons';
 
 /* 1:1 다이렉트 메시지(DM).
  * scope = 조직 id(숫자) 또는 'personal'(조직 무관).
@@ -69,7 +69,7 @@ function renderDmText(text: string): React.ReactNode {
           )
         }
       >
-        📄 문서 바로 열기
+        <DocIcon size={13} /> 문서 바로 열기
       </button>
     </>
   );

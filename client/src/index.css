@@ -11856,6 +11856,27 @@ input:focus {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  /* 이름 컬럼 기본폭 — 화면이 좁으면 줄어든다 (사용자가 직접 조절하면 인라인 변수가 이겨서 그 값 유지).
+   * 1366 노트북에서 사이드바+세부정보 켠 기본 상태에 가로 스크롤이 없어야 함 */
+  --cf-col-name: 400px;
+}
+@media (max-width: 1680px) {
+  .cf-explorer {
+    --cf-col-name: 320px;
+  }
+}
+@media (max-width: 1460px) {
+  .cf-explorer {
+    --cf-col-name: 212px;
+  }
+  /* 접속 중·만든 사람 컬럼은 좁은 화면에서 자동 숨김 — 세부정보 패널이 대체.
+   * 1366 노트북에서 사이드바+세부정보 켜면 목록 폭이 ~590px뿐이라 핵심 컬럼만 남긴다 */
+  .cf-listhead-online,
+  .cf-main.list .cf-entry-online,
+  .cf-listhead button:nth-child(5),
+  .cf-main.list .cf-entry-author {
+    display: none;
+  }
 }
 
 /* 1줄 — 내비게이션 바 */

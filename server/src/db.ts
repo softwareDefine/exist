@@ -454,6 +454,12 @@ try {
 } catch {
   /* 이미 존재 */
 }
+// 마이그레이션: 알림이 가리키는 문서 — 클릭 시 그 문서로 착지 (회람 알림용, null이면 문서 무관)
+try {
+  db.exec(`ALTER TABLE notifications ADD COLUMN file_id INTEGER`);
+} catch {
+  /* 이미 존재 */
+}
 
 // 마이그레이션: 반복 회의 — recur(none|daily|weekly|biweekly|monthly), recur_until(날짜, null=무한/없음)
 try {
