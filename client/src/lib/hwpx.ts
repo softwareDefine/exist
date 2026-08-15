@@ -361,8 +361,21 @@ function tableBlock(tbl: Element, ctx: ParseCtx): HwpxBlock | null {
 }
 
 /** 문단 하나 → 런 블록(+안에 든 표·이미지 블록). run 유무·깊이와 무관하게 t를 찾는다 */
+/** 개체의 플로팅 여부 — treatAsChar="0"이면 텍스트 흐름 밖(문단 기준 오프셋 배치).
+ * 한/글은 앵커 줄 텍스트를 먼저 그리고 플로팅 개체를 오프셋 위치에 놓으므로,
+ * 선형 렌더에선 "문단 텍스트 → 플로팅 개체" 순서가 원본 화면과 일치한다 */
+function isFloating(objEl: Element): boolean {
+  for (const c of childEls(objEl)) {
+    if (ln(c) === 'pos') return attrOf(c, 'treatAsChar') === '0';
+  }
+  return false; // pos 없으면 글자취급으로 본다 (등장 위치 유지)
+}
+
 function walkPara(p: Element, blocks: HwpxBlock[], ctx: ParseCtx) {
   const runs: HwpxRun[] = [];
+  // 플로팅 개체(표·그림)는 모아뒀다 문단 텍스트 뒤에 — XML 직렬화 순서(개체 먼저)와
+  // 화면 순서(제목 먼저)가 다른 문서 대응 (예: 표지 제목 문단에 표가 앵커된 신청서)
+  const floated: HwpxBlock[] = [];
   const append = (text: string, st: CharStyle) => {
     if (!text) return;
     const last = runs[runs.length - 1];
@@ -396,13 +409,23 @@ function walkPara(p: Element, blocks: HwpxBlock[], ctx: ParseCtx) {
       else if (name === 'tab') append('\t', st);
       else if (name === 'br' || name === 'linebreak') append('\n', st);
       else if (name === 'tbl') {
-        flush();
         const t = tableBlock(c, ctx);
-        if (t) blocks.push(t);
+        if (t) {
+          if (isFloating(c)) floated.push(t);
+          else {
+            flush();
+            blocks.push(t);
+          }
+        }
       } else if (name === 'pic') {
-        flush();
         const img = imageBlock(c, ctx);
-        if (img) blocks.push(img);
+        if (img) {
+          if (isFloating(c)) floated.push(img);
+          else {
+            flush();
+            blocks.push(img);
+          }
+        }
       } else if (name === 'lineseg' || name === 'linesegarray' || name === 'secpr') {
         continue; // 레이아웃 메타 — 본문 텍스트 없음
       } else if (name === 'run') {
@@ -414,6 +437,7 @@ function walkPara(p: Element, blocks: HwpxBlock[], ctx: ParseCtx) {
   };
   walk(p, {});
   flush();
+  blocks.push(...floated); // 플로팅 개체는 앵커 문단 텍스트 뒤에
 }
 
 /** node 아래의 문단·표를 순서대로 추출 — 섹션 루트·표 셀(subList) 공용 */
