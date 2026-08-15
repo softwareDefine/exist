@@ -623,6 +623,8 @@ export interface LedgerEntry {
   acks: { username: string; ts: number; note: string | null; signature: string | null }[];
   /** 이 recap에서 파생된 할 일 — 결정이 실행됐는지 추적 (P1 체인의 실행 단계) */
   todos: { title: string; done: number }[];
+  /** 이 결정을 근거로 발행된 문서 개정들 — 결정→문서 다리 (없으면 빈 배열) */
+  revisedFiles: { id: number; rev: number; name: string }[];
 }
 
 /** 결정 원장 — 이 그룹의 모든 recap 결정을 시간순(최신 먼저)으로 편다.
@@ -639,6 +641,13 @@ export function listDecisions(meetingId: number, limit = 100): LedgerEntry[] {
      JOIN users u ON u.id = a.user_id WHERE a.recap_id = ? ORDER BY a.id`,
   );
   const todoStmt = db.prepare('SELECT title, done FROM todos WHERE recap_id = ? ORDER BY id');
+  // 이 결정을 근거로 발행된 개정들 — 결정→문서 역링크 (삭제된 파일 제외)
+  const revStmt = db.prepare(
+    `SELECT s.file_id AS id, s.rev, f.name FROM file_rev_snapshots s
+     JOIN collab_files f ON f.id = s.file_id
+     WHERE s.basis_recap_id = ? AND s.basis_decision_idx = ? AND f.deleted_at IS NULL
+     ORDER BY s.id DESC LIMIT 5`,
+  );
   const out: LedgerEntry[] = [];
   for (const r of rows) {
     const ts = new Date(r.created_at + 'Z').getTime();
@@ -679,6 +688,7 @@ export function listDecisions(meetingId: number, limit = 100): LedgerEntry[] {
             signature: a.signature ?? null,
           })),
         todos: recapTodos,
+        revisedFiles: revStmt.all(r.id, idx) as { id: number; rev: number; name: string }[],
       });
       if (out.length >= limit) return out;
     }

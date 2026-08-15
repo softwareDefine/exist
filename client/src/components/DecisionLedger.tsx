@@ -30,6 +30,8 @@ interface LedgerEntry {
   acks: { username: string; ts: number; note?: string | null; signature?: string | null }[];
   /** 이 recap에서 파생된 할 일 — 결정이 실행됐는지 추적 */
   todos?: { title: string; done: number }[];
+  /** 이 결정을 근거로 발행된 문서 개정들 — 결정→문서 다리 */
+  revisedFiles?: { id: number; rev: number; name: string }[];
 }
 
 function dateLabel(ts: number): string {
@@ -362,6 +364,27 @@ export default function DecisionLedger({ code }: { code: string }) {
                           정리 보기
                         </button>
                       </div>
+                      {/* 이 결정으로 개정된 문서 — 클릭 = 공동편집에서 열기 (결정→문서 다리) */}
+                      {(e.revisedFiles ?? []).length > 0 && (
+                        <div className="ledger-revfiles">
+                          {e.revisedFiles!.map((f) => (
+                            <button
+                              key={`${f.id}-${f.rev}`}
+                              className="ledger-revchip"
+                              title="이 결정을 근거로 발행된 개정 — 문서 열기"
+                              onClick={() =>
+                                window.dispatchEvent(
+                                  new CustomEvent('exist:open-file', {
+                                    detail: { code, fileId: f.id },
+                                  }),
+                                )
+                              }
+                            >
+                              개정 {f.name} v{f.rev}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                       {/* 손 서명 스트립 — 🔴 결정의 회람판 */}
                       {e.acks.some((a) => a.signature) && (
                         <div className="ho-signs ledger-signs">

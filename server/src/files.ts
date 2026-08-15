@@ -221,6 +221,7 @@ function reviseFile(
   actorId: number,
   actorName: string,
   f: { id: number; name: string; ack_required: number },
+  basis?: { recapId: number; decisionIdx: number } | null,
 ): number {
   const cur = db
     .prepare('SELECT COALESCE(rev, 1) AS rev FROM collab_files WHERE id = ?')
@@ -256,6 +257,8 @@ function reviseFile(
     fileName: f.name,
     rev: nextRev,
     ackRequired: !!f.ack_required,
+    basisRecapId: basis?.recapId ?? null,
+    basisDecisionIdx: basis?.decisionIdx ?? null,
   });
   return nextRev;
 }
@@ -504,7 +507,30 @@ router.post('/:fileId/revise', (req: AuthedRequest, res) => {
   if (!canManageFile(f, r.meeting, req.userId!)) {
     return res.status(403).json({ error: '만든 사람·호스트·조직 관리자만 개정을 발행할 수 있어요' });
   }
-  const rev = reviseFile(r.meeting, req.userId!, req.username ?? '누군가', f);
+  // 근거 결정(선택) — "왜 이 개정이 나왔나"를 원장과 잇는다. 이 회의의 실제 결정만 허용
+  let basis: { recapId: number; decisionIdx: number } | null = null;
+  const { basisRecapId, basisDecisionIdx } = (req.body ?? {}) as {
+    basisRecapId?: unknown;
+    basisDecisionIdx?: unknown;
+  };
+  if (basisRecapId != null && basisDecisionIdx != null) {
+    const recapId = Number(basisRecapId);
+    const idx = Number(basisDecisionIdx);
+    const rec = db
+      .prepare('SELECT decisions FROM meeting_recaps WHERE id = ? AND meeting_id = ?')
+      .get(recapId, r.meeting.id) as { decisions: string } | undefined;
+    let count = 0;
+    try {
+      count = rec ? (JSON.parse(rec.decisions) as string[]).length : 0;
+    } catch {
+      count = 0;
+    }
+    if (!rec || !Number.isInteger(idx) || idx < 0 || idx >= count) {
+      return res.status(400).json({ error: '근거 결정을 찾을 수 없어요' });
+    }
+    basis = { recapId, decisionIdx: idx };
+  }
+  const rev = reviseFile(r.meeting, req.userId!, req.username ?? '누군가', f, basis);
   // 재회람이면 전원이 다시 서명 대기 상태 — 홈 브리핑 갱신
   if (f.ack_required) invalidateBriefForMeeting(r.meeting.id);
   res.json({ ok: true, rev });
@@ -573,9 +599,34 @@ router.get('/:fileId/acks', (req: AuthedRequest, res) => {
     .all(r.meeting.id, f.id);
   // 최신 rev의 AI 요약 — "이번 개정에서 바뀐 것" 박스 (없으면 null, 클라는 숨김)
   const snap = db
-    .prepare('SELECT note FROM file_rev_snapshots WHERE file_id = ? AND rev = ?')
-    .get(f.id, f.rev) as { note: string | null } | undefined;
-  res.json({ required: !!f.ack_required, total, acks, pending, rev: f.rev, note: snap?.note ?? null });
+    .prepare(
+      'SELECT note, basis_recap_id, basis_decision_idx FROM file_rev_snapshots WHERE file_id = ? AND rev = ?',
+    )
+    .get(f.id, f.rev) as
+    | { note: string | null; basis_recap_id: number | null; basis_decision_idx: number | null }
+    | undefined;
+  // 근거 결정 — "왜 이 개정이 나왔나" (원장 점프 링크의 재료)
+  let basis: { recapId: number; idx: number; text: string } | null = null;
+  if (snap?.basis_recap_id != null && snap.basis_decision_idx != null) {
+    try {
+      const rec = db
+        .prepare('SELECT decisions FROM meeting_recaps WHERE id = ?')
+        .get(snap.basis_recap_id) as { decisions: string } | undefined;
+      const text = rec ? (JSON.parse(rec.decisions) as string[])[snap.basis_decision_idx] : undefined;
+      if (text) basis = { recapId: snap.basis_recap_id, idx: snap.basis_decision_idx, text };
+    } catch {
+      /* 근거 조회 실패는 표시 생략 */
+    }
+  }
+  res.json({
+    required: !!f.ack_required,
+    total,
+    acks,
+    pending,
+    rev: f.rev,
+    note: snap?.note ?? null,
+    basis,
+  });
 });
 
 /* ── 업로드 파일(blob) 미리보기 시청자 — yjs room이 없는 파일의 프레즌스 (소켓 신고 기반).

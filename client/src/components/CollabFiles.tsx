@@ -101,6 +101,8 @@ interface FileAckStatus {
   rev?: number;
   /** 최신 개정의 AI 요약 — "이번 개정에서 바뀐 것" 최대 3줄 (줄바꿈 구분, 없으면 null) */
   note?: string | null;
+  /** 이 개정의 근거 결정 — 원장 점프 링크 (수동 발행에서 선택 안 했으면 null) */
+  basis?: { recapId: number; idx: number; text: string } | null;
 }
 
 const TYPE_LABEL: Record<Exclude<FileType, 'folder'>, string> = {
@@ -1995,17 +1997,35 @@ export default function CollabFiles({
     }
   }
 
-  /** 개정 발행(재회람) — rev +1, 회람 문서면 전원 서명 리셋(지난 서명은 이력 보관) */
-  async function reviseNow(f: CollabFile) {
-    if (
-      !confirm(
-        `개정을 발행하면 전원 서명이 리셋됩니다. 지난 서명은 이력에 보관돼요 — "${f.name}" 개정을 발행할까요?`,
-      )
+  /** 개정 발행(재회람) 모달 — 근거 결정 선택(선택사항) 후 발행. rev +1, 회람 문서면 전원 서명 리셋 */
+  const [reviseFor, setReviseFor] = useState<CollabFile | null>(null);
+  const [reviseBasis, setReviseBasis] = useState<string | null>(null); // 'recapId-idx'
+  const [reviseDecisions, setReviseDecisions] = useState<
+    { recapId: number; idx: number; decision: string; ts: number }[]
+  >([]);
+  function reviseNow(f: CollabFile) {
+    setReviseBasis(null);
+    setReviseDecisions([]);
+    setReviseFor(f);
+    // 최근 결정 후보 — "왜 이 개정이 나왔나"를 원장과 잇는 재료 (실패해도 발행은 가능)
+    void api<{ recapId: number; idx: number; decision: string; ts: number }[]>(
+      `/api/meetings/${code}/decisions`,
+      { silent: true },
     )
-      return;
+      .then((all) => setReviseDecisions(all.slice(0, 8)))
+      .catch(() => {});
+  }
+  async function confirmRevise() {
+    const f = reviseFor;
+    if (!f) return;
+    const basis = reviseBasis
+      ? { basisRecapId: Number(reviseBasis.split('-')[0]), basisDecisionIdx: Number(reviseBasis.split('-')[1]) }
+      : {};
+    setReviseFor(null);
     try {
       const r = await api<{ rev: number }>(`/api/meetings/${code}/files/${f.id}/revise`, {
         method: 'POST',
+        body: basis,
       });
       toast(`개정 v${r.rev}을 발행했어요${f.ack_required ? ' — 전원 서명이 리셋됐어요' : ''}`);
       load();
@@ -4564,6 +4584,27 @@ export default function CollabFiles({
                     ))}
                   </div>
                 )}
+                {/* 근거 결정 — 이 개정이 어느 원장 결정에서 나왔나 (클릭 = 기록 탭 착지) */}
+                {ackStatus?.basis && (
+                  <button
+                    className="cf-ack-basis"
+                    title="결정 원장에서 이 결정 보기"
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent('exist:goto-recap', {
+                          detail: { code, recapId: ackStatus.basis!.recapId },
+                        }),
+                      )
+                    }
+                  >
+                    <span className="cf-ack-basis-t">근거 결정</span>
+                    <span className="cf-ack-basis-x">
+                      {ackStatus.basis.text.length > 48
+                        ? ackStatus.basis.text.slice(0, 48) + '…'
+                        : ackStatus.basis.text}
+                    </span>
+                  </button>
+                )}
                 {/* 미확인자 명단 — 누가 아직 안 봤는지 (아바타 정사각 규칙) */}
                 {ackStatus &&
                   (ackStatus.pending.length > 0 ? (
@@ -5255,6 +5296,68 @@ export default function CollabFiles({
           e.target.value = '';
         }}
       />
+      {/* 개정 발행 모달 — 서명 리셋 경고 + 근거 결정 선택(선택사항, 원장과 잇는 다리) */}
+      {reviseFor && (
+        <div className="cf-move-overlay" onClick={() => setReviseFor(null)}>
+          <div className="cf-move-modal cf-revise-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cf-share-head">
+              <span className={`cf-share-head-ic cf-icon ${reviseFor.type}`}>
+                <TypeIcon type={reviseFor.type} size={22} name={reviseFor.name} />
+              </span>
+              <span className="cf-share-head-txt">
+                <b>{reviseFor.name}</b>
+                <span>
+                  개정 v{(reviseFor.rev ?? 1) + 1} 발행
+                  {reviseFor.ack_required
+                    ? ' — 전원 서명이 리셋돼요 (지난 서명은 이력 보관)'
+                    : ''}
+                </span>
+              </span>
+              <button className="cf-share-close" onClick={() => setReviseFor(null)}>
+                <CloseIcon size={14} />
+              </button>
+            </div>
+            {reviseDecisions.length > 0 && (
+              <div className="cf-revise-basis">
+                <div className="cf-revise-basis-t">
+                  이 개정의 근거 결정 <i>(선택) — 문서와 결정 원장이 서로 연결돼요</i>
+                </div>
+                <label className="cf-revise-opt">
+                  <input
+                    type="radio"
+                    name="revbasis"
+                    checked={reviseBasis === null}
+                    onChange={() => setReviseBasis(null)}
+                  />
+                  <span>근거 결정 없음</span>
+                </label>
+                {reviseDecisions.map((d) => (
+                  <label key={`${d.recapId}-${d.idx}`} className="cf-revise-opt">
+                    <input
+                      type="radio"
+                      name="revbasis"
+                      checked={reviseBasis === `${d.recapId}-${d.idx}`}
+                      onChange={() => setReviseBasis(`${d.recapId}-${d.idx}`)}
+                    />
+                    <span>
+                      {d.decision.length > 56 ? d.decision.slice(0, 56) + '…' : d.decision}
+                      <i>{new Date(d.ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</i>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="cf-revise-actions">
+              <button className="cf-revise-cancel" onClick={() => setReviseFor(null)}>
+                취소
+              </button>
+              <button className="cf-revise-go" onClick={() => void confirmRevise()}>
+                개정 발행
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 통합 공유 모달 — 채널 게시 · DM · 다른 그룹 배포 · 링크 복사 (cf-move 모달 문법) */}
       {shareFor && (
         <div className="cf-move-overlay" onClick={() => setShareFor(null)}>

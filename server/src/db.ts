@@ -652,6 +652,17 @@ db.exec(`
   );
 `);
 
+// 마이그레이션: 개정의 근거 결정 — "왜 이 문서가 v4가 됐나"를 결정 원장과 잇는다
+// (회의→결정→개정→회람의 추적성. 자동 개정·미선택 발행은 NULL)
+try {
+  db.exec(
+    `ALTER TABLE file_rev_snapshots ADD COLUMN basis_recap_id INTEGER REFERENCES meeting_recaps(id)`,
+  );
+  db.exec(`ALTER TABLE file_rev_snapshots ADD COLUMN basis_decision_idx INTEGER`);
+} catch {
+  /* 이미 존재 */
+}
+
 /* 회람 미확인 자동 에스컬레이션 발송 기록 — 파일×rev 단위. 수동 리마인드(1시간 쿨다운,
  * 메모리)와 별개의 자체 기록 — 마지막 자동 발송에서 ACK_AUTOREMIND_HOURS가 다시 지나야 재발송 */
 db.exec(`

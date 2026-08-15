@@ -19305,6 +19305,134 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   color: var(--text-sub);
 }
 
+/* ── 개정 발행 모달 — 근거 결정 선택 (결정↔문서 다리) ── */
+.cf-revise-modal {
+  max-width: 480px;
+}
+.cf-revise-basis {
+  padding: 12px 16px 4px;
+}
+.cf-revise-basis-t {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  margin-bottom: 8px;
+}
+.cf-revise-basis-t i {
+  font-style: normal;
+  font-weight: 500;
+  opacity: 0.8;
+}
+.cf-revise-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+}
+.cf-revise-opt:hover {
+  background: var(--surface-2);
+}
+.cf-revise-opt input {
+  margin-top: 2px;
+  accent-color: var(--green);
+}
+.cf-revise-opt span {
+  flex: 1;
+  min-width: 0;
+}
+.cf-revise-opt span i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-sub);
+  margin-left: 6px;
+}
+.cf-revise-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+.cf-revise-cancel {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cf-revise-go {
+  border: none;
+  background: var(--green);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cf-revise-go:hover {
+  filter: brightness(1.05);
+}
+
+/* 세부정보: 이 개정의 근거 결정 — 클릭하면 기록 탭 착지 */
+.cf-ack-basis {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text);
+}
+.cf-ack-basis:hover {
+  background: var(--surface-2);
+}
+.cf-ack-basis-t {
+  flex: none;
+  font-weight: 800;
+  color: var(--green-dark);
+}
+.cf-ack-basis-x {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 원장: 이 결정으로 개정된 문서 칩 */
+.ledger-revfiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.ledger-revchip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ledger-revchip:hover {
+  background: var(--surface-2);
+  border-color: var(--green);
+}
+
 /* 안건 수동 종결 ✕ — 평소엔 흐리게, 행 호버 시 드러남 (제목 크기와 20px 그리드 유지) */
 .hub-agenda-close {
   flex: none;
