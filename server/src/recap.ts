@@ -376,6 +376,18 @@ export async function runRecapForMeeting(
     )
     .get(meeting.id) as { t: string | null };
   const since = last.t ?? new Date(Date.now() - 24 * 3600_000).toISOString().replace('T', ' ').slice(0, 19);
+  // 통화 트리거면 요약 재료 창을 통화 세션으로 좁힌다 — 회의 사이 며칠치 잡담이
+  // 통화 전사와 섞여 엉뚱한 결론이 나오는 것 방지. 통화 직전 맥락 공유까지는 재료로
+  // 인정 (시작 10분 전부터). 수동 "지금 정리하기"는 기존 창(지난 정리 이후) 유지
+  const callStart = trigger === 'call' ? callStartedAt.get(meeting.code.toUpperCase()) : undefined;
+  const sessionSince = (() => {
+    if (!callStart) return since;
+    const padded = new Date(new Date(callStart.replace(' ', 'T') + 'Z').getTime() - 10 * 60_000)
+      .toISOString()
+      .replace('T', ' ')
+      .slice(0, 19);
+    return padded > since ? padded : since;
+  })();
 
   // 통화 원음 청크가 쌓여 있으면 먼저 whisper 재전사 — 아래 voiceMsgs가 whisper 행을 우선 쓴다.
   // 실패해도 Web Speech 기록으로 폴백되므로 recap 자체는 계속 간다
@@ -398,7 +410,7 @@ export async function runRecapForMeeting(
          WHERE m.meeting_id = ? AND m.user_id != ? AND m.created_at > ? AND m.text != ''
          ORDER BY m.id ASC LIMIT 200`,
       )
-      .all(meeting.id, agentId, since) as (ChatMsg & { at: string })[]
+      .all(meeting.id, agentId, sessionSince) as (ChatMsg & { at: string })[]
   ) // "@AI"처럼 멘션만 있고 내용이 없는 메시지도 재료가 아님
     .filter((m) => m.text.replace(/@[\w가-힣.-]+/g, '').trim().length > 0);
   // whisper 재전사(고품질)가 있으면 그것만, 없으면 Web Speech(live) 기록 —
@@ -410,7 +422,7 @@ export async function runRecapForMeeting(
        WHERE t.meeting_id = ? AND t.created_at > ? AND t.source = 'whisper'
        ORDER BY t.id ASC LIMIT 300`,
     )
-    .all(meeting.id, since) as (ChatMsg & { at: string })[];
+    .all(meeting.id, sessionSince) as (ChatMsg & { at: string })[];
   const voiceMsgs =
     whisperMsgs.length > 0
       ? whisperMsgs
@@ -421,7 +433,7 @@ export async function runRecapForMeeting(
              WHERE t.meeting_id = ? AND t.created_at > ? AND t.source != 'whisper'
              ORDER BY t.id ASC LIMIT 300`,
           )
-          .all(meeting.id, since) as (ChatMsg & { at: string })[]);
+          .all(meeting.id, sessionSince) as (ChatMsg & { at: string })[]);
   // 화자명은 순수 username 유지 — ruleBasedRecap의 담당자 매칭("제가 …게요")이 깨지지 않도록
   const msgs: ChatMsg[] = [...chatMsgs, ...voiceMsgs]
     .sort((a, b) => (a.at < b.at ? -1 : 1))
@@ -464,7 +476,6 @@ export async function runRecapForMeeting(
   // 이 요약 창 동안 열람·편집된 문서 — "이 회의에서 다룬 문서" (회의↔공동편집 다리).
   // 통화 트리거면 창을 통화 시작 시각으로 좁힌다 — 회의 사이에 열어본 파일이
   // "이 회의에서 다룬" 것으로 섞이지 않게 (요약 재료 창(since)과 별개 기준)
-  const callStart = trigger === 'call' ? callStartedAt.get(meeting.code.toUpperCase()) : undefined;
   const fileSince = callStart && callStart > since ? callStart : since;
   const touchedFiles = db
     .prepare(
