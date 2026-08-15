@@ -12756,16 +12756,28 @@ input:focus {
   }
 }
 
-/* 세부정보 패널 — 서명 현황·칩·요청 버튼 */
+/* 세부정보 패널 — 회람 상태 카드 (실시간 현황·서명, 살짝 면 처리로 다른 섹션과 구분) */
 .cf-ack {
   width: 100%;
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
+}
+/* 카드 배경이 surface-2라 AI 요약 박스는 한 단계 안쪽 톤으로 */
+.cf-ack .cf-ack-note {
+  background: var(--bg);
+}
+/* 카드 안 "읽고 서명하기" — 하단 고정 버튼 문법 해제 (카드 흐름 안에 정착) */
+.cf-ack .cf-details-open {
+  margin-top: 0;
+  position: static;
+  box-shadow: none;
 }
 .cf-ack-head {
   font-size: 12.5px;
@@ -13781,6 +13793,42 @@ button.cf-home-fold {
   bottom: 0;
   flex: none;
   box-shadow: 0 -8px 12px -6px rgba(0, 0, 0, 0.12);
+}
+
+/* 주 작업 2열 — [열기][공유…] 정체 바로 아래 (정보 위계 재편, 8/15) */
+.cf-details-primary {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+/* 맨 위로 올라온 열기 — 하단 고정 문법 해제 */
+.cf-details-primary .cf-details-open {
+  margin-top: 0;
+  position: static;
+  box-shadow: none;
+}
+/* 옆의 공유 알약 — 열기와 같은 덩치·모서리로 (알약 999 대신) */
+.cf-details-primary .cf-ack-req {
+  border-radius: 10px;
+  padding: 9px 0;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* 관리 접힘 섹션 — 파괴적·관리자성 액션 모음 (버전 기록과 같은 섹션 문법) */
+.cf-manage {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* 휴지통 세부정보 — 복원·영구 삭제 나란히 (핵심 버튼 sticky 문법 그대로) */
@@ -20698,19 +20746,15 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   color: var(--green); /* 고정됨 — 앱 프라이머리 (별 시절 노랑 대신) */
 }
 
-/* 상세 패널 미리보기 */
+/* 상세 패널 미리보기 — 접힘 섹션 (fold 버튼 + 항목, 버전 기록과 같은 문법) */
 .cf-details-preview {
   width: 100%;
   border-top: 1px solid var(--border);
-  margin-top: 10px;
+  margin-top: 8px;
   padding-top: 8px;
-}
-
-.cf-details-prevtitle {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-sub);
-  margin-bottom: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .cf-details-previtem {

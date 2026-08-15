@@ -58,6 +58,7 @@ import {
   SelectNoneIcon,
   SelectInvertIcon,
   WhiteboardIcon,
+  GearIcon,
 } from './Icons';
 
 /*
@@ -548,6 +549,10 @@ export default function CollabFiles({
   >(null);
   // 버전 기록 접기 — 기본 접힘 (세부정보 과밀 방지, 제목의 vN이 요약)
   const [versionsOpen, setVersionsOpen] = useState(false);
+  // 세부정보 참고·관리 섹션 접기 — 전부 기본 접힘 (버전 기록과 같은 문법)
+  const [meetsOpen, setMeetsOpen] = useState(false); // 다룬 회의
+  const [previewOpen, setPreviewOpen] = useState(false); // 내용 미리보기
+  const [manageOpen, setManageOpen] = useState(false); // 관리 (서명 요청·개정 발행·새 버전)
   const versionInputRef = useRef<HTMLInputElement | null>(null);
   // 통합 공유 모달 — 채널 게시·DM·다른 그룹 배포·링크 복사를 한 곳에 (단일 파일만, 폴더는 즉시 링크 복사)
   const [shareFor, setShareFor] = useState<CollabFile | null>(null);
@@ -1273,6 +1278,9 @@ export default function CollabFiles({
   useEffect(() => {
     setFileVersions(null);
     setVersionsOpen(false); // 선택이 바뀌면 다시 접는다 (서명자 명단과 같은 문법)
+    setMeetsOpen(false); // 참고·관리 섹션도 같이 초기화
+    setPreviewOpen(false);
+    setManageOpen(false);
     if (!selected || selected.type !== 'file') return;
     void api<{ id: number; size: number | null; created_at: string; username: string | null }[]>(
       `/api/meetings/${code}/files/${selected.id}/versions`,
@@ -4492,6 +4500,146 @@ export default function CollabFiles({
                 <span className="cf-rev-badge">개정 v{selected.rev}</span>
               )}
             </div>
+            {/* 주 작업 — 열기·공유 나란히 (핵심 행동을 정체 바로 아래로) */}
+            <div className="cf-details-primary">
+              {selected.type !== 'folder' ? (
+                <button className="cf-details-open" onClick={() => openFile(selected)}>
+                  열기
+                </button>
+              ) : (
+                <button className="cf-details-open" onClick={() => navigate(selected.id)}>
+                  폴더 열기
+                </button>
+              )}
+              {/* 통합 공유 — 채널 게시·DM·다른 그룹 배포·링크 복사 (폴더는 즉시 링크 복사) */}
+              <button className="cf-ack-req" onClick={() => openShare(selected)}>
+                <ShareIcon size={13} /> 공유…
+              </button>
+            </div>
+            {/* 회람 상태 카드 — 실시간 현황·서명 (요청/해제·개정 발행은 아래 "관리"로) */}
+            {selected.type !== 'folder' && selected.ack_required && (
+              <div className="cf-ack">
+                {/* 회람 현황 — "확인 서명 수/대상 수" (전원 완료 초록 · 미완 빨강, ackdot 색 문법) */}
+                <div className="cf-ack-head">
+                  <CheckMarkIcon size={13} /> 확인{' '}
+                  <b
+                    className={
+                      ackStatus
+                        ? ackStatus.pending.length === 0
+                          ? 'ok'
+                          : 'due'
+                        : undefined
+                    }
+                  >
+                    {ackStatus
+                      ? `${ackStatus.acks.length}/${ackStatus.total}`
+                      : `${selected.ack_count ?? 0}/${selected.ack_total ?? 0}`}
+                  </b>
+                </div>
+                {/* 이번 개정에서 바뀐 것 — 개정 발행 시 AI가 이전·새 본문을 비교해 만든 요약 (없으면 숨김) */}
+                {ackStatus?.note && (
+                  <div className="cf-ack-note">
+                    <div className="cf-ack-note-title">
+                      <SparklesIcon size={12} /> 이번 개정에서 바뀐 것{ackStatus.rev ? ` (v${ackStatus.rev})` : ''}
+                    </div>
+                    {ackStatus.note.split('\n').map((ln, i) => (
+                      <div key={i} className="cf-ack-note-line">
+                        {ln}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* 미확인자 명단 — 누가 아직 안 봤는지 (아바타 정사각 규칙) */}
+                {ackStatus &&
+                  (ackStatus.pending.length > 0 ? (
+                    <div className="cf-ack-pending">
+                      {ackStatus.pending.map((p) => (
+                        <span key={p.username} className="cf-ack-pend">
+                          <Avatar value={p.avatar} className="cf-ack-pend-avatar" />
+                          <span>{dn(p.username)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="cf-ack-done">✓ 전원 확인 완료</div>
+                  ))}
+                {/* 서명자 명단 — 기본 접힘 (미확인자가 주인공, 펼치면 손서명 칩) */}
+                {ackStatus && ackStatus.acks.length > 0 && (
+                  <>
+                    <button
+                      type="button"
+                      className="cf-ack-fold"
+                      onClick={() => setAckSignedOpen((v) => !v)}
+                    >
+                      <span className={`side-chevron${ackSignedOpen ? ' open' : ''}`}>
+                        <ChevronIcon size={10} />
+                      </span>
+                      서명자 {ackStatus.acks.length}명
+                    </button>
+                    {ackSignedOpen && (
+                      <>
+                        <div className="cf-ack-chips">
+                          {ackStatus.acks.map((a) =>
+                            a.signature ? (
+                              <span key={a.username} className="cf-ack-chip">
+                                <img src={a.signature} alt={`${dn(a.username)} 서명`} />
+                                <i>{dn(a.username)}</i>
+                              </span>
+                            ) : (
+                              <span key={a.username} className="cf-ack-chip plain">
+                                <i>{dn(a.username)}</i>
+                              </span>
+                            ),
+                          )}
+                        </div>
+                        {/* 개정 발행 시 서명은 지워지지 않고 이관됨 — 이력 뷰어는 추후 */}
+                        <div className="cf-ack-hist">지난 개정 서명은 이력에 보관됩니다</div>
+                      </>
+                    )}
+                  </>
+                )}
+                {selected.my_ack ? (
+                  <div className="cf-ack-done">✓ 내 서명 완료</div>
+                ) : (
+                  <button
+                    className="cf-details-open"
+                    onClick={() => {
+                      openFile(selected);
+                      setAckSignFor(null);
+                    }}
+                  >
+                    읽고 서명하기
+                  </button>
+                )}
+                {/* 미서명자 리마인드 — 결정 리마인드의 문서판 (서버 쿨다운 1시간) */}
+                {canEdit(selected) && ackStatus && ackStatus.acks.length < ackStatus.total && (
+                  <button
+                    className="cf-ack-req"
+                    onClick={async () => {
+                      try {
+                        const r = await api<{ reminded: number }>(
+                          `/api/meetings/${code}/files/${selected.id}/ack-remind`,
+                          { method: 'POST' },
+                        );
+                        toast(
+                          r.reminded > 0
+                            ? `미서명자 ${r.reminded}명에게 리마인드를 보냈어요`
+                            : '보낼 대상이 없어요',
+                        );
+                      } catch {
+                        /* 전역 토스트 (쿨다운 429 포함) */
+                      }
+                    }}
+                  >
+                    <BellIcon size={13} /> 미서명자 리마인드
+                  </button>
+                )}
+                {/* 자동 에스컬레이션 안내 — 서버 스케줄러(ACK_AUTOREMIND_HOURS, 기본 48시간) */}
+                {ackStatus && ackStatus.pending.length > 0 && (
+                  <div className="cf-ack-auto">서명이 이틀째 없으면 AI가 자동으로 리마인드해요</div>
+                )}
+              </div>
+            )}
             <div className="cf-details-rows">
               <div className="cf-details-row">
                 <span>위치</span>
@@ -4524,11 +4672,20 @@ export default function CollabFiles({
                 </div>
               )}
             </div>
-            {/* 이 문서를 다룬 회의 — 클릭하면 기록 탭 해당 회의로 (문서 → 회의 다리) */}
+            {/* 이 문서를 다룬 회의 — 클릭하면 기록 탭 해당 회의로 (문서 → 회의 다리). 기본 접힘 */}
             {(fileMeetings?.length ?? 0) > 0 && (
               <div className="cf-filemeets">
-                <div className="cf-ack-head"><CalendarIcon size={13} /> 다룬 회의</div>
-                {fileMeetings!.map((m) => (
+                <button
+                  type="button"
+                  className="cf-ack-fold cf-versions-fold"
+                  onClick={() => setMeetsOpen((v) => !v)}
+                >
+                  <span className={`side-chevron${meetsOpen ? ' open' : ''}`}>
+                    <ChevronIcon size={10} />
+                  </span>
+                  <CalendarIcon size={13} /> 다룬 회의 ({fileMeetings!.length})
+                </button>
+                {meetsOpen && fileMeetings!.map((m) => (
                   <button
                     key={m.recapId}
                     className="cf-filemeet-row"
@@ -4598,139 +4755,66 @@ export default function CollabFiles({
                     )}
                   </>
                 )}
-                <button className="cf-ack-req" onClick={() => versionInputRef.current?.click()}>
-                  새 버전 업로드
-                </button>
               </div>
             )}
-            {/* 통합 공유 — 채널 게시·DM·다른 그룹 배포·링크 복사 (폴더는 즉시 링크 복사) */}
-            <button className="cf-ack-req" onClick={() => openShare(selected)}>
-              <ShareIcon size={13} /> 공유…
-            </button>
-            {/* 열람 서명 (회람 사인) — 요청·현황·서명 */}
-            {selected.type !== 'folder' && (
-              <div className="cf-ack">
-                {selected.ack_required ? (
-                  <>
-                    {/* 회람 현황 — "확인 서명 수/대상 수" (전원 완료 초록 · 미완 빨강, ackdot 색 문법) */}
-                    <div className="cf-ack-head">
-                      <CheckMarkIcon size={13} /> 확인{' '}
-                      <b
-                        className={
-                          ackStatus
-                            ? ackStatus.pending.length === 0
-                              ? 'ok'
-                              : 'due'
-                            : undefined
-                        }
-                      >
-                        {ackStatus
-                          ? `${ackStatus.acks.length}/${ackStatus.total}`
-                          : `${selected.ack_count ?? 0}/${selected.ack_total ?? 0}`}
-                      </b>
-                    </div>
-                    {/* 이번 개정에서 바뀐 것 — 개정 발행 시 AI가 이전·새 본문을 비교해 만든 요약 (없으면 숨김) */}
-                    {ackStatus?.note && (
-                      <div className="cf-ack-note">
-                        <div className="cf-ack-note-title">
-                          <SparklesIcon size={12} /> 이번 개정에서 바뀐 것{ackStatus.rev ? ` (v${ackStatus.rev})` : ''}
-                        </div>
-                        {ackStatus.note.split('\n').map((ln, i) => (
-                          <div key={i} className="cf-ack-note-line">
-                            {ln}
-                          </div>
-                        ))}
+            {/* 미리보기 — 문서 안에 뭐가 들었는지. 기본 접힘 */}
+            {preview && preview.id === selected.id && (preview.items.length > 0 || preview.count != null) && (
+              <div className="cf-details-preview">
+                <button
+                  type="button"
+                  className="cf-ack-fold cf-versions-fold"
+                  onClick={() => setPreviewOpen((v) => !v)}
+                >
+                  <span className={`side-chevron${previewOpen ? ' open' : ''}`}>
+                    <ChevronIcon size={10} />
+                  </span>
+                  <DocIcon size={13} /> 내용 미리보기
+                </button>
+                {previewOpen &&
+                  (preview.count != null ? (
+                    <div className="cf-details-previtem">슬라이드 {preview.count}장</div>
+                  ) : (
+                    preview.items.map((it, i) => (
+                      <div key={i} className="cf-details-previtem">
+                        {it}
                       </div>
-                    )}
-                    {/* 미확인자 명단 — 누가 아직 안 봤는지 (아바타 정사각 규칙) */}
-                    {ackStatus &&
-                      (ackStatus.pending.length > 0 ? (
-                        <div className="cf-ack-pending">
-                          {ackStatus.pending.map((p) => (
-                            <span key={p.username} className="cf-ack-pend">
-                              <Avatar value={p.avatar} className="cf-ack-pend-avatar" />
-                              <span>{dn(p.username)}</span>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="cf-ack-done">✓ 전원 확인 완료</div>
-                      ))}
-                    {/* 서명자 명단 — 기본 접힘 (미확인자가 주인공, 펼치면 손서명 칩) */}
-                    {ackStatus && ackStatus.acks.length > 0 && (
-                      <>
+                    ))
+                  ))}
+              </div>
+            )}
+            {/* 관리 — 파괴적·관리자성 액션 모음 (기본 접힘): 서명 요청/해제·개정 발행·새 버전 업로드 */}
+            {selected.type !== 'folder' && (canEdit(selected) || selected.type === 'file') && (
+              <div className="cf-manage">
+                <button
+                  type="button"
+                  className="cf-ack-fold cf-versions-fold"
+                  onClick={() => setManageOpen((v) => !v)}
+                >
+                  <span className={`side-chevron${manageOpen ? ' open' : ''}`}>
+                    <ChevronIcon size={10} />
+                  </span>
+                  <GearIcon size={13} /> 관리
+                </button>
+                {manageOpen && (
+                  <>
+                    {/* 열람 서명 요청/해제 — 회람 사인의 디지털판 (기존 canEdit 규칙 유지) */}
+                    {canEdit(selected) &&
+                      (selected.ack_required ? (
                         <button
-                          type="button"
-                          className="cf-ack-fold"
-                          onClick={() => setAckSignedOpen((v) => !v)}
+                          className="cf-ack-off"
+                          onClick={() => void requestAck(selected, false)}
                         >
-                          <span className={`side-chevron${ackSignedOpen ? ' open' : ''}`}>
-                            <ChevronIcon size={10} />
-                          </span>
-                          서명자 {ackStatus.acks.length}명
+                          서명 요청 해제
                         </button>
-                        {ackSignedOpen && (
-                          <>
-                            <div className="cf-ack-chips">
-                              {ackStatus.acks.map((a) =>
-                                a.signature ? (
-                                  <span key={a.username} className="cf-ack-chip">
-                                    <img src={a.signature} alt={`${dn(a.username)} 서명`} />
-                                    <i>{dn(a.username)}</i>
-                                  </span>
-                                ) : (
-                                  <span key={a.username} className="cf-ack-chip plain">
-                                    <i>{dn(a.username)}</i>
-                                  </span>
-                                ),
-                              )}
-                            </div>
-                            {/* 개정 발행 시 서명은 지워지지 않고 이관됨 — 이력 뷰어는 추후 */}
-                            <div className="cf-ack-hist">지난 개정 서명은 이력에 보관됩니다</div>
-                          </>
-                        )}
-                      </>
-                    )}
-                    {selected.my_ack ? (
-                      <div className="cf-ack-done">✓ 내 서명 완료</div>
-                    ) : (
-                      <button
-                        className="cf-details-open"
-                        onClick={() => {
-                          openFile(selected);
-                          setAckSignFor(null);
-                        }}
-                      >
-                        읽고 서명하기
-                      </button>
-                    )}
-                    {/* 미서명자 리마인드 — 결정 리마인드의 문서판 (서버 쿨다운 1시간) */}
-                    {canEdit(selected) && ackStatus && ackStatus.acks.length < ackStatus.total && (
-                      <button
-                        className="cf-ack-req"
-                        onClick={async () => {
-                          try {
-                            const r = await api<{ reminded: number }>(
-                              `/api/meetings/${code}/files/${selected.id}/ack-remind`,
-                              { method: 'POST' },
-                            );
-                            toast(
-                              r.reminded > 0
-                                ? `미서명자 ${r.reminded}명에게 리마인드를 보냈어요`
-                                : '보낼 대상이 없어요',
-                            );
-                          } catch {
-                            /* 전역 토스트 (쿨다운 429 포함) */
-                          }
-                        }}
-                      >
-                        <BellIcon size={13} /> 미서명자 리마인드
-                      </button>
-                    )}
-                    {/* 자동 에스컬레이션 안내 — 서버 스케줄러(ACK_AUTOREMIND_HOURS, 기본 48시간) */}
-                    {ackStatus && ackStatus.pending.length > 0 && (
-                      <div className="cf-ack-auto">서명이 이틀째 없으면 AI가 자동으로 리마인드해요</div>
-                    )}
+                      ) : (
+                        <button
+                          className="cf-ack-req"
+                          title="그룹원 전원이 이 문서를 읽고 손서명으로 확인하게 해요 — 회람 사인의 디지털판"
+                          onClick={() => void requestAck(selected, true)}
+                        >
+                          <CheckMarkIcon size={13} /> 열람 서명 요청
+                        </button>
+                      ))}
                     {/* 개정 발행 (재회람) — 내용이 바뀌어 전원 재확인이 필요할 때 */}
                     {canEdit(selected) && (
                       <button
@@ -4741,48 +4825,18 @@ export default function CollabFiles({
                         <RefreshIcon size={13} /> 개정 발행 (재회람)
                       </button>
                     )}
-                    {canEdit(selected) && (
-                      <button className="cf-ack-off" onClick={() => void requestAck(selected, false)}>
-                        서명 요청 해제
+                    {/* 새 버전 업로드 — 업로드 파일만 */}
+                    {selected.type === 'file' && (
+                      <button
+                        className="cf-ack-req"
+                        onClick={() => versionInputRef.current?.click()}
+                      >
+                        새 버전 업로드
                       </button>
                     )}
                   </>
-                ) : (
-                  canEdit(selected) && (
-                    <button
-                      className="cf-ack-req"
-                      title="그룹원 전원이 이 문서를 읽고 손서명으로 확인하게 해요 — 회람 사인의 디지털판"
-                      onClick={() => void requestAck(selected, true)}
-                    >
-                      <CheckMarkIcon size={13} /> 열람 서명 요청
-                    </button>
-                  )
                 )}
               </div>
-            )}
-            {/* 미리보기 — 문서 안에 뭐가 들었는지 */}
-            {preview && preview.id === selected.id && (preview.items.length > 0 || preview.count != null) && (
-              <div className="cf-details-preview">
-                <div className="cf-details-prevtitle">내용</div>
-                {preview.count != null ? (
-                  <div className="cf-details-previtem">슬라이드 {preview.count}장</div>
-                ) : (
-                  preview.items.map((it, i) => (
-                    <div key={i} className="cf-details-previtem">
-                      {it}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-            {selected.type !== 'folder' ? (
-              <button className="cf-details-open" onClick={() => openFile(selected)}>
-                열기
-              </button>
-            ) : (
-              <button className="cf-details-open" onClick={() => navigate(selected.id)}>
-                폴더 열기
-              </button>
             )}
           </aside>
         )}
