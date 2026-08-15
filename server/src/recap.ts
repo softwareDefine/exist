@@ -461,7 +461,11 @@ export async function runRecapForMeeting(
       .map((e) => ({ id: e.id, diff: e.time ? Math.abs(toMin(e.time) - toMin(nowHm)) : 12 * 60 }))
       .sort((a, b) => a.diff - b.diff)[0]?.id ?? null;
 
-  // 이 요약 창 동안 열람·편집된 문서 — "이 회의에서 다룬 문서" (회의↔공동편집 다리)
+  // 이 요약 창 동안 열람·편집된 문서 — "이 회의에서 다룬 문서" (회의↔공동편집 다리).
+  // 통화 트리거면 창을 통화 시작 시각으로 좁힌다 — 회의 사이에 열어본 파일이
+  // "이 회의에서 다룬" 것으로 섞이지 않게 (요약 재료 창(since)과 별개 기준)
+  const callStart = trigger === 'call' ? callStartedAt.get(meeting.code.toUpperCase()) : undefined;
+  const fileSince = callStart && callStart > since ? callStart : since;
   const touchedFiles = db
     .prepare(
       `SELECT DISTINCT fa.file_id AS id, f.name, f.type FROM file_activity fa
@@ -469,7 +473,8 @@ export async function runRecapForMeeting(
        WHERE fa.meeting_id = ? AND fa.ts > ? AND f.deleted_at IS NULL
        ORDER BY fa.file_id LIMIT 12`,
     )
-    .all(meeting.id, since) as { id: number; name: string; type: string }[];
+    .all(meeting.id, fileSince) as { id: number; name: string; type: string }[];
+  if (trigger === 'call') callStartedAt.delete(meeting.code.toUpperCase()); // 세션 소비
 
   const info = db
     .prepare(
@@ -821,6 +826,17 @@ function emitRecapStatus(code: string, state: 'generating' | 'done' | 'cleared')
     for (const r of rows) emitToUser(r.user_id, 'recap:status', { code: code.toUpperCase(), state });
   } catch {
     /* 방송 실패는 치명적이지 않음 */
+  }
+}
+
+/* 통화 시작 시각 — "다룬 문서"의 창을 통화 세션으로 좁히는 기준.
+ * 없으면(수동 정리 등) 기존대로 "지난 recap 이후" 창을 쓴다.
+ * 재입장(유예 취소)은 시작 시각을 유지 — 같은 세션으로 본다 */
+const callStartedAt = new Map<string, string>();
+export function markCallStarted(code: string) {
+  const key = code.toUpperCase();
+  if (!callStartedAt.has(key)) {
+    callStartedAt.set(key, new Date().toISOString().replace('T', ' ').slice(0, 19));
   }
 }
 

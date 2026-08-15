@@ -14,7 +14,7 @@ import type {
   TransportListenInfo,
 } from 'mediasoup/types';
 import db from './db.js';
-import { scheduleRecap, cancelScheduledRecap } from './recap.js';
+import { scheduleRecap, cancelScheduledRecap, markCallStarted } from './recap.js';
 import { invalidateBriefForMeeting } from './agent.js';
 import { canManageMeeting } from './perm.js';
 import { audit as orgAudit } from './orgs.js';
@@ -108,6 +108,7 @@ async function getOrCreateRoom(code: string): Promise<Room> {
     };
     rooms.set(code, room);
     cancelScheduledRecap(code); // 유예 중 재입장이면 같은 세션으로 이어붙임
+    markCallStarted(code); // "다룬 문서" 창 기준 — 재입장이면 기존 시작 시각 유지
     console.log(`[sfu] room created: ${code}`);
   }
   return room;
