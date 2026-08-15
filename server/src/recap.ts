@@ -93,6 +93,39 @@ export function ruleBasedRecap(msgs: ChatMsg[], participants: string[]): RecapRe
   return { summary, decisions, whys: decisions.map(() => ''), alts: decisions.map(() => []), actions, nextMeeting: null, source: 'rule' };
 }
 
+/** 결정 문장 정규화 — 화자 프리픽스·따옴표·공백 제거 + 종결어미 절단 (이중 기입 비교용) */
+export function normalizeDecision(s: string): string {
+  return s
+    .replace(/^[^:]{1,14}:\s*/, '') // 규칙 폴백의 "화자: " 프리픽스
+    .replace(/["'“”‘’()[\]]/g, '')
+    .replace(/\s+/g, '')
+    .replace(
+      /(하기로결정했(다|습니다|어요)|하기로했(다|습니다|어요|음)|하기로함|하기로한다|하기로합니다|로결정했(다|습니다)|결정했(다|습니다)|했(다|습니다)|한다|합니다)[.!~…]*$/,
+      '',
+    )
+    .replace(/[.!?~…]+$/g, '');
+}
+
+/** 같은 결정인가 — 정규화 후 동일·포함이거나 2글자 조각(bigram) 자카드 ≥ 0.6.
+ *  기준 미달이면 무조건 다른 결정으로 판정 (중복 2줄이 남는 게 다른 결정을 지우는 것보다 낫다) */
+export function sameDecision(a: string, b: string): boolean {
+  const na = normalizeDecision(a);
+  const nb = normalizeDecision(b);
+  if (!na || !nb) return false;
+  if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  const grams = (s: string) => {
+    const g = new Set<string>();
+    for (let i = 0; i < s.length - 1; i++) g.add(s.slice(i, i + 2));
+    return g;
+  };
+  const ga = grams(na);
+  const gb = grams(nb);
+  let inter = 0;
+  for (const x of ga) if (gb.has(x)) inter++;
+  const union = ga.size + gb.size - inter;
+  return union > 0 && inter / union >= 0.6;
+}
+
 /** OpenAI 기반 추출 — 결정·할 일·요약을 JSON으로 */
 async function aiRecap(msgs: ChatMsg[], participants: string[]): Promise<RecapResult> {
   const system =
@@ -492,6 +525,50 @@ export async function runRecapForMeeting(
           members.map((m) => m.username),
         );
 
+  // ── 실시간 감지(자동 기록)와의 이중 기입 방지 ──
+  // 같은 세션에서 감지 AI가 이미 원장에 적은 결정을 recap이 또 적으면 같은 결정이 2줄 생긴다.
+  // 세션 창 안의 source='auto' 기록과만 비교(다른 회의의 A→B→A 역사는 창 밖 = 비교 대상 아님),
+  // 겹치면 recap 쪽에서 뺀다 — 먼저 적힌 자동 기록이 원장에 남고(받은 확인 유지),
+  // recap이 뽑은 배경·critical은 아래에서 그 줄에 역주입한다. 애매하면 안 뺀다.
+  const droppedDups: { autoId: number; text: string; why: string; alts: string[] }[] = [];
+  if (recap.decisions.length > 0) {
+    const autoRows = db
+      .prepare(
+        `SELECT id, decisions FROM meeting_recaps
+         WHERE meeting_id = ? AND source = 'auto' AND created_at > ?`,
+      )
+      .all(meeting.id, sessionSince) as { id: number; decisions: string }[];
+    const autos = autoRows
+      .map((r) => {
+        try {
+          return { id: r.id, text: (JSON.parse(r.decisions) as string[])[0] ?? '' };
+        } catch {
+          return { id: r.id, text: '' };
+        }
+      })
+      .filter((a) => a.text);
+    if (autos.length > 0) {
+      const kept: { d: string; w: string; a: string[] }[] = [];
+      for (let i = 0; i < recap.decisions.length; i++) {
+        const hit = autos.find((a) => sameDecision(a.text, recap.decisions[i]));
+        if (hit)
+          droppedDups.push({
+            autoId: hit.id,
+            text: recap.decisions[i],
+            why: recap.whys[i] ?? '',
+            alts: recap.alts[i] ?? [],
+          });
+        else kept.push({ d: recap.decisions[i], w: recap.whys[i] ?? '', a: recap.alts[i] ?? [] });
+      }
+      if (droppedDups.length > 0) {
+        recap.decisions = kept.map((k) => k.d);
+        recap.whys = kept.map((k) => k.w);
+        recap.alts = kept.map((k) => k.a);
+        console.log(`[recap] 자동 기록과 중복 ${droppedDups.length}건 — recap에서 제외, 메타 역주입`);
+      }
+    }
+  }
+
   const inCall = new Set(sessionUserIds);
   const attendees = members.filter((m) => inCall.has(m.id)).map((m) => m.username);
 
@@ -570,7 +647,11 @@ export async function runRecapForMeeting(
     .join(' · ');
   // 관련성 라우팅 — 결정이 작업 방식을 바꾸는 사람에게는 "작업 전 확인 필수" 등급으로 (알림 피로 방지의 역설계:
   // 전원에게 같은 톤으로 뿌리면 중요한 것도 묻힌다. 직무·부서로 영향 범위를 추론해 톤을 가른다)
-  const crit = await inferCritical(recap.decisions, members);
+  // 이중 기입으로 뺀 결정도 판정 대상에 포함 — 인덱스 N 이후가 dropped (자동 기록 쪽에 역주입)
+  const crit = await inferCritical(
+    [...recap.decisions, ...droppedDups.map((d) => d.text)],
+    members,
+  );
   const critical = crit.userIds;
   // 🔴 결정 인덱스는 원장에 저장 — critical 결정은 확인 시 손 서명을 요구 (중요도에 비례한 마찰)
   if (crit.decisionIdx.size > 0) {
@@ -578,6 +659,27 @@ export async function runRecapForMeeting(
       JSON.stringify(recap.decisions.map((_, i) => crit.decisionIdx.has(i))),
       recapId,
     );
+  }
+  // 이중 기입으로 뺀 결정의 배경·대안·critical을 자동 기록 줄에 역주입 — 메타가 유실되지 않게
+  for (let j = 0; j < droppedDups.length; j++) {
+    const d = droppedDups[j];
+    try {
+      if (d.why)
+        db.prepare(
+          `UPDATE meeting_recaps SET whys = ? WHERE id = ? AND (whys IS NULL OR whys = '[]' OR whys = '[""]')`,
+        ).run(JSON.stringify([d.why]), d.autoId);
+      if (d.alts.length > 0)
+        db.prepare(
+          `UPDATE meeting_recaps SET alts = ? WHERE id = ? AND (alts IS NULL OR alts = '[[]]')`,
+        ).run(JSON.stringify([d.alts]), d.autoId);
+      if (crit.decisionIdx.has(recap.decisions.length + j))
+        db.prepare('UPDATE meeting_recaps SET criticals = ? WHERE id = ?').run(
+          JSON.stringify([true]),
+          d.autoId,
+        );
+    } catch {
+      /* 역주입 실패해도 recap 자체는 유효 */
+    }
   }
 
   const what = trigger === 'manual' ? '기록' : '통화';
@@ -597,7 +699,8 @@ export async function runRecapForMeeting(
   // 이월 안건 정산 — 이번 회의에서 결론 난 안건은 종결, 못 낸 안건은 rounds+1로 다음 안건에 재상정
   void settleAgendaAfterRecap(meeting.id, {
     summary: recap.summary,
-    decisions: recap.decisions,
+    // 이중 기입으로 뺀 결정도 포함 — 그 결정으로 결론 난 안건도 정산돼야 한다
+    decisions: [...recap.decisions, ...droppedDups.map((d) => d.text)],
   }).catch((err) => console.error('[recap] 안건 정산 실패:', err));
 
   console.log(
