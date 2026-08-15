@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
 import { useDisplayName } from '../names';
-import { SparklesIcon, CheckMarkIcon } from './Icons';
+import { SparklesIcon, CheckMarkIcon, DocIcon } from './Icons';
 
 /*
  * P1 — 통화가 끝나면 AI가 채팅에서 뽑은 결정·할 일(recap)을 보여주는 패널.
@@ -32,6 +32,8 @@ interface Recap {
   actions: RecapAction[];
   attendees: string[];
   nextMeeting: NextMeeting | null;
+  /** 회의 창 동안 실제로 열람·편집된 문서 (file_activity 기반 — 추측 아님) */
+  files?: { id: number; name: string; type: string }[];
   source: string;
   ts: number;
 }
@@ -330,6 +332,29 @@ export default function RecapPanel({
                       </span>
                       {a.title}
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 다룬 문서 — 회의 중 실제 열람·편집된 파일 (칩 클릭 = 공동편집에서 열기) */}
+              {(r.files?.length ?? 0) > 0 && (
+                <div className="hub-recap-files">
+                  <span className="hub-recap-files-label">다룬 문서</span>
+                  {r.files!.map((f) => (
+                    <button
+                      key={f.id}
+                      className="hub-recap-file"
+                      title={`${f.name} — 공동편집에서 열기`}
+                      onClick={() =>
+                        window.dispatchEvent(
+                          new CustomEvent('exist:open-file', {
+                            detail: { code, fileId: f.id },
+                          }),
+                        )
+                      }
+                    >
+                      <DocIcon size={12} /> {f.name}
+                    </button>
                   ))}
                 </div>
               )}

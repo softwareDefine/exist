@@ -27,6 +27,7 @@ import {
 import { notifyUser, emitToUser, getIo } from './notify.js';
 import { resolveChannel } from './channels.js';
 import { extractRoomText, afterRevise, ackRemindLast } from './fileai.js';
+import { invalidateBrief, invalidateBriefForMeeting } from './agent.js';
 import { canManageMeeting } from './perm.js';
 import { sendDmCore } from './dm.js';
 import { audit as orgAudit } from './orgs.js';
@@ -386,6 +387,7 @@ router.post('/:fileId/ack-request', (req: AuthedRequest, res) => {
   }
   const on = (req.body as { on?: boolean })?.on !== false;
   db.prepare('UPDATE collab_files SET ack_required = ? WHERE id = ?').run(on ? 1 : 0, f.id);
+  invalidateBriefForMeeting(r.meeting.id); // 전원의 서명 대기 목록이 바뀜 — 홈 브리핑 갱신
   if (on) {
     // 아직 서명 안 한 그룹원에게 알림
     const members = db
@@ -429,6 +431,7 @@ router.post('/:fileId/ack', (req: AuthedRequest, res) => {
     `INSERT INTO file_acks (file_id, user_id, signature) VALUES (?, ?, ?)
      ON CONFLICT(file_id, user_id) DO UPDATE SET signature = excluded.signature, ack_at = datetime('now')`,
   ).run(f.id, req.userId!, sig);
+  invalidateBrief(req.userId!); // 내 서명 대기가 줄었다 — 홈 브리핑 갱신
   if (f.created_by !== req.userId) {
     notifyUser(f.created_by, {
       from: req.username ?? '누군가',
@@ -502,6 +505,8 @@ router.post('/:fileId/revise', (req: AuthedRequest, res) => {
     return res.status(403).json({ error: '만든 사람·호스트·조직 관리자만 개정을 발행할 수 있어요' });
   }
   const rev = reviseFile(r.meeting, req.userId!, req.username ?? '누군가', f);
+  // 재회람이면 전원이 다시 서명 대기 상태 — 홈 브리핑 갱신
+  if (f.ack_required) invalidateBriefForMeeting(r.meeting.id);
   res.json({ ok: true, rev });
 });
 
@@ -1422,6 +1427,8 @@ router.post('/:fileId/distribute', (req: AuthedRequest, res) => {
   }
   // 자동 방송은 원본 그룹(code) 몫 — 대상 그룹 목록도 즉시 갱신
   notifyFilesChanged(target.code);
+  // 회람 배포면 대상 그룹 전원에게 새 서명 대기가 생김 — 홈 브리핑 갱신
+  if (requestAck) invalidateBriefForMeeting(target.id);
   res.json({ ok: true, id: newId, name, targetCode: target.code, requestAck });
 });
 

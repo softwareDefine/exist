@@ -45,7 +45,17 @@ interface Overview {
   nextMeeting: { title: string; code: string; startsAt: string | null } | null;
 }
 
-/** 지금 처리할 것 — 미확인 결정 + 기한 할 일 + 안읽은 DM (7/29 개편: "전달보다 확인"의 홈) */
+/** 문서 열람 서명 대기 — 내가 참가한 전 그룹의 회람 문서 중 미서명 (그룹에 안 들어가도 홈에서 보인다) */
+interface PendingFileAck {
+  fileId: number;
+  name: string;
+  /** 그룹 코드 — exist:deeplink 착지용 */
+  code: string;
+  /** 그룹 이름 */
+  title: string;
+}
+
+/** 지금 처리할 것 — 미확인 결정 + 서명 대기 문서 + 기한 할 일 + 안읽은 DM (7/29 개편: "전달보다 확인"의 홈) */
 interface Actions {
   decisions: PendingDecision[];
   todos: { id: number; title: string; due_at: string; code: string | null; mtitle: string | null }[];
@@ -58,6 +68,9 @@ interface Actions {
     lastText: string;
     ts: number;
   }[];
+  /** 서명 대기 문서 — 최근 것부터 상한 5개, 총계는 pendingAcksTotal */
+  pendingAcks: PendingFileAck[];
+  pendingAcksTotal: number;
 }
 
 /** P0 발신자 카드 — 내가 보낸 결정의 도달 현황 ("보내고 도달을 확인할 방법이 없다" — 발신자 현직 증언) */
@@ -154,9 +167,15 @@ export default function ProfileDashboard() {
         .catch(() => {});
       api<Actions>(`/api/agent/actions?${orgQ}`).then(setActions).catch(() => {});
     }
+    // 파일 변동(서명·회람 요청·개정·배포 포함) 푸시 — 서명 대기 행 즉시 갱신
+    function onFilesChanged() {
+      api<Actions>(`/api/agent/actions?${orgQ}`).then(setActions).catch(() => {});
+    }
     socket.on('ledger:changed', onLedgerChanged);
+    socket.on('files:changed', onFilesChanged);
     return () => {
       socket.off('ledger:changed', onLedgerChanged);
+      socket.off('files:changed', onFilesChanged);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [org]);
@@ -244,6 +263,11 @@ export default function ProfileDashboard() {
 
   const openMeeting = (code: string, title: string) =>
     window.dispatchEvent(new CustomEvent('exist:open-meeting', { detail: { code, title } }));
+  /** 서명 대기 문서로 — 그룹 탭→공동편집→해당 문서 착지 (DashboardPage의 exist:deeplink 수신) */
+  const openFileAck = (f: PendingFileAck) =>
+    window.dispatchEvent(
+      new CustomEvent('exist:deeplink', { detail: { code: f.code, fileId: f.fileId } }),
+    );
   const newMeeting = () => window.dispatchEvent(new CustomEvent('exist:new-meeting'));
 
   const live = ov?.liveCalls[0];
@@ -326,14 +350,21 @@ export default function ProfileDashboard() {
     ? actions.todos.filter((t) => new Date(t.due_at).getTime() < today0.getTime()).length
     : (ov?.todoOverdue ?? 0);
   const pendingCount = actions?.decisions.length ?? pending?.length ?? ov?.pendingAcks ?? 0;
+  const signPendingCount = actions?.pendingAcksTotal ?? 0;
   const inboxTotal = actions
-    ? actions.decisions.length + actions.todos.length + actions.dms.length
+    ? actions.decisions.length + actions.todos.length + actions.dms.length + actions.pendingAcksTotal
     : 0;
 
   const heroLine = (
     <div className="pd-hero2-line">
       오늘 회의 <b>{todayEvents.length}건</b> <i>·</i> 마감 지난 할 일 <b>{overdueCount}건</b>{' '}
       <i>·</i> 확인 안 한 결정 <b>{pendingCount}건</b>
+      {signPendingCount > 0 && (
+        <>
+          {' '}
+          <i>·</i> 서명 대기 문서 <b>{signPendingCount}건</b>
+        </>
+      )}
     </div>
   );
   const heroDaily = daily ? <div className="pd-hero2-daily">{daily}</div> : null;
@@ -509,6 +540,40 @@ export default function ProfileDashboard() {
               </button>
             </div>
           ))}
+          {/* 서명 대기 문서 — 클릭하면 그룹 탭→공동편집→문서로 착지해 바로 서명 */}
+          {actions.pendingAcks.map((f) => (
+            <div key={`f-${f.fileId}`} className="pd-act-row">
+              <span className="pd-act-badge sign">서명</span>
+              <div
+                className="pd-act-main"
+                onClick={() => openFileAck(f)}
+                title={`"${f.title}"의 문서를 열어 서명`}
+              >
+                <Marquee className="pd-act-title">『{f.name}』 열람 서명 — {f.title}</Marquee>
+                <span className="pd-act-sub">{f.title} · 문서 회람</span>
+              </div>
+              <button className="pd-ack-btn" onClick={() => openFileAck(f)} title="문서를 열어 열람 서명">
+                서명
+              </button>
+            </div>
+          ))}
+          {actions.pendingAcksTotal > actions.pendingAcks.length && actions.pendingAcks[0] && (
+            <div className="pd-act-row">
+              <span className="pd-act-badge sign">서명</span>
+              <div
+                className="pd-act-main"
+                onClick={() =>
+                  openMeeting(actions.pendingAcks[0].code, actions.pendingAcks[0].title)
+                }
+                title={`"${actions.pendingAcks[0].title}" 열기`}
+              >
+                <span className="pd-act-title">
+                  서명 대기 문서 +{actions.pendingAcksTotal - actions.pendingAcks.length}건 더
+                </span>
+                <span className="pd-act-sub">그룹의 "확인 필요" 뷰에서 이어서 처리해요</span>
+              </div>
+            </div>
+          )}
           {actions.todos.map((t) => {
             const b = dueBadge(t.due_at);
             return (

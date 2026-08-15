@@ -4030,6 +4030,75 @@ input:focus {
   color: var(--text-sub);
   font-weight: 600;
 }
+/* recap 카드 다룬 문서 칩 — 회의 중 실제 열람된 파일, 클릭 = 공동편집에서 열기 */
+.hub-recap-files {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.hub-recap-files-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+.hub-recap-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hub-recap-file:hover {
+  background: var(--surface-2);
+}
+
+/* 공동편집 목록 첫 로드 스켈레톤 — 시머 애니메이션 */
+.cf-skeleton {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cf-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cf-skel-ic {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  flex: none;
+  background: var(--surface-2);
+  animation: cf-skel-pulse 1.2s ease-in-out infinite;
+}
+.cf-skel-bar {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  animation: cf-skel-pulse 1.2s ease-in-out infinite;
+}
+@keyframes cf-skel-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 /* 파일 공유 DM의 [문서 바로 열기] — 눌러서 그룹 탭→공동편집→문서 착지 */
 .dm-open-file {
   display: block;

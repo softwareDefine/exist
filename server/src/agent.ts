@@ -491,6 +491,37 @@ export async function getCatchup(userId: number, scope?: AgentScope): Promise<Ca
   return { since, headline, source, items, unreadTotal };
 }
 
+/* ── 문서 열람 서명 대기 — 공동편집 회람 문서 중 내가 아직 서명 안 한 것.
+ * 홈 "지금 처리할 것" 인박스 + 오늘 브리핑 공용 (그룹에 들어가야 보이던 "확인 필요"의 홈 통합) ── */
+
+export interface PendingFileAck {
+  fileId: number;
+  name: string;
+  /** 그룹 코드 — exist:deeplink 착지용 */
+  code: string;
+  /** 그룹 이름 */
+  title: string;
+}
+
+/** 내가 참가한 전 그룹의 회람 문서(ack_required) 중 미서명 — 최근 것부터, 항목 5개 + 총계 */
+export function getPendingFileAcks(
+  userId: number,
+  scope?: AgentScope,
+): { items: PendingFileAck[]; total: number } {
+  const sc = scopeSql(scope);
+  const rows = db
+    .prepare(
+      `SELECT f.id AS fileId, f.name, m.code, m.title FROM collab_files f
+       JOIN meetings m ON m.id = f.meeting_id
+       JOIN meeting_participants mp ON mp.meeting_id = f.meeting_id AND mp.user_id = ?
+       WHERE f.ack_required = 1 AND f.deleted_at IS NULL AND f.type != 'folder'
+         AND NOT EXISTS (SELECT 1 FROM file_acks a WHERE a.file_id = f.id AND a.user_id = ?)${sc.sql}
+       ORDER BY COALESCE(f.updated_at, f.created_at) DESC, f.id DESC`,
+    )
+    .all(userId, userId, ...sc.args) as PendingFileAck[];
+  return { items: rows.slice(0, 5), total: rows.length };
+}
+
 /* ── 오늘 브리핑 — 홈 대시보드용. nowbar 한 줄(brief)보다 긴 2~3문장으로
  * 오늘 일정 + 자리 비운 사이 놓친 것 + 급한 할 일을 하루 세팅 문단으로 묶는다 ── */
 
@@ -505,7 +536,7 @@ const DAILY_CACHE_MS = 5 * 60 * 1000;
 
 /** 브리핑 재료 — 서버가 데이터에서 직접 만든 사실 문장만.
  *  AI는 이 문장들을 다듬기만 하고 새 사실(특히 시각·수치)을 만들 수 없다 (환각 방어). */
-function buildDailyFacts(ctx: UserContext, catchup: Catchup): string[] {
+function buildDailyFacts(ctx: UserContext, catchup: Catchup, pendingFileAcks: number): string[] {
   const facts: string[] = [];
   const today = ctx.meetings
     .filter(
@@ -528,6 +559,8 @@ function buildDailyFacts(ctx: UserContext, catchup: Catchup): string[] {
   for (const i of catchup.items.filter((x) => x.type === 'recap' || x.type === 'todo').slice(0, 3))
     facts.push(`자리 비운 사이: ${i.text}`);
   if (catchup.unreadTotal > 0) facts.push(`안 읽은 메시지가 총 ${catchup.unreadTotal}개 있다`);
+  // 서명 대기 문서 — 0건이면 사실 자체를 넣지 않는다 (브리핑에서 언급 생략)
+  if (pendingFileAcks > 0) facts.push(`열람 서명을 기다리는 문서가 ${pendingFileAcks}건 있다`);
   const urgent = ctx.todos
     .filter((t) => !t.done && t.due_at)
     .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime())[0];
@@ -540,8 +573,8 @@ function buildDailyFacts(ctx: UserContext, catchup: Catchup): string[] {
   return facts;
 }
 
-function ruleBasedDaily(ctx: UserContext, catchup: Catchup): string {
-  const facts = buildDailyFacts(ctx, catchup);
+function ruleBasedDaily(ctx: UserContext, catchup: Catchup, pendingFileAcks: number): string {
+  const facts = buildDailyFacts(ctx, catchup, pendingFileAcks);
   const meaningful = facts.filter((f) => f !== '오늘 예정된 일정은 없다');
   if (meaningful.length === 0) return '오늘은 예정된 일정이 없어요. 밀린 일을 정리하기 좋은 날이에요.';
   return facts.map((f) => f + '요.').join(' ').replace(/다요\./g, '어요.').slice(0, 300);
@@ -555,13 +588,14 @@ export async function getDailyBrief(userId: number, scope?: AgentScope): Promise
   }
   const ctx = getUserContext(userId, scope);
   const catchup = await getCatchup(userId, scope);
+  const fileAckTotal = getPendingFileAcks(userId, scope).total;
 
   let result: DailyBrief;
   if (openai) {
     try {
       // 자유 작문 금지 — 서버가 만든 사실 문장만 주고 "다듬기"만 시킨다.
       // (원본 데이터를 주면 모델이 없는 시각·일정을 지어내는 사고가 실제로 났음)
-      const facts = buildDailyFacts(ctx, catchup);
+      const facts = buildDailyFacts(ctx, catchup, fileAckTotal);
       const response = await openai.chat.completions.create({
         model: OPENAI_MODEL,
         temperature: 0.3,
@@ -592,10 +626,10 @@ export async function getDailyBrief(userId: number, scope?: AgentScope): Promise
       result = { text: text.slice(0, 300), source: 'ai' };
     } catch (err) {
       console.error('[agent] 오늘 브리핑 AI 실패, 규칙 폴백:', err);
-      result = { text: ruleBasedDaily(ctx, catchup), source: 'rule' };
+      result = { text: ruleBasedDaily(ctx, catchup, fileAckTotal), source: 'rule' };
     }
   } else {
-    result = { text: ruleBasedDaily(ctx, catchup), source: 'rule' };
+    result = { text: ruleBasedDaily(ctx, catchup, fileAckTotal), source: 'rule' };
   }
   dailyCache.set(key, { ...result, at: Date.now() });
   return result;
@@ -890,7 +924,10 @@ router.get('/actions', (req: AuthedRequest, res) => {
     };
   });
 
-  res.json({ decisions, todos, dms });
+  // ④ 문서 열람 서명 대기 — 내가 참가한 전 그룹의 회람 문서 중 미서명 (상한 5 + 총계)
+  const fileAcks = getPendingFileAcks(uid, scope);
+
+  res.json({ decisions, todos, dms, pendingAcks: fileAcks.items, pendingAcksTotal: fileAcks.total });
 });
 
 /** 개인 대시보드 요약 — 참여 회의·미완료 할 일·다음 일정·라이브 통화 (?org= 스코프) */

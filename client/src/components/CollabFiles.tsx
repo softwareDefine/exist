@@ -812,9 +812,14 @@ export default function CollabFiles({
     return () => mq.removeEventListener('change', onChange);
   }, []);
 
+  // 첫 로드 완료 전엔 "비어 있는 폴더" 대신 스켈레톤 — 깜빡임 방지
+  const [filesLoaded, setFilesLoaded] = useState(false);
   const load = useCallback(() => {
     void api<CollabFile[]>(`/api/meetings/${code}/files`)
-      .then(setFiles)
+      .then((d) => {
+        setFiles(d);
+        setFilesLoaded(true);
+      })
       .catch(() => {});
   }, [code]);
 
@@ -4034,7 +4039,17 @@ export default function CollabFiles({
               )}
             </div>
           )}
-          {items.length === 0 && !creating ? (
+          {!filesLoaded && !creating ? (
+            /* 첫 로드 스켈레톤 — "비어 있는 폴더" 문구가 깜빡였다 채워지는 순간 제거 */
+            <div className="cf-skeleton" aria-hidden>
+              {[68, 44, 56, 38, 62, 50].map((w, i) => (
+                <div key={i} className="cf-skel-row">
+                  <span className="cf-skel-ic" />
+                  <span className="cf-skel-bar" style={{ width: `${w}%` }} />
+                </div>
+              ))}
+            </div>
+          ) : items.length === 0 && !creating ? (
             <div className="cf-empty">
               {search ? '검색 결과가 없어요' : '비어 있는 폴더예요 — 새로 만들기로 시작해보세요'}
             </div>
