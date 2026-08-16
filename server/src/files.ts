@@ -27,6 +27,7 @@ import {
 import { notifyUser, emitToUser, getIo } from './notify.js';
 import { resolveChannel } from './channels.js';
 import { extractRoomText, afterRevise, ackRemindLast } from './fileai.js';
+import { indexFile as indexFileRag } from './rag.js';
 import { invalidateBrief, invalidateBriefForMeeting } from './agent.js';
 import { canManageMeeting } from './perm.js';
 import { sendDmCore } from './dm.js';
@@ -260,6 +261,7 @@ function reviseFile(
     basisRecapId: basis?.recapId ?? null,
     basisDecisionIdx: basis?.decisionIdx ?? null,
   });
+  indexFileRag(meeting.id, f.id, f.name); // RAG 재색인 — 개정된 본문이 의미 검색에 반영되게
   return nextRev;
 }
 

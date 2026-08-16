@@ -5,6 +5,7 @@ import { invalidateBrief } from './agent.js';
 import { invalidateAgenda, ensureAgentUser, settleAgendaAfterRecap } from './steward.js';
 import { transcribeMeetingAudio } from './stt.js';
 import { extractFileText } from './fileai.js';
+import { indexRecap } from './rag.js';
 
 /*
  * exist P1 — 회의 통화가 끝나면 그 회의의 채팅에서 결정·할 일을 추출해
@@ -663,6 +664,15 @@ export async function runRecapForMeeting(
       touchedFiles.length > 0 ? JSON.stringify(touchedFiles) : null,
     );
   const recapId = info.lastInsertRowid as number;
+
+  // RAG 색인 — 이 정리가 나중에 @AI 의미 검색으로 찾아지게 (비동기·실패 무해)
+  indexRecap(meeting.id, recapId, {
+    summary: recap.summary,
+    decisions: recap.decisions,
+    whys: recap.whys,
+    alts: recap.alts,
+    date: new Date().toISOString().slice(0, 10),
+  });
 
   // 담당자가 특정된 할 일은 그 사람의 회의 할 일로 자동 생성
   const byName = new Map(members.map((m) => [m.username, m.id]));

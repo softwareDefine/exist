@@ -10,6 +10,8 @@ import { listDecisions, listRecaps } from './recap.js';
  */
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
+// RAG 검색·색인 — steward→rag→fileai 방향 의존 (역방향 없음, 순환 안전)
+import { searchRag, indexRecap } from './rag.js';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 export const AGENT_NAME = 'exist AI';
@@ -139,10 +141,15 @@ export function ruleBasedAnswer(question: string, ctx: AgentContext): string {
   );
 }
 
-async function aiAnswer(question: string, asker: string, ctx: AgentContext): Promise<string> {
+async function aiAnswer(
+  question: string,
+  asker: string,
+  ctx: AgentContext,
+  related?: string[],
+): Promise<string> {
   const system =
     `너는 분산 근무 플랫폼 exist의 AI 총무다. "${ctx.meetingTitle}" 그룹에 상주하며 팀의 기록을 관리한다. ` +
-    '아래 제공되는 그룹 기록(결정 원장·통화 정리·할 일·최근 대화)에 근거해서만 답한다. ' +
+    '아래 제공되는 그룹 기록(결정 원장·통화 정리·할 일·최근 대화·관련 과거 기록)에 근거해서만 답한다. ' +
     '기록에 없는 내용은 추측하지 말되, "기록에 없다"처럼 딱딱하게 끊지 말고 ' +
     '"그 내용은 아직 기록에 없어요 — 회의나 채팅에서 다뤄지면 제가 정리해둘게요"처럼 부드러운 해요체로 밝히고, ' +
     '대신 관련해서 아는 기록이나 다음 행동을 한 줄 안내한다. 수치·사실을 만들지 않는다.\n' +
@@ -167,6 +174,8 @@ async function aiAnswer(question: string, asker: string, ctx: AgentContext): Pro
             todos: ctx.todos.map((t) => `${t.title} (${t.author}${t.done ? ', 완료' : ''})`),
             upcoming_events: ctx.events.map((e) => `${e.date}${e.time ? ` ${e.time}` : ''} ${e.title}`),
             recent_chat: ctx.chat.map((c) => `${c.from}: ${c.text}`),
+            // RAG — 질문 의미로 찾아온 과거 기록 (최근 창 밖 원장·문서까지)
+            ...(related && related.length > 0 ? { related_history: related } : {}),
           },
         }),
       },
@@ -722,6 +731,13 @@ async function recordAutoDecision(
       JSON.stringify([]),
       JSON.stringify([args.from]),
     );
+  // RAG 색인 — 자동 기록도 의미 검색 대상 (dedup 후 원장의 대표 줄이 되는 경우가 많다)
+  indexRecap(args.meetingId, info.lastInsertRowid as number, {
+    summary: '',
+    decisions: [d.decision],
+    whys: [d.why],
+    date: new Date().toISOString().slice(0, 10),
+  });
   invalidateAgenda(args.meetingId);
   // 발언자 제외 참가자에게 알림 — 정적 import는 agent→sfu→steward 순환이라 동적 로드
   const { notifyUser } = await import('./notify.js');
@@ -914,7 +930,14 @@ export async function handleAgentQuery(
   let answer: string;
   if (openai) {
     try {
-      answer = await aiAnswer(question, args.asker, ctx);
+      // RAG — 최근 창(30건) 밖의 오래된 원장·문서를 질문 의미로 검색해 근거에 추가
+      const related = await searchRag(args.meetingId, question).catch(() => []);
+      answer = await aiAnswer(
+        question,
+        args.asker,
+        ctx,
+        related.map((r) => r.text),
+      );
     } catch (err) {
       console.error('[steward] AI 실패, 규칙 폴백:', err);
       answer = ruleBasedAnswer(question, ctx);

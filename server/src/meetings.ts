@@ -28,6 +28,7 @@ import {
   setNotifyMode,
 } from './channels.js';
 import { generateAgenda, generateDecisionHistory, invalidateAgenda, ensureAgentUser, resolveAgendaItem } from './steward.js';
+import { reindexMeeting } from './rag.js';
 import { draftHandover, publishHandover, listHandovers, ackHandover, reviewHandover, listChecklist, addChecklistItem, removeChecklistItem } from './handover.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
 import sttRouter from './stt.js';
@@ -1606,6 +1607,16 @@ router.get('/:code/agenda', async (req: AuthedRequest, res) => {
   if (!r.ok) return res.status(r.status).json({ error: r.error });
   const channelId = resolveChannel(r.meeting.id, undefined, req.userId!);
   res.json(await generateAgenda(r.meeting.id, channelId ?? 0));
+});
+
+/** RAG 전체 재색인 — 기존 기록 백필 (참가자, 색인은 비동기라 즉시 반환) */
+router.post('/:code/rag/reindex', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  void reindexMeeting(r.meeting.id)
+    .then((n) => console.log(`[rag] ${r.meeting.id} 재색인 — 소스 ${n}건`))
+    .catch((e) => console.error('[rag] 재색인 실패:', e));
+  res.json({ ok: true });
 });
 
 /* ── 그룹 용어집 — STT 오인식 Quick Fix 루프 (자막·whisper가 즉시 반영) ── */

@@ -887,6 +887,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agenda_items ON agenda_items(meeting_id, resolved);
 `);
 
+/* RAG 청크 — 결정 원장·통화 정리·문서의 임베딩 (rag.ts). @AI가 최근 창 밖의
+ * 오래된 기록도 질문의 의미로 찾게 한다. embedding = Float32Array BLOB */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS rag_chunks (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id),
+    kind       TEXT NOT NULL,
+    ref_id     INTEGER NOT NULL,
+    text       TEXT NOT NULL,
+    embedding  BLOB NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rag_chunks ON rag_chunks(meeting_id, kind, ref_id);
+`);
+
 /* 그룹 용어집 — STT가 자주 깨뜨리는 우리 회사 말 (자막 즉석 교정 + whisper 프롬프트 바이어스).
  * 오인식을 본 사람이 그 자리에서 등록 → 다음 발화부터 맞게 나온다 ("쓸수록 배우는 회의록") */
 db.exec(`
