@@ -4,6 +4,7 @@ import { notifyUser, emitToUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
 import { invalidateAgenda, ensureAgentUser, settleAgendaAfterRecap } from './steward.js';
 import { transcribeMeetingAudio } from './stt.js';
+import { extractFileText } from './fileai.js';
 
 /*
  * exist P1 — 회의 통화가 끝나면 그 회의의 채팅에서 결정·할 일을 추출해
@@ -127,7 +128,11 @@ export function sameDecision(a: string, b: string): boolean {
 }
 
 /** OpenAI 기반 추출 — 결정·할 일·요약을 JSON으로 */
-async function aiRecap(msgs: ChatMsg[], participants: string[]): Promise<RecapResult> {
+async function aiRecap(
+  msgs: ChatMsg[],
+  participants: string[],
+  docContext?: string,
+): Promise<RecapResult> {
   const system =
     '너는 분산 근무 플랫폼 exist의 AI 운영자다. 회의 채팅 로그에서 팀이 합의한 결정과 할 일을 추출한다. ' +
     '이 결과는 회의에 참석하지 못한 팀원에게 그대로 전달되므로, 로그에 없는 사실·수치를 만들지 않는다.\n' +
@@ -139,7 +144,10 @@ async function aiRecap(msgs: ChatMsg[], participants: string[]): Promise<RecapRe
     'next_meeting은 다음 회의 시각이 로그에서 명시적으로 제안·합의된 경우에만 채운다. ' +
     '상대 표현(내일, 수요일, 다음 주 금요일)은 요일을 직접 계산하지 말고 반드시 calendar 목록에서 해당 요일의 가장 가까운 날짜를 찾아 쓴다. ' +
     '할 일의 기한("화요일까지 정리")은 회의 날짜가 아니다 — 회의 자체를 그 날짜에 하자고 말한 경우가 아니면 그 날짜를 next_meeting에 재사용하지 않는다. ' +
-    '"다음 회의에서 보시죠"처럼 날짜 없는 언급, 날짜를 특정할 수 없는 표현("조만간", "나중에"), 언급 자체가 없으면 반드시 null — 추측 금지. 시각 언급이 없으면 time만 null.';
+    '"다음 회의에서 보시죠"처럼 날짜 없는 언급, 날짜를 특정할 수 없는 표현("조만간", "나중에"), 언급 자체가 없으면 반드시 null — 추측 금지. 시각 언급이 없으면 time만 null.' +
+    (docContext
+      ? '\ndocs는 이 회의 중 참가자들이 열람한 문서의 발췌다 — 용어의 올바른 표기와 논의 맥락을 파악하는 참고자료로만 쓴다. 결정·할 일·요약은 반드시 chat 로그에서만 추출한다 (문서에만 있는 내용을 결정으로 만들지 않는다).'
+      : '');
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
@@ -159,6 +167,7 @@ async function aiRecap(msgs: ChatMsg[], participants: string[]): Promise<RecapRe
           }),
           participants,
           chat: msgs.map((m) => `${m.from}: ${m.text}`),
+          ...(docContext ? { docs: docContext } : {}),
         }),
       },
     ],
@@ -298,10 +307,14 @@ async function inferCritical(
 }
 
 /** 추출 (AI → 실패 시 규칙 폴백) */
-export async function extractRecap(msgs: ChatMsg[], participants: string[]): Promise<RecapResult> {
+export async function extractRecap(
+  msgs: ChatMsg[],
+  participants: string[],
+  docContext?: string,
+): Promise<RecapResult> {
   if (openai) {
     try {
-      return await aiRecap(msgs, participants);
+      return await aiRecap(msgs, participants, docContext);
     } catch (err) {
       console.error('[recap] OpenAI 실패, 규칙 기반 폴백:', err);
     }
@@ -508,6 +521,33 @@ export async function runRecapForMeeting(
     .all(meeting.org_id, meeting.id) as { id: number; username: string; position: string | null; department: string | null }[];
   if (members.length === 0) return null;
 
+  // 이 요약 창 동안 열람·편집된 문서 — "이 회의에서 다룬 문서" (회의↔공동편집 다리).
+  // 통화 트리거면 창을 통화 시작 시각으로 좁힌다 — 회의 사이에 열어본 파일이
+  // "이 회의에서 다룬" 것으로 섞이지 않게 (요약 재료 창(since)과 별개 기준)
+  const fileSince = callStart && callStart > since ? callStart : since;
+  const touchedFiles = db
+    .prepare(
+      `SELECT DISTINCT fa.file_id AS id, f.name, f.type FROM file_activity fa
+       JOIN collab_files f ON f.id = fa.file_id
+       WHERE fa.meeting_id = ? AND fa.ts > ? AND f.deleted_at IS NULL
+       ORDER BY fa.file_id LIMIT 12`,
+    )
+    .all(meeting.id, fileSince) as { id: number; name: string; type: string }[];
+
+  // 다룬 문서 발췌를 AI 참고자료로 — 회사 용어의 올바른 표기·논의 맥락 (Whispree의 Visual Context 발상).
+  // 추출은 chat에서만 하도록 프롬프트로 격리 — 문서 내용이 결정으로 둔갑하지 않게
+  const docContext =
+    touchedFiles.length > 0
+      ? touchedFiles
+          .slice(0, 3)
+          .map((f) => {
+            const text = extractFileText(f.id);
+            return text ? `[${f.name}] ${text.replace(/\s+/g, ' ').slice(0, 400)}` : null;
+          })
+          .filter(Boolean)
+          .join('\n')
+      : '';
+
   // 짧은 통화(재료가 MIN_MESSAGES 미만) — AI를 태우면 한두 마디로 환각 위험이라
   // 규칙 추출 + 발언 원문을 요약으로 남긴다. "나눈 말이 기록에서 증발하면 안 된다" (8/15 실사용 지적)
   const recap =
@@ -523,6 +563,7 @@ export async function runRecapForMeeting(
       : await extractRecap(
           msgs,
           members.map((m) => m.username),
+          docContext || undefined,
         );
 
   // ── 실시간 감지(자동 기록)와의 이중 기입 방지 ──
@@ -600,18 +641,6 @@ export async function runRecapForMeeting(
       .map((e) => ({ id: e.id, diff: e.time ? Math.abs(toMin(e.time) - toMin(nowHm)) : 12 * 60 }))
       .sort((a, b) => a.diff - b.diff)[0]?.id ?? null;
 
-  // 이 요약 창 동안 열람·편집된 문서 — "이 회의에서 다룬 문서" (회의↔공동편집 다리).
-  // 통화 트리거면 창을 통화 시작 시각으로 좁힌다 — 회의 사이에 열어본 파일이
-  // "이 회의에서 다룬" 것으로 섞이지 않게 (요약 재료 창(since)과 별개 기준)
-  const fileSince = callStart && callStart > since ? callStart : since;
-  const touchedFiles = db
-    .prepare(
-      `SELECT DISTINCT fa.file_id AS id, f.name, f.type FROM file_activity fa
-       JOIN collab_files f ON f.id = fa.file_id
-       WHERE fa.meeting_id = ? AND fa.ts > ? AND f.deleted_at IS NULL
-       ORDER BY fa.file_id LIMIT 12`,
-    )
-    .all(meeting.id, fileSince) as { id: number; name: string; type: string }[];
   if (trigger === 'call')
     db.prepare('UPDATE meetings SET call_started_at = NULL WHERE id = ?').run(meeting.id); // 세션 소비
 

@@ -93,11 +93,31 @@ const BASE_GLOSSARY = [
   'GMP', 'CAPA', 'QA', 'QC', '교대조', '야간조', '작업표준', 'SOP', '부적합',
 ];
 
+/** 그룹 용어집 — 오인식을 본 사람이 등록한 우리 회사 말 (Quick Fix 루프). 최대 60개 */
+export function loadMeetingGlossary(meetingId: number): string[] {
+  try {
+    return (
+      db
+        .prepare(
+          'SELECT term FROM meeting_glossary WHERE meeting_id = ? ORDER BY id DESC LIMIT 60',
+        )
+        .all(meetingId) as { term: string }[]
+    ).map((r) => r.term);
+  } catch {
+    return [];
+  }
+}
+
 /** 자막 한 줄 교정 — 실패·저신뢰면 null (원문 유지) */
-export async function correctCaption(text: string, meetingTitle?: string): Promise<string | null> {
+export async function correctCaption(
+  text: string,
+  meetingTitle?: string,
+  meetingId?: number,
+): Promise<string | null> {
   if (!openai || text.length < 6) return null; // 짧은 추임새는 교정 가치 없음
   try {
-    const glossary = [...BASE_GLOSSARY, ...(meetingTitle ? [meetingTitle] : [])].join(', ');
+    const custom = meetingId ? loadMeetingGlossary(meetingId) : [];
+    const glossary = [...new Set([...custom, ...BASE_GLOSSARY, ...(meetingTitle ? [meetingTitle] : [])])].join(', ');
     const res = await openai.chat.completions.create(
       {
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
@@ -152,6 +172,10 @@ export async function transcribeMeetingAudio(meetingId: number): Promise<number>
   const ins = db.prepare(
     "INSERT INTO call_transcripts (meeting_id, user_id, text, source, created_at) VALUES (?, ?, ?, 'whisper', ?)",
   );
+  // 용어집 프롬프트 바이어스 — whisper는 prompt의 어휘를 우선 후보로 쓴다 (우리 회사 말 인식률 ↑)
+  const bias = [...new Set([...loadMeetingGlossary(meetingId), ...BASE_GLOSSARY])]
+    .slice(0, 40)
+    .join(', ');
   let saved = 0;
   for (const name of names) {
     const p = path.join(dir, name);
@@ -163,6 +187,7 @@ export async function transcribeMeetingAudio(meetingId: number): Promise<number>
         file: fs.createReadStream(p),
         model: STT_MODEL,
         language: 'ko',
+        prompt: `회의 용어: ${bias}`,
       });
       const text = String(out.text ?? '').trim().slice(0, 2000);
       // 무음 청크에서 Whisper가 지어내는 상투구 방어 (유튜브 학습데이터 잔재)

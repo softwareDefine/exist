@@ -19315,6 +19315,74 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   color: var(--text-sub);
 }
 
+/* ── 회의록 용어집 (설정) — STT 오인식 Quick Fix ── */
+.hub-gloss-hint {
+  font-size: 12px;
+  color: var(--text-sub);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.hub-gloss-add {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.hub-gloss-add input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.hub-gloss-add button {
+  border: none;
+  background: var(--green);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.hub-gloss-add button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.hub-gloss-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hub-gloss-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 3px 6px 3px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.hub-gloss-chip button {
+  border: none;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.hub-gloss-chip button:hover {
+  color: var(--red, #e5484d);
+  background: var(--surface-2);
+}
+
 /* ── 개정 발행 모달 — 근거 결정 선택 (결정↔문서 다리) ── */
 .cf-revise-modal {
   max-width: 480px;

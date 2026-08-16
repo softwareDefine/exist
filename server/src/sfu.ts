@@ -434,7 +434,7 @@ export function attachSfu(io: Server) {
       const roomCode = room.code;
       const username = peer.username;
       const rowId = info.lastInsertRowid as number;
-      void correctCaption(trimmed, meeting.title).then((fixed) => {
+      void correctCaption(trimmed, meeting.title, meeting.id).then((fixed) => {
         if (!fixed) return;
         db.prepare('UPDATE call_transcripts SET text = ? WHERE id = ?').run(fixed, rowId);
         io.to(`room:${roomCode}`).emit('voice:caption-fix', {

@@ -887,6 +887,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agenda_items ON agenda_items(meeting_id, resolved);
 `);
 
+/* 그룹 용어집 — STT가 자주 깨뜨리는 우리 회사 말 (자막 즉석 교정 + whisper 프롬프트 바이어스).
+ * 오인식을 본 사람이 그 자리에서 등록 → 다음 발화부터 맞게 나온다 ("쓸수록 배우는 회의록") */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS meeting_glossary (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id),
+    term       TEXT NOT NULL,
+    added_by   INTEGER REFERENCES users(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(meeting_id, term)
+  );
+  CREATE INDEX IF NOT EXISTS idx_meeting_glossary ON meeting_glossary(meeting_id);
+`);
+
 // 마이그레이션: 통화 시작 시각 — recap 세션 창의 기준. 메모리가 아닌 DB에 둬서
 // 통화 중 서버 재시작에도 세션 창이 유지된다 (recap 생성 시 NULL로 소비)
 try {

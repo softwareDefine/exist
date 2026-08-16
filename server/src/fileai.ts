@@ -61,7 +61,7 @@ export function extractRoomText(room: string): string {
 }
 
 /** 파일 본문 평문 — Yjs 룸이 있는 편집 문서만. 업로드(blob)·폴더는 null (스냅샷에 null로 남김) */
-function extractFileText(fileId: number): string | null {
+export function extractFileText(fileId: number): string | null {
   const f = db.prepare('SELECT type, room FROM collab_files WHERE id = ?').get(fileId) as
     | { type: string; room: string | null }
     | undefined;

@@ -1111,6 +1111,43 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     }
   }
   const [rosterOpen, setRosterOpen] = useState(false); // 참가자 명함 — 기본 접힘(아바타 스택만)
+  // 회의록 용어집 — STT 오인식 Quick Fix 루프 (등록하면 자막 교정·whisper가 즉시 반영)
+  const [glossary, setGlossary] = useState<{ id: number; term: string; added_by: string | null }[]>([]);
+  const [glossInput, setGlossInput] = useState('');
+  useEffect(() => {
+    if (subtab !== 'settings') return;
+    void api<{ terms: { id: number; term: string; added_by: string | null }[] }>(
+      `/api/meetings/${code}/glossary`,
+      { silent: true },
+    )
+      .then((r) => setGlossary(r.terms))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtab, code]);
+  async function addGlossaryTerm() {
+    const term = glossInput.trim();
+    if (term.length < 2) return;
+    setGlossInput('');
+    try {
+      await api(`/api/meetings/${code}/glossary`, { method: 'POST', body: { term } });
+      setGlossary((prev) =>
+        prev.some((g) => g.term === term) ? prev : [{ id: Date.now(), term, added_by: null }, ...prev],
+      );
+      window.dispatchEvent(
+        new CustomEvent('app:info', { detail: `"${term}" 등록 — 다음 발화부터 자막·회의록에 반영돼요` }),
+      );
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
+  async function removeGlossaryTerm(id: number) {
+    setGlossary((prev) => prev.filter((g) => g.id !== id));
+    try {
+      await api(`/api/meetings/${code}/glossary/${id}`, { method: 'DELETE' });
+    } catch {
+      /* 전역 토스트 */
+    }
+  }
   const [remindSent, setRemindSent] = useState(false);
   /** 미확인 팔로업 — 최신 결정 중 미확인자가 있는 첫 항목 (관리자에게만 노출) */
   const unackedFollowup = (() => {
@@ -1993,6 +2030,50 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                   링크를 받은 사람은 로그인만 하면 자동으로 이 그룹에 참여돼요
                 </span>
               </div>
+            </section>
+
+            {/* 회의록 용어집 — 자막이 우리 회사 말을 틀리면 여기 등록 (쓸수록 배우는 회의록) */}
+            <section className="hub-set-card">
+              <div className="hub-section-title">
+                <PenIcon size={15} /> 회의록 용어집
+                <span className="hub-fold-meta">{glossary.length}개</span>
+              </div>
+              <div className="hub-gloss-hint">
+                자막·회의록이 자주 틀리는 우리 회사 용어를 등록해 두면, AI가 자막 교정과 음성
+                받아쓰기에서 이 표기를 우선 사용해요.
+              </div>
+              <form
+                className="hub-gloss-add"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void addGlossaryTerm();
+                }}
+              >
+                <input
+                  value={glossInput}
+                  onChange={(e) => setGlossInput(e.target.value)}
+                  placeholder="예: 방열판, 밸리데이션, CAPA"
+                  maxLength={40}
+                />
+                <button type="submit" disabled={glossInput.trim().length < 2}>
+                  등록
+                </button>
+              </form>
+              {glossary.length > 0 && (
+                <div className="hub-gloss-list">
+                  {glossary.map((g) => (
+                    <span key={g.id} className="hub-gloss-chip">
+                      {g.term}
+                      <button
+                        title="용어 삭제"
+                        onClick={() => void removeGlossaryTerm(g.id)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="hub-set-card">

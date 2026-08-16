@@ -1608,6 +1608,44 @@ router.get('/:code/agenda', async (req: AuthedRequest, res) => {
   res.json(await generateAgenda(r.meeting.id, channelId ?? 0));
 });
 
+/* ── 그룹 용어집 — STT 오인식 Quick Fix 루프 (자막·whisper가 즉시 반영) ── */
+router.get('/:code/glossary', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const rows = db
+    .prepare(
+      `SELECT g.id, g.term, u.username AS added_by, g.created_at FROM meeting_glossary g
+       LEFT JOIN users u ON u.id = g.added_by WHERE g.meeting_id = ? ORDER BY g.id DESC`,
+    )
+    .all(r.meeting.id);
+  res.json({ terms: rows });
+});
+
+router.post('/:code/glossary', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const term = String((req.body ?? {}).term ?? '').trim().slice(0, 40);
+  if (term.length < 2) return res.status(400).json({ error: '용어는 2자 이상이어야 해요' });
+  try {
+    db.prepare(
+      'INSERT OR IGNORE INTO meeting_glossary (meeting_id, term, added_by) VALUES (?, ?, ?)',
+    ).run(r.meeting.id, term, req.userId);
+  } catch {
+    return res.status(500).json({ error: '등록에 실패했어요' });
+  }
+  res.json({ ok: true, term });
+});
+
+router.delete('/:code/glossary/:termId', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  db.prepare('DELETE FROM meeting_glossary WHERE id = ? AND meeting_id = ?').run(
+    Number(req.params.termId),
+    r.meeting.id,
+  );
+  res.json({ ok: true });
+});
+
 /** 안건 수동 종결 — 보류된 안건("다음에 보시죠")이 영원히 이월되는 것을 사람이 닫는다 (참가자만) */
 router.post('/:code/agenda/:itemId/resolve', (req: AuthedRequest, res) => {
   const r = meetingForParticipant(req.params.code, req.userId!);
