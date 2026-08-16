@@ -461,7 +461,10 @@ export default function DecisionLedger({ code }: { code: string }) {
                     {acked ? (
                       <span className="ledger-ack done">확인함 <CheckMarkIcon size={12} /></span>
                     ) : (
-                      <button className="ledger-ack" onClick={() => void ack(e)}>
+                      <button
+                        className={`ledger-ack${e.critical ? ' critical' : ''}`}
+                        onClick={() => void ack(e)}
+                      >
                         확인
                       </button>
                     )}

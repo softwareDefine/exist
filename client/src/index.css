@@ -19125,6 +19125,17 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   white-space: nowrap;
 }
 
+/* critical 결정의 확인 — 카드의 빨강 문법에 맞춰 (서명 요구를 색으로 예고) */
+.ledger-ack.critical {
+  border-color: var(--red, #e5484d);
+  background: color-mix(in srgb, var(--red, #e5484d) 10%, transparent);
+  color: var(--red, #e5484d);
+}
+.ledger-ack.critical:hover {
+  background: var(--red, #e5484d);
+  color: #fff;
+}
+
 .hub-decision-ack:hover,
 .ledger-ack:hover {
   background: var(--green);
