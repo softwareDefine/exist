@@ -569,6 +569,21 @@ export async function runRecapForMeeting(
     }
   }
 
+  // 짧은 통화의 발언이 전부 자동 기록으로 이미 원장에 있으면 recap 자체를 만들지 않는다 —
+  // 남는 정보가 없는데 회의 기록 리스트에 같은 문장이 2줄(자동 기록 + "짧은 통화") 생기는 것 방지.
+  // 이 세션의 기록은 자동 기록 줄이 대표한다 (아직 남은 결정·할 일이 있으면 정상 생성)
+  if (
+    msgs.length < MIN_MESSAGES &&
+    droppedDups.length > 0 &&
+    recap.decisions.length === 0 &&
+    recap.actions.length === 0
+  ) {
+    console.log('[recap] 짧은 통화 — 발언 전부가 자동 기록에 있음, recap 생략');
+    if (trigger === 'call')
+      db.prepare('UPDATE meetings SET call_started_at = NULL WHERE id = ?').run(meeting.id); // 세션 소비
+    return droppedDups[0].autoId; // 이 세션의 기록 = 자동 기록 (status는 done으로)
+  }
+
   const inCall = new Set(sessionUserIds);
   const attendees = members.filter((m) => inCall.has(m.id)).map((m) => m.username);
 
