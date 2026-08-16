@@ -474,11 +474,24 @@ export default function HandoverPanel({
                       ))}
                   </div>
                 )}
+                {/* 서명 모달 — 인수인계 수령 확인 (원장·공동편집 서명과 같은 팝업 문법) */}
                 {signFor === h.id && (
-                  <SignPad
-                    onConfirm={(dataUrl) => void ackWithSignature(h, dataUrl)}
-                    onCancel={() => setSignFor(null)}
-                  />
+                  <div className="cf-signmodal-backdrop" onClick={() => setSignFor(null)}>
+                    <div className="cf-signmodal" onClick={(ev) => ev.stopPropagation()}>
+                      <div className="cf-signmodal-head">인수인계 수령 서명</div>
+                      <div className="cf-signmodal-note">
+                        <div className="cf-signmodal-note-t">
+                          {h.shiftLabel || '인수인계'} · {dn(h.author)}
+                        </div>
+                        <div>인계 내용을 확인했음을 서명으로 남겨요 — 종이 회람판의 디지털화예요.</div>
+                      </div>
+                      <SignPad
+                        fluid
+                        onConfirm={(dataUrl) => void ackWithSignature(h, dataUrl)}
+                        onCancel={() => setSignFor(null)}
+                      />
+                    </div>
+                  </div>
                 )}
                 {echoFor === h.id && (
                   <form

@@ -402,12 +402,29 @@ export default function DecisionLedger({ code }: { code: string }) {
                             ))}
                         </div>
                       )}
-                      {/* 서명 패드 — 작업 전 확인 필수 결정의 확인 */}
+                      {/* 서명 모달 — 작업 전 확인 필수 결정의 확인 (공동편집 서명과 같은 의식감,
+                          무엇에 서명하는지 결정 내용 명시 — "서명 의미 명시" 관례) */}
                       {signFor === `${e.recapId}-${e.idx}` && (
-                        <SignPad
-                          onConfirm={(dataUrl) => void ack(e, dataUrl)}
-                          onCancel={() => setSignFor(null)}
-                        />
+                        <div className="cf-signmodal-backdrop" onClick={() => setSignFor(null)}>
+                          <div className="cf-signmodal" onClick={(ev) => ev.stopPropagation()}>
+                            <div className="cf-signmodal-head">결정 확인 서명</div>
+                            <div className="cf-signmodal-note">
+                              <div className="cf-signmodal-note-t">
+                                <span className="ledger-critical">작업 전 확인 필수</span>
+                              </div>
+                              <div>{e.decision}</div>
+                              {e.why && <div className="ledger-why">배경 · {e.why}</div>}
+                            </div>
+                            <div className="cf-signmodal-desc">
+                              아래 서명은 이 결정을 확인했음을 기록(회람판)으로 남겨요.
+                            </div>
+                            <SignPad
+                              fluid
+                              onConfirm={(dataUrl) => void ack(e, dataUrl)}
+                              onCancel={() => setSignFor(null)}
+                            />
+                          </div>
+                        </div>
                       )}
                       {/* 현장 피드백 — 확인에 딸린 한 줄 ("반영 완료"/"라인에선 어려움" 등) */}
                       {e.acks.some((a) => a.note) && (
