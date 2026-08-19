@@ -555,6 +555,28 @@ export default function CollabFiles({
   const [meetsOpen, setMeetsOpen] = useState(false); // 다룬 회의
   const [previewOpen, setPreviewOpen] = useState(false); // 내용 미리보기
   const [manageOpen, setManageOpen] = useState(false); // 관리 (서명 요청·개정 발행·새 버전)
+  // 문서 연혁 — "왜 이 문서가 지금 모습인가" 타임라인 (기본 접힘, 열 때 lazy 로드)
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [fileHistory, setFileHistory] = useState<{
+    rev: number;
+    entries: {
+      rev: number;
+      at: string | null;
+      note: string | null;
+      basis: { recapId: number; idx: number; text: string | null } | null;
+      signs: number;
+      current: boolean;
+    }[];
+  } | null>(null);
+  async function loadFileHistory(fileId: number) {
+    try {
+      setFileHistory(
+        await api(`/api/meetings/${code}/files/${fileId}/history`, { silent: true }),
+      );
+    } catch {
+      setFileHistory(null);
+    }
+  }
   const versionInputRef = useRef<HTMLInputElement | null>(null);
   // 통합 공유 모달 — 채널 게시·DM·다른 그룹 배포·링크 복사를 한 곳에 (단일 파일만, 폴더는 즉시 링크 복사)
   const [shareFor, setShareFor] = useState<CollabFile | null>(null);
@@ -1259,6 +1281,8 @@ export default function CollabFiles({
       setAckStatus(null);
     }
     setAckSignedOpen(false); // 선택이 바뀌면 서명자 명단은 다시 접는다
+    setHistoryOpen(false); // 연혁도 접고 비움 — 다른 파일 연혁이 잠깐 보이는 것 방지
+    setFileHistory(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selected?.ack_required]);
 
@@ -4835,6 +4859,90 @@ export default function CollabFiles({
                         {it}
                       </div>
                     ))
+                  ))}
+              </div>
+            )}
+            {/* 연혁 — "왜 이 문서가 지금 모습인가" 타임라인 (개정 이력표의 디지털판, 기본 접힘) */}
+            {selected.type !== 'folder' && (
+              <div className="cf-history">
+                <button
+                  type="button"
+                  className="cf-ack-fold cf-versions-fold"
+                  onClick={() => {
+                    const next = !historyOpen;
+                    setHistoryOpen(next);
+                    if (next && !fileHistory) void loadFileHistory(selected.id);
+                  }}
+                >
+                  <span className={`side-chevron${historyOpen ? ' open' : ''}`}>
+                    <ChevronIcon size={10} />
+                  </span>
+                  <RefreshIcon size={13} /> 연혁
+                  {(selected.rev ?? 1) > 1 && (
+                    <span className="cf-history-meta">v{selected.rev}</span>
+                  )}
+                </button>
+                {historyOpen &&
+                  (fileHistory === null ? (
+                    <div className="cf-history-empty">연혁을 불러오는 중…</div>
+                  ) : fileHistory.entries.length <= 1 && !fileHistory.entries[0]?.note ? (
+                    <div className="cf-history-empty">
+                      아직 개정 이력이 없어요 — 개정을 발행하면 바뀐 점·근거 결정이 여기에
+                      쌓여요.
+                    </div>
+                  ) : (
+                    <div className="cf-history-list">
+                      {fileHistory.entries.map((h) => (
+                        <div key={h.rev} className={`cf-history-row${h.current ? ' cur' : ''}`}>
+                          <span className="cf-history-rev">v{h.rev}</span>
+                          <div className="cf-history-body">
+                            <div className="cf-history-head">
+                              {h.at && (
+                                <span className="cf-history-date">
+                                  {new Date(h.at + 'Z').toLocaleDateString('ko-KR', {
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                  })}
+                                </span>
+                              )}
+                              {h.current && <span className="cf-history-curbadge">현재</span>}
+                              {h.signs > 0 && (
+                                <span className="cf-history-signs">서명 {h.signs}</span>
+                              )}
+                            </div>
+                            {h.note &&
+                              h.note.split('\n').map((ln, i) => (
+                                <div key={i} className="cf-history-note">
+                                  {ln}
+                                </div>
+                              ))}
+                            {h.basis?.text && (
+                              <button
+                                className="cf-history-basis"
+                                title="이 개정의 근거 결정 — 기록에서 보기"
+                                onClick={() =>
+                                  window.dispatchEvent(
+                                    new CustomEvent('exist:goto-recap', {
+                                      detail: { code, recapId: h.basis!.recapId },
+                                    }),
+                                  )
+                                }
+                              >
+                                근거 결정 ·{' '}
+                                {h.basis.text.length > 36
+                                  ? h.basis.text.slice(0, 36) + '…'
+                                  : h.basis.text}
+                              </button>
+                            )}
+                            {!h.note && !h.basis?.text && (
+                              <div className="cf-history-note dim">
+                                {h.rev === 1 ? '최초 작성' : '개정 발행 (요약 없음)'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   ))}
               </div>
             )}

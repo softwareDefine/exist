@@ -538,6 +538,81 @@ router.post('/:fileId/revise', (req: AuthedRequest, res) => {
   res.json({ ok: true, rev });
 });
 
+/** 문서 연혁 — "왜 이 문서가 지금 모습인가"를 스크롤 한 번으로 (GMP 개정 이력표의 디지털판).
+ *  rev 내림차순: 발행일 · 바뀐 점(AI diff) · 근거 결정(원장 점프) · 그 개정의 서명 수.
+ *  담당자가 바뀌어도 맥락이 문서에 붙어 다닌다 — "자료는 찾았는데 당시 맥락을 아는 사람이 없다" 대응 */
+router.get('/:fileId/history', (req: AuthedRequest, res) => {
+  const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const f = db
+    .prepare(
+      'SELECT id, type, COALESCE(rev, 1) AS rev, created_at FROM collab_files WHERE id = ? AND meeting_id = ? AND deleted_at IS NULL',
+    )
+    .get(req.params.fileId, r.meeting.id) as
+    | { id: number; type: string; rev: number; created_at: string }
+    | undefined;
+  if (!f) return res.status(404).json({ error: '존재하지 않는 파일이에요' });
+  if (f.type === 'folder') return res.status(400).json({ error: '폴더에는 연혁이 없어요' });
+
+  const snaps = db
+    .prepare(
+      `SELECT rev, note, basis_recap_id, basis_decision_idx, created_at
+       FROM file_rev_snapshots WHERE file_id = ? ORDER BY rev DESC`,
+    )
+    .all(f.id) as {
+    rev: number;
+    note: string | null;
+    basis_recap_id: number | null;
+    basis_decision_idx: number | null;
+    created_at: string;
+  }[];
+  const histSigns = new Map(
+    (
+      db
+        .prepare('SELECT rev, COUNT(*) AS c FROM file_acks_history WHERE file_id = ? GROUP BY rev')
+        .all(f.id) as { rev: number; c: number }[]
+    ).map((x) => [x.rev, x.c]),
+  );
+  const curSigns = (
+    db.prepare('SELECT COUNT(*) AS c FROM file_acks WHERE file_id = ?').get(f.id) as { c: number }
+  ).c;
+
+  const basisText = (recapId: number | null, idx: number | null): string | null => {
+    if (recapId == null || idx == null) return null;
+    try {
+      const rec = db.prepare('SELECT decisions FROM meeting_recaps WHERE id = ?').get(recapId) as
+        | { decisions: string }
+        | undefined;
+      return rec ? ((JSON.parse(rec.decisions) as string[])[idx] ?? null) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const bySnap = new Map(snaps.map((s) => [s.rev, s]));
+  const entries = [];
+  for (let rev = f.rev; rev >= 1; rev--) {
+    const s = bySnap.get(rev);
+    entries.push({
+      rev,
+      // v1은 스냅샷이 없을 수 있음(개정 전 원본) — 그땐 파일 생성일
+      at: s?.created_at ?? (rev === 1 ? f.created_at : null),
+      note: s?.note ?? null,
+      basis:
+        s && s.basis_recap_id != null && s.basis_decision_idx != null
+          ? {
+              recapId: s.basis_recap_id,
+              idx: s.basis_decision_idx,
+              text: basisText(s.basis_recap_id, s.basis_decision_idx),
+            }
+          : null,
+      signs: rev === f.rev ? curSigns : (histSigns.get(rev) ?? 0),
+      current: rev === f.rev,
+    });
+  }
+  res.json({ rev: f.rev, entries });
+});
+
 /** 이 문서를 다룬 회의들 — recap.files 역조회 (문서 → 회의 다리) */
 router.get('/:fileId/meetings', (req: AuthedRequest, res) => {
   const r = checkParticipant((req.params as { code?: string }).code, req.userId!);

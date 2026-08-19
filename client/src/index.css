@@ -19414,6 +19414,111 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   background: var(--surface-2);
 }
 
+/* ── 문서 연혁 — "왜 이 문서가 지금 모습인가" 타임라인 (개정 이력표의 디지털판) ── */
+.cf-history-meta {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+.cf-history-empty {
+  font-size: 12px;
+  color: var(--text-sub);
+  padding: 6px 2px 8px 22px;
+  line-height: 1.5;
+}
+.cf-history {
+  min-width: 0;
+  /* cf-details가 flex 컬럼 — overflow:hidden을 주면 min-height가 0으로 무너져
+   * 섹션이 통째로 짜부된다 (실측). 가로 넘침은 basis 줄바꿈으로 해결 */
+  flex-shrink: 0;
+}
+.cf-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 0 8px;
+  min-width: 0;
+}
+.cf-history-row {
+  display: flex;
+  gap: 10px;
+  padding: 6px 2px 6px 4px;
+  border-left: 2px solid var(--border);
+  margin-left: 10px;
+}
+.cf-history-row.cur {
+  border-left-color: var(--green);
+}
+.cf-history-rev {
+  flex: none;
+  min-width: 28px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+}
+.cf-history-row.cur .cf-history-rev {
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+.cf-history-body {
+  min-width: 0;
+  flex: 1;
+}
+.cf-history-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-sub);
+  margin-bottom: 2px;
+}
+.cf-history-curbadge {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--green-dark);
+  background: var(--green-soft);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.cf-history-signs {
+  font-weight: 700;
+}
+.cf-history-note {
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.45;
+}
+.cf-history-note.dim {
+  color: var(--text-sub);
+}
+.cf-history-basis {
+  display: block;
+  border: none;
+  background: none;
+  padding: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green-dark);
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+  /* nowrap은 min-content가 문장 전체 폭이 돼 좁은 패널을 밀어버림 — 줄바꿈 허용 */
+  white-space: normal;
+  word-break: break-all;
+  line-height: 1.4;
+}
+.cf-history-basis:hover {
+  text-decoration: underline;
+}
+
 /* ── 개정 발행 모달 — 근거 결정 선택 (결정↔문서 다리) ── */
 .cf-revise-modal {
   max-width: 480px;
