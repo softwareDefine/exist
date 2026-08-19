@@ -19542,6 +19542,68 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   border-color: var(--green);
 }
 
+/* 안건 멈춤 상태 — "지금 뭘 기다리는지" 셀렉트 칩 (상태 있으면 앰버로 눈에 띔) */
+.hub-agenda-status {
+  flex: none;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-sub);
+  border-radius: 8px;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 96px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.hub-agenda-row:hover .hub-agenda-status,
+.hub-agenda-status:focus {
+  opacity: 1;
+}
+.hub-agenda-status.has {
+  opacity: 1; /* 상태가 있으면 항상 노출 — 멈춘 이유는 숨기면 의미가 없다 */
+  border-color: color-mix(in srgb, var(--amber, #d97706) 45%, var(--border));
+  background: color-mix(in srgb, var(--amber, #d97706) 10%, transparent);
+  color: var(--amber, #d97706);
+}
+@media (hover: none) {
+  .hub-agenda-status {
+    opacity: 0.7;
+  }
+}
+
+/* 안건 종결 사유 폼 — ✕ 클릭 시 행 아래 펼침 */
+.hub-agenda-closeform {
+  display: flex;
+  gap: 6px;
+  padding: 4px 2px 8px 30px;
+}
+.hub-agenda-closeform input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+.hub-agenda-closeform button {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.hub-agenda-closeform button[type='submit'] {
+  background: var(--red, #e5484d);
+  color: #fff;
+}
+
 /* 안건 수동 종결 ✕ — 평소엔 흐리게, 행 호버 시 드러남 (제목 크기와 20px 그리드 유지) */
 .hub-agenda-close {
   flex: none;

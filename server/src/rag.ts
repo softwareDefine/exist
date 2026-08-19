@@ -104,6 +104,19 @@ export function indexFile(meetingId: number, fileId: number, name: string): void
   void upsertChunks(meetingId, 'file', fileId, chunks).catch(() => {});
 }
 
+/** 종결 안건 색인 — "검토했음/채택하지 않음/이유"가 몇 년 뒤 같은 아이디어 재검토 때 소환되게
+ *  (박형우 멘토: "예전에 왜 안 됐는지도 모른 채 같은 과정을 반복하는 게 문제") */
+export function indexAgendaResolution(
+  meetingId: number,
+  agendaId: number,
+  title: string,
+  note: string | null,
+): void {
+  const date = new Date().toISOString().slice(0, 10);
+  const text = `[안건 종결 ${date}] ${title} — ${note?.trim() ? `종결 사유: ${note.trim()}` : '추가 진행하지 않기로 종결 (사유 미기재)'}`;
+  void upsertChunks(meetingId, 'agenda', agendaId, [text]).catch(() => {});
+}
+
 /** 그룹 전체 재색인 — 기존 기록 백필 (원장·recap 전부 + 살아있는 편집 문서) */
 export async function reindexMeeting(meetingId: number): Promise<number> {
   const recaps = db

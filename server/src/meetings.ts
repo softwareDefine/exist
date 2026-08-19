@@ -27,7 +27,7 @@ import {
   cleanChannelName,
   setNotifyMode,
 } from './channels.js';
-import { generateAgenda, generateDecisionHistory, invalidateAgenda, ensureAgentUser, resolveAgendaItem } from './steward.js';
+import { generateAgenda, generateDecisionHistory, invalidateAgenda, ensureAgentUser, resolveAgendaItem, setAgendaStatus } from './steward.js';
 import { reindexMeeting } from './rag.js';
 import { draftHandover, publishHandover, listHandovers, ackHandover, reviewHandover, listChecklist, addChecklistItem, removeChecklistItem } from './handover.js';
 import filesRouter, { deleteMeetingFiles } from './files.js';
@@ -1664,8 +1664,23 @@ router.post('/:code/agenda/:itemId/resolve', (req: AuthedRequest, res) => {
   const itemId = Number(req.params.itemId);
   if (!Number.isInteger(itemId) || itemId <= 0)
     return res.status(400).json({ error: '잘못된 안건이에요' });
-  const done = resolveAgendaItem(r.meeting.id, itemId);
+  const note = typeof (req.body ?? {}).note === 'string' ? (req.body.note as string) : null;
+  const done = resolveAgendaItem(r.meeting.id, itemId, note);
   if (!done) return res.status(404).json({ error: '이미 종결됐거나 없는 안건이에요' });
+  res.json({ ok: true });
+});
+
+/** 안건 멈춤 상태 — 타부서 대기·승인 대기·보류 (참가자 누구나, null = 해제) */
+router.post('/:code/agenda/:itemId/status', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId <= 0)
+    return res.status(400).json({ error: '잘못된 안건이에요' });
+  const raw = (req.body ?? {}).status;
+  const status = raw == null || raw === '' ? null : String(raw);
+  const ok = setAgendaStatus(r.meeting.id, itemId, status);
+  if (!ok) return res.status(400).json({ error: '상태를 바꿀 수 없어요 (종결됐거나 잘못된 상태)' });
   res.json({ ok: true });
 });
 

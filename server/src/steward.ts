@@ -11,7 +11,7 @@ import { listDecisions, listRecaps } from './recap.js';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 // RAG 검색·색인 — steward→rag→fileai 방향 의존 (역방향 없음, 순환 안전)
-import { searchRag, indexRecap } from './rag.js';
+import { searchRag, indexRecap, indexAgendaResolution } from './rag.js';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 export const AGENT_NAME = 'exist AI';
@@ -277,6 +277,8 @@ export interface AgendaItem {
   rounds?: number;
   /** agenda_items.id — 있으면 수동 종결 가능 (규칙 폴백 안건은 미영속이라 없음) */
   id?: number;
+  /** 멈춤 상태 — waiting_dept(타부서 대기)·waiting_approval(승인 대기)·hold(보류)·null */
+  status?: string | null;
 }
 
 export interface Agenda {
@@ -301,12 +303,13 @@ interface CarryoverRow {
   title: string;
   why: string;
   rounds: number;
+  status: string | null;
 }
 
 function listCarryover(meetingId: number): CarryoverRow[] {
   return db
     .prepare(
-      `SELECT id, title, why, rounds FROM agenda_items
+      `SELECT id, title, why, rounds, status FROM agenda_items
        WHERE meeting_id = ? AND resolved = 0 ORDER BY rounds DESC, id ASC LIMIT ?`,
     )
     .all(meetingId, CARRYOVER_MAX) as CarryoverRow[];
@@ -589,6 +592,7 @@ export async function generateAgenda(meetingId: number, channelId: number): Prom
       title: c.title,
       why: c.rounds >= 2 ? `${c.rounds}회째 안건 — 아직 결론 없음` : c.why,
       rounds: c.rounds,
+      status: c.status,
     })),
     ...result.items.filter((it) => !carrySet.has(normTitle(it.title))),
   ].slice(0, 5);
@@ -606,15 +610,45 @@ export async function generateAgenda(meetingId: number, channelId: number): Prom
 }
 
 /** 안건 수동 종결 — "다음에 보시죠"로 보류된 안건이 영원히 이월되는 것을 사람이 끊는 장치.
- *  AI 정산(settleAgendaAfterRecap)과 달리 결정 대응 없이도 닫는다. */
-export function resolveAgendaItem(meetingId: number, itemId: number): boolean {
+ *  AI 정산(settleAgendaAfterRecap)과 달리 결정 대응 없이도 닫는다.
+ *  사유(선택)는 기록으로 남고 RAG 색인 — "검토했음/채택 안 함/이유"의 마지막 정리 (박형우 8/19) */
+export function resolveAgendaItem(meetingId: number, itemId: number, note?: string | null): boolean {
+  const item = db
+    .prepare('SELECT title FROM agenda_items WHERE id = ? AND meeting_id = ? AND resolved = 0')
+    .get(itemId, meetingId) as { title: string } | undefined;
+  if (!item) return false;
+  const cleanNote = note?.trim().slice(0, 200) || null;
   const r = db
     .prepare(
-      `UPDATE agenda_items SET resolved = 1, updated_at = datetime('now')
+      `UPDATE agenda_items SET resolved = 1, resolved_note = ?, updated_at = datetime('now')
        WHERE id = ? AND meeting_id = ? AND resolved = 0`,
     )
-    .run(itemId, meetingId);
-  if (r.changes > 0) invalidateAgenda(meetingId); // 10분 캐시가 닫은 안건을 되살리지 않게
+    .run(cleanNote, itemId, meetingId);
+  if (r.changes > 0) {
+    invalidateAgenda(meetingId); // 10분 캐시가 닫은 안건을 되살리지 않게
+    indexAgendaResolution(meetingId, itemId, item.title, cleanNote);
+  }
+  return r.changes > 0;
+}
+
+const AGENDA_STATUSES = ['waiting_dept', 'waiting_approval', 'hold'] as const;
+
+/** 안건 멈춤 상태 — "지금 뭘 기다리고 있는지"의 가시화 (진행/완료 이분법 탈피, 박형우 8/19).
+ *  null = 상태 없음(일반 미결) */
+export function setAgendaStatus(
+  meetingId: number,
+  itemId: number,
+  status: string | null,
+): boolean {
+  if (status !== null && !AGENDA_STATUSES.includes(status as (typeof AGENDA_STATUSES)[number]))
+    return false;
+  const r = db
+    .prepare(
+      `UPDATE agenda_items SET status = ?, updated_at = datetime('now')
+       WHERE id = ? AND meeting_id = ? AND resolved = 0`,
+    )
+    .run(status, itemId, meetingId);
+  if (r.changes > 0) invalidateAgenda(meetingId);
   return r.changes > 0;
 }
 

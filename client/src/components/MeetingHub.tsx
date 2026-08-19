@@ -1084,6 +1084,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     rounds?: number;
     /** 서버 agenda_items.id — 있으면 수동 종결 가능 */
     id?: number;
+    /** 멈춤 상태 — waiting_dept·waiting_approval·hold·null ("지금 뭘 기다리는지" 가시화) */
+    status?: string | null;
   }
   const [recentDecisions, setRecentDecisions] = useState<LedgerEntry[]>([]);
   async function ackDecisionRow(d: LedgerEntry) {
@@ -1100,14 +1102,40 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     }).catch(() => {});
   }
   const [agenda, setAgenda] = useState<AgendaItem[] | null>(null); // null = 로딩 중
-  /** 안건 수동 종결 — 보류 안건이 영원히 이월되는 것을 닫는다. 낙관 제거, 실패 시 api()가 토스트 */
-  async function closeAgendaItem(itemId: number) {
+  /** 안건 수동 종결 — 사유(선택)까지 받아서 기록·RAG에 남긴다 ("검토했음/채택 안 함/이유"의 마지막 정리).
+   *  낙관 제거, 실패 시 api()가 토스트 */
+  const [closeAgendaFor, setCloseAgendaFor] = useState<number | null>(null);
+  const [closeAgendaNote, setCloseAgendaNote] = useState('');
+  async function closeAgendaItem(itemId: number, note: string) {
+    setCloseAgendaFor(null);
+    setCloseAgendaNote('');
     setAgenda((prev) => (prev ? prev.filter((x) => x.id !== itemId) : prev));
     try {
-      await api(`/api/meetings/${code}/agenda/${itemId}/resolve`, { method: 'POST' });
-      window.dispatchEvent(new CustomEvent('app:info', { detail: '안건을 종결했어요 — 다음 회의에 올라오지 않아요' }));
+      await api(`/api/meetings/${code}/agenda/${itemId}/resolve`, {
+        method: 'POST',
+        body: { note: note.trim() || null },
+      });
+      window.dispatchEvent(
+        new CustomEvent('app:info', {
+          detail: note.trim()
+            ? '안건을 종결했어요 — 사유가 기록에 남아 나중에 같은 검토 때 찾아져요'
+            : '안건을 종결했어요 — 다음 회의에 올라오지 않아요',
+        }),
+      );
     } catch {
       /* api()가 서버 에러 토스트 처리 */
+    }
+  }
+  /** 안건 멈춤 상태 변경 — "왜 안 끝나는지"를 다른 사람이 봐도 알게 */
+  async function setAgendaItemStatus(itemId: number, status: string | null) {
+    setAgenda((prev) => (prev ? prev.map((x) => (x.id === itemId ? { ...x, status } : x)) : prev));
+    try {
+      await api(`/api/meetings/${code}/agenda/${itemId}/status`, {
+        method: 'POST',
+        body: { status },
+      });
+    } catch {
+      /* 전역 토스트 */
     }
   }
   const [rosterOpen, setRosterOpen] = useState(false); // 참가자 명함 — 기본 접힘(아바타 스택만)
@@ -1594,33 +1622,76 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                     ) : (
                       <div className="hub-agenda-list">
                         {agenda.map((a, i) => (
-                          <div key={i} className="hub-agenda-row">
-                            <span className="hub-agenda-num">{i + 1}</span>
-                            <div className="hub-agenda-body">
-                              <Marquee className="hub-agenda-title">{a.title}</Marquee>
-                              {a.why && <span className="hub-agenda-why">{a.why}</span>}
+                          <div key={i} className="hub-agenda-rowwrap">
+                            <div className="hub-agenda-row">
+                              <span className="hub-agenda-num">{i + 1}</span>
+                              <div className="hub-agenda-body">
+                                <Marquee className="hub-agenda-title">{a.title}</Marquee>
+                                {a.why && <span className="hub-agenda-why">{a.why}</span>}
+                              </div>
+                              {(a.rounds ?? 1) >= 2 && (
+                                <span
+                                  className="pipe-agenda-carry"
+                                  title="결론 없이 다시 상정된 이월 안건이에요"
+                                >
+                                  {a.rounds}회째
+                                </span>
+                              )}
+                              {agendaFromOverdue(a.title) && (
+                                <span className="pipe-agenda-late" title="지연된 할 일이 안건 후보로 승격됐어요">
+                                  지연 → 안건
+                                </span>
+                              )}
+                              {/* 멈춤 상태 — "지금 뭘 기다리는지"가 다른 사람 눈에도 보이게 */}
+                              {a.id != null && (
+                                <select
+                                  className={`hub-agenda-status${a.status ? ' has' : ''}`}
+                                  title="이 안건이 왜 멈춰 있는지 표시"
+                                  value={a.status ?? ''}
+                                  onChange={(e) =>
+                                    void setAgendaItemStatus(a.id!, e.target.value || null)
+                                  }
+                                >
+                                  <option value="">상태 없음</option>
+                                  <option value="waiting_dept">타부서 대기</option>
+                                  <option value="waiting_approval">승인 대기</option>
+                                  <option value="hold">보류</option>
+                                </select>
+                              )}
+                              {a.id != null && (
+                                <button
+                                  className="hub-agenda-close"
+                                  title="안건 종결 — 사유를 남기면 나중에 같은 검토 때 찾아져요"
+                                  onClick={() => {
+                                    setCloseAgendaNote('');
+                                    setCloseAgendaFor(closeAgendaFor === a.id ? null : a.id!);
+                                  }}
+                                >
+                                  ✕
+                                </button>
+                              )}
                             </div>
-                            {(a.rounds ?? 1) >= 2 && (
-                              <span
-                                className="pipe-agenda-carry"
-                                title="결론 없이 다시 상정된 이월 안건이에요"
+                            {/* 종결 사유 — "검토했음/채택 안 함/이유"의 마지막 정리 (선택 입력) */}
+                            {closeAgendaFor === a.id && (
+                              <form
+                                className="hub-agenda-closeform"
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  void closeAgendaItem(a.id!, closeAgendaNote);
+                                }}
                               >
-                                {a.rounds}회째
-                              </span>
-                            )}
-                            {agendaFromOverdue(a.title) && (
-                              <span className="pipe-agenda-late" title="지연된 할 일이 안건 후보로 승격됐어요">
-                                지연 → 안건
-                              </span>
-                            )}
-                            {a.id != null && (
-                              <button
-                                className="hub-agenda-close"
-                                title="안건 종결 — 다음 회의에 다시 올라오지 않아요"
-                                onClick={() => void closeAgendaItem(a.id!)}
-                              >
-                                ✕
-                              </button>
+                                <input
+                                  autoFocus
+                                  value={closeAgendaNote}
+                                  onChange={(e) => setCloseAgendaNote(e.target.value)}
+                                  placeholder="왜 진행하지 않기로 했나요? (선택 — 기록에 남아요)"
+                                  maxLength={200}
+                                />
+                                <button type="submit">종결</button>
+                                <button type="button" onClick={() => setCloseAgendaFor(null)}>
+                                  취소
+                                </button>
+                              </form>
                             )}
                           </div>
                         ))}

@@ -887,6 +887,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_agenda_items ON agenda_items(meeting_id, resolved);
 `);
 
+// 마이그레이션: 안건 종결 사유 + 멈춤 상태 (박형우 멘토 8/19 — "기각 순간부터 관리가 끊긴다",
+// "지금 뭘 기다리는지가 흐려진다". 종결 사유는 RAG 색인되어 몇 년 뒤 재검토 때 소환된다)
+try {
+  db.exec(`ALTER TABLE agenda_items ADD COLUMN resolved_note TEXT`);
+  db.exec(`ALTER TABLE agenda_items ADD COLUMN status TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 /* RAG 청크 — 결정 원장·통화 정리·문서의 임베딩 (rag.ts). @AI가 최근 창 밖의
  * 오래된 기록도 질문의 의미로 찾게 한다. embedding = Float32Array BLOB */
 db.exec(`
