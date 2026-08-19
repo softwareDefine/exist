@@ -19542,6 +19542,17 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   border-color: var(--green);
 }
 
+/* 유사 과거 종결 안내 — "예전에 이런 사유로 접었던 건" (재검토 반복 방지 신호) */
+.hub-agenda-closedbefore {
+  display: block;
+  font-size: 11.5px;
+  color: var(--amber, #d97706);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 안건 멈춤 상태 — "지금 뭘 기다리는지" 셀렉트 칩 (상태 있으면 앰버로 눈에 띔) */
 .hub-agenda-status {
   flex: none;

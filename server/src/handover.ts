@@ -3,6 +3,7 @@ import db from './db.js';
 import { notifyUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
 import { ensureAgentUser } from './steward.js';
+import { searchRag } from './rag.js';
 
 /*
  * 교대 인수인계 — 조가 끝날 때 AI가 그 조 시간대의 기록(채팅·결정·할 일)에서
@@ -119,6 +120,19 @@ export async function draftHandover(
   if (!openai || (chat.length === 0 && decisionTexts.length === 0 && undone.length === 0))
     return rule();
 
+  // RAG — 이번 조 재료와 관련된 과거 기록 (같은 설비·같은 안건의 이전 결정·종결 사유).
+  // 질의는 이번 조의 핵심 재료를 이어붙여 한 번만 임베딩. 실패해도 초안 생성엔 영향 없음
+  const ragQuery = [
+    ...undone.slice(0, 5).map((t) => t.title),
+    ...decisionTexts.slice(0, 3),
+    ...chat.slice(-5).map((c) => c.text),
+  ]
+    .join(' ')
+    .slice(0, 600);
+  const pastRelated = ragQuery.trim()
+    ? await searchRag(meetingId, ragQuery, 4).catch(() => [])
+    : [];
+
   try {
     const system =
       '너는 교대 근무 팀의 인수인계 노트를 만드는 exist의 AI 총무다. 이번 조의 기록에서 다음 조가 알아야 할 것만 추린다.\n' +
@@ -127,7 +141,8 @@ export async function draftHandover(
       '- changes: 이번 조에서 정해진 변경 사항·결정 (배경이 로그에 있으면 괄호로 한 줄 덧붙임)\n' +
       '- pending: 끝나지 않아 다음 조가 이어받아야 하는 조치 (담당이 있으면 괄호 표기)\n' +
       '- notes: 그 외 다음 조 유의사항\n' +
-      '각 항목 한국어 한 줄(80자 이내), 섹션당 최대 5개. 로그에 없는 사실·수치는 만들지 않는다 — 해당 없으면 빈 배열.';
+      '각 항목 한국어 한 줄(80자 이내), 섹션당 최대 5개. 로그에 없는 사실·수치는 만들지 않는다 — 해당 없으면 빈 배열.\n' +
+      'past_records는 과거 관련 기록이다 — 이번 조 이슈와 직접 관련된 것이 있을 때만 notes에 "(과거 기록) ..." 형태로 최대 2개 덧붙인다 (관련 없으면 무시).';
     const response = await openai.chat.completions.create({
       model: OPENAI_MODEL,
       temperature: 0.2,
@@ -141,6 +156,7 @@ export async function draftHandover(
             chat: chat.map((c) => `${c.from}: ${c.text}`),
             decisions: decisionTexts,
             undone_todos: undone.map((t) => `${t.title} (${t.author})`),
+            ...(pastRelated.length > 0 ? { past_records: pastRelated.map((r) => r.text) } : {}),
           }),
         },
       ],

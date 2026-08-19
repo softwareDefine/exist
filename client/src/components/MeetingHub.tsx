@@ -1086,6 +1086,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     id?: number;
     /** 멈춤 상태 — waiting_dept·waiting_approval·hold·null ("지금 뭘 기다리는지" 가시화) */
     status?: string | null;
+    /** 유사한 과거 종결 안건 — "예전에 이런 사유로 접었던 건" ("M/D 종결: 사유") */
+    closedBefore?: string | null;
   }
   const [recentDecisions, setRecentDecisions] = useState<LedgerEntry[]>([]);
   async function ackDecisionRow(d: LedgerEntry) {
@@ -1628,6 +1630,15 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                               <div className="hub-agenda-body">
                                 <Marquee className="hub-agenda-title">{a.title}</Marquee>
                                 {a.why && <span className="hub-agenda-why">{a.why}</span>}
+                                {/* 유사한 과거 종결 — "예전에 접었던 건" 선제 안내 (같은 검토 반복 방지) */}
+                                {a.closedBefore && (
+                                  <span
+                                    className="hub-agenda-closedbefore"
+                                    title="비슷한 안건이 과거에 종결된 적 있어요 — 그때의 사유예요"
+                                  >
+                                    ⟲ {a.closedBefore}
+                                  </span>
+                                )}
                               </div>
                               {(a.rounds ?? 1) >= 2 && (
                                 <span

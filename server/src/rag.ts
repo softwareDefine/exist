@@ -160,6 +160,60 @@ export async function reindexMeeting(meetingId: number): Promise<number> {
   return recaps.length + files.length;
 }
 
+/** 여러 그룹에 걸친 의미 검색 — DM 1:1 AI 질의용 (임베딩 1회, 그룹 경계 없이 top k) */
+export async function searchRagAcross(
+  meetingIds: number[],
+  query: string,
+  k = TOP_K,
+): Promise<{ meetingId: number; text: string; kind: string; score: number }[]> {
+  if (!openai || meetingIds.length === 0) return [];
+  const qv = await embed([query]);
+  if (!qv) return [];
+  const q = new Float32Array(qv[0]);
+  const ph = meetingIds.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `SELECT meeting_id, text, kind, embedding FROM rag_chunks WHERE meeting_id IN (${ph})`,
+    )
+    .all(...meetingIds) as { meeting_id: number; text: string; kind: string; embedding: Buffer }[];
+  return rows
+    .map((r) => ({
+      meetingId: r.meeting_id,
+      text: r.text,
+      kind: r.kind,
+      score: cosine(q, fromBlob(r.embedding)),
+    }))
+    .filter((r) => r.score >= MIN_SCORE)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k);
+}
+
+/** 새 안건 후보와 유사한 "과거 종결 안건" 탐색 — "이거 예전에 접었던 건이에요"의 선제 표시.
+ *  오탐(멀쩡한 새 안건에 과거 종결 딱지)이 미탐보다 나쁘므로 임계 0.5로 엄격하게.
+ *  반환은 titles와 같은 길이 배열 — 매칭 없으면 null */
+export async function findSimilarClosedAgenda(
+  meetingId: number,
+  titles: string[],
+): Promise<(string | null)[]> {
+  if (!openai || titles.length === 0) return titles.map(() => null);
+  const chunks = db
+    .prepare(`SELECT text, embedding FROM rag_chunks WHERE meeting_id = ? AND kind = 'agenda'`)
+    .all(meetingId) as { text: string; embedding: Buffer }[];
+  if (chunks.length === 0) return titles.map(() => null);
+  const vecs = await embed(titles);
+  if (!vecs) return titles.map(() => null);
+  return titles.map((_, i) => {
+    const q = new Float32Array(vecs[i]);
+    let best: { text: string; score: number } | null = null;
+    for (const c of chunks) {
+      const s = cosine(q, fromBlob(c.embedding));
+      if (s >= 0.5 && (!best || s > best.score)) best = { text: c.text, score: s };
+    }
+    // "[안건 종결 YYYY-MM-DD] 제목 — 사유" → 표시용으로 정리
+    return best ? best.text.replace(/^\[안건 종결 (\d{4})-(\d{2})-(\d{2})\]\s*/, '$2/$3 종결: ') : null;
+  });
+}
+
 const backfillKicked = new Set<number>();
 
 /** 의미 검색 — 질문과 가장 가까운 기록 top K. 색인이 비어 있으면 백필을 걸고 이번엔 빈 결과 */

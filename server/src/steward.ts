@@ -11,7 +11,13 @@ import { listDecisions, listRecaps } from './recap.js';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 // RAG 검색·색인 — steward→rag→fileai 방향 의존 (역방향 없음, 순환 안전)
-import { searchRag, indexRecap, indexAgendaResolution } from './rag.js';
+import {
+  searchRag,
+  searchRagAcross,
+  indexRecap,
+  indexAgendaResolution,
+  findSimilarClosedAgenda,
+} from './rag.js';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
 export const AGENT_NAME = 'exist AI';
@@ -258,7 +264,18 @@ export async function answerDmQuery(
       const me = db.prepare('SELECT username, name FROM users WHERE id = ?').get(userId) as
         | { username: string; name: string | null }
         | undefined;
-      return await aiAnswer(question, me?.name || me?.username || '사용자', ctx);
+      // RAG — 스코프 내 그룹 전체에서 의미 검색 (최근 창 밖 원장·문서·종결 안건까지)
+      const titleOf = new Map(meetings.map((m) => [m.id, m.title]));
+      const related = await searchRagAcross(
+        meetings.map((m) => m.id),
+        question,
+      ).catch(() => []);
+      return await aiAnswer(
+        question,
+        me?.name || me?.username || '사용자',
+        ctx,
+        related.map((r) => `[${titleOf.get(r.meetingId) ?? '그룹'}] ${r.text}`),
+      );
     } catch (err) {
       console.error('[steward] DM AI 실패, 규칙 폴백:', err);
     }
@@ -279,6 +296,8 @@ export interface AgendaItem {
   id?: number;
   /** 멈춤 상태 — waiting_dept(타부서 대기)·waiting_approval(승인 대기)·hold(보류)·null */
   status?: string | null;
+  /** 유사한 과거 종결 안건 — "이거 예전에 이런 사유로 접었던 건이에요" ("M/D 종결: 사유") */
+  closedBefore?: string | null;
 }
 
 export interface Agenda {
@@ -605,6 +624,17 @@ export async function generateAgenda(meetingId: number, channelId: number): Prom
     ).map((r) => [normTitle(r.title), r.id]),
   );
   result.items = result.items.map((it) => ({ ...it, id: idByTitle.get(normTitle(it.title)) }));
+  // 유사한 과거 종결 안건 표시 — "예전에 이런 사유로 접었던 건" 선제 안내 (재검토 반복 방지).
+  // RAG 실패 시 표시만 생략 — 안건 생성 자체는 영향 없음
+  try {
+    const closed = await findSimilarClosedAgenda(
+      meetingId,
+      result.items.map((it) => it.title),
+    );
+    result.items = result.items.map((it, i) => ({ ...it, closedBefore: closed[i] }));
+  } catch {
+    /* 표시 생략 */
+  }
   agendaCache.set(meetingId, result);
   return result;
 }
