@@ -1088,6 +1088,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     status?: string | null;
     /** 유사한 과거 종결 안건 — "예전에 이런 사유로 접었던 건" ("M/D 종결: 사유") */
     closedBefore?: string | null;
+    /** 그 과거 종결 안건의 id — 클릭하면 생애 타임라인 */
+    closedBeforeId?: number | null;
   }
   const [recentDecisions, setRecentDecisions] = useState<LedgerEntry[]>([]);
   async function ackDecisionRow(d: LedgerEntry) {
@@ -1128,6 +1130,38 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
       /* api()가 서버 에러 토스트 처리 */
     }
   }
+  // 안건 생애 타임라인 — 검토 시작→대기→재논의→결정→실행→완료 (제목 클릭)
+  interface AgendaTimeline {
+    item: {
+      id: number;
+      title: string;
+      why: string;
+      rounds: number;
+      status: string | null;
+      resolved: boolean;
+      resolvedNote: string | null;
+    };
+    events: { kind: string; detail: string | null; recap_id: number | null; created_at: string; actor: string | null }[];
+    decision: { recapId: number; idx: number; text: string } | null;
+    todos: { title: string; done: number }[];
+  }
+  const [atl, setAtl] = useState<AgendaTimeline | null>(null);
+  const [atlOpen, setAtlOpen] = useState(false);
+  async function openAgendaTimeline(itemId: number) {
+    setAtlOpen(true);
+    setAtl(null);
+    try {
+      setAtl(await api<AgendaTimeline>(`/api/meetings/${code}/agenda/${itemId}/timeline`, { silent: true }));
+    } catch {
+      setAtlOpen(false);
+    }
+  }
+  const ATL_STATUS_LABEL: Record<string, string> = {
+    waiting_dept: '타부서 대기',
+    waiting_approval: '승인 대기',
+    hold: '보류',
+    none: '상태 해제',
+  };
   /** 안건 멈춤 상태 변경 — "왜 안 끝나는지"를 다른 사람이 봐도 알게 */
   async function setAgendaItemStatus(itemId: number, status: string | null) {
     setAgenda((prev) => (prev ? prev.map((x) => (x.id === itemId ? { ...x, status } : x)) : prev));
@@ -1627,14 +1661,23 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                           <div key={i} className="hub-agenda-rowwrap">
                             <div className="hub-agenda-row">
                               <span className="hub-agenda-num">{i + 1}</span>
-                              <div className="hub-agenda-body">
+                              <div
+                                className={`hub-agenda-body${a.id != null ? ' clickable' : ''}`}
+                                onClick={a.id != null ? () => void openAgendaTimeline(a.id!) : undefined}
+                                title={a.id != null ? '안건 생애 타임라인 보기' : undefined}
+                              >
                                 <Marquee className="hub-agenda-title">{a.title}</Marquee>
                                 {a.why && <span className="hub-agenda-why">{a.why}</span>}
-                                {/* 유사한 과거 종결 — "예전에 접었던 건" 선제 안내 (같은 검토 반복 방지) */}
+                                {/* 유사한 과거 종결 — "예전에 접었던 건" 선제 안내. 클릭 = 그 안건의 생애 타임라인 */}
                                 {a.closedBefore && (
                                   <span
                                     className="hub-agenda-closedbefore"
-                                    title="비슷한 안건이 과거에 종결된 적 있어요 — 그때의 사유예요"
+                                    title="비슷한 안건이 과거에 종결된 적 있어요 — 클릭하면 그 안건의 타임라인"
+                                    onClick={(e) => {
+                                      if (a.closedBeforeId == null) return;
+                                      e.stopPropagation();
+                                      void openAgendaTimeline(a.closedBeforeId);
+                                    }}
                                   >
                                     ⟲ {a.closedBefore}
                                   </span>
@@ -2848,6 +2891,95 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
             document.body,
           );
         })()}
+      {/* 안건 생애 타임라인 — 검토 시작→대기→재논의→결정→실행→완료 한 줄 (박형우 멘토 프레임) */}
+      {atlOpen && (
+        <div className="cf-move-overlay" onClick={() => setAtlOpen(false)}>
+          <div className="cf-move-modal hub-atl-modal" onClick={(e) => e.stopPropagation()}>
+            {atl === null ? (
+              <div className="hub-atl-loading">타임라인을 불러오는 중…</div>
+            ) : (
+              <>
+                <div className="hub-atl-head">
+                  <b>{atl.item.title}</b>
+                  <span className="hub-atl-sub">
+                    {atl.item.resolved
+                      ? '종결된 안건'
+                      : `미결 · ${atl.item.rounds}회 상정${atl.item.status ? ` · ${ATL_STATUS_LABEL[atl.item.status] ?? ''}` : ''}`}
+                  </span>
+                </div>
+                <div className="hub-atl-list">
+                  {atl.events.map((e, i) => {
+                    const d = new Date(e.created_at + 'Z');
+                    const when = `${d.getMonth() + 1}/${d.getDate()}`;
+                    const label =
+                      e.kind === 'created' ? (
+                        <>검토 시작{e.detail ? ` — ${e.detail}` : ''}</>
+                      ) : e.kind === 'carried' ? (
+                        <>회의에서 다뤘지만 결론 없음 — 다음 회의로 이월</>
+                      ) : e.kind === 'status' ? (
+                        <>
+                          상태 변경 — <b>{ATL_STATUS_LABEL[e.detail ?? ''] ?? e.detail}</b>
+                          {e.actor ? ` (${dn(e.actor)})` : ''}
+                        </>
+                      ) : e.kind === 'resolved' ? (
+                        <>
+                          결정으로 종결 — “{e.detail}”
+                          {e.recap_id != null && (
+                            <button
+                              className="hub-atl-jump"
+                              onClick={() =>
+                                window.dispatchEvent(
+                                  new CustomEvent('exist:goto-recap', {
+                                    detail: { code, recapId: e.recap_id },
+                                  }),
+                                )
+                              }
+                            >
+                              기록 보기
+                            </button>
+                          )}
+                        </>
+                      ) : e.kind === 'closed' ? (
+                        <>
+                          수동 종결{e.detail ? ` — “${e.detail}”` : ' (사유 미기재)'}
+                          {e.actor ? ` (${dn(e.actor)})` : ''}
+                        </>
+                      ) : (
+                        <>{e.detail}</>
+                      );
+                    return (
+                      <div key={i} className={`hub-atl-row ${e.kind}`}>
+                        <span className="hub-atl-dot" />
+                        <span className="hub-atl-when">{when}</span>
+                        <span className="hub-atl-text">{label}</span>
+                      </div>
+                    );
+                  })}
+                  {/* 실행 추적 — 종결시킨 결정에서 파생된 할 일 (누가 실행했고 끝났는지) */}
+                  {atl.todos.map((t, i) => (
+                    <div key={`t${i}`} className={`hub-atl-row todo${t.done ? ' done' : ''}`}>
+                      <span className="hub-atl-dot" />
+                      <span className="hub-atl-when" />
+                      <span className="hub-atl-text">
+                        실행 {t.done ? '완료' : '진행 중'} — {t.title}
+                      </span>
+                    </div>
+                  ))}
+                  {!atl.item.resolved && (
+                    <div className="hub-atl-row open">
+                      <span className="hub-atl-dot" />
+                      <span className="hub-atl-when" />
+                      <span className="hub-atl-text dim">
+                        아직 결론 없음 — 다음 회의 안건으로 계속 올라와요
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

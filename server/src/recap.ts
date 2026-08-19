@@ -751,11 +751,19 @@ export async function runRecapForMeeting(
   // 새 recap이 생겼으니 아젠다는 다시 만들어야 함 (10분 캐시가 구재료를 물지 않게)
   invalidateAgenda(meeting.id);
   // 이월 안건 정산 — 이번 회의에서 결론 난 안건은 종결, 못 낸 안건은 rounds+1로 다음 안건에 재상정
-  void settleAgendaAfterRecap(meeting.id, {
-    summary: recap.summary,
-    // 이중 기입으로 뺀 결정도 포함 — 그 결정으로 결론 난 안건도 정산돼야 한다
-    decisions: [...recap.decisions, ...droppedDups.map((d) => d.text)],
-  }).catch((err) => console.error('[recap] 안건 정산 실패:', err));
+  void settleAgendaAfterRecap(
+    meeting.id,
+    {
+      summary: recap.summary,
+      // 결정의 원장 좌표까지 넘긴다 — 안건↔결정 명시 링크의 재료.
+      // 이중 기입으로 뺀 결정(원장에선 auto 행이 대표)도 포함 — 그 결정으로 결론 난 안건도 정산
+      decisionRefs: [
+        ...recap.decisions.map((text, i) => ({ text, recapId, idx: i })),
+        ...droppedDups.map((d) => ({ text: d.text, recapId: d.autoId, idx: 0 })),
+      ],
+    },
+    recapId,
+  ).catch((err) => console.error('[recap] 안건 정산 실패:', err));
 
   console.log(
     `[recap] ${meeting.code} 요약 저장 (${recap.source}) — 결정 ${recap.decisions.length}, 할 일 ${recap.actions.length}, 배달 ${members.length}명`,

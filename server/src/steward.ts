@@ -298,6 +298,8 @@ export interface AgendaItem {
   status?: string | null;
   /** 유사한 과거 종결 안건 — "이거 예전에 이런 사유로 접었던 건이에요" ("M/D 종결: 사유") */
   closedBefore?: string | null;
+  /** 그 과거 종결 안건의 id — 생애 타임라인 입구 */
+  closedBeforeId?: number | null;
 }
 
 export interface Agenda {
@@ -334,6 +336,25 @@ function listCarryover(meetingId: number): CarryoverRow[] {
     .all(meetingId, CARRYOVER_MAX) as CarryoverRow[];
 }
 
+/** 안건 생애 이벤트 기록 — 실패해도 본 동작엔 영향 없음 (로그는 부가물) */
+export function addAgendaEvent(
+  meetingId: number,
+  agendaId: number,
+  kind: string,
+  detail?: string | null,
+  actorId?: number | null,
+  recapId?: number | null,
+): void {
+  try {
+    db.prepare(
+      `INSERT INTO agenda_events (agenda_id, meeting_id, kind, detail, actor_id, recap_id)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(agendaId, meetingId, kind, detail?.slice(0, 300) ?? null, actorId ?? null, recapId ?? null);
+  } catch {
+    /* 이벤트 유실은 치명적이지 않음 */
+  }
+}
+
 /** AI가 새로 제안한 안건을 저장 — 이미 추적 중인 미결 안건과 같은 제목이면 스킵 */
 function persistNewAgendaItems(meetingId: number, items: AgendaItem[]) {
   const known = new Set(
@@ -346,34 +367,39 @@ function persistNewAgendaItems(meetingId: number, items: AgendaItem[]) {
   const ins = db.prepare('INSERT INTO agenda_items (meeting_id, title, why) VALUES (?, ?, ?)');
   for (const it of items) {
     if (known.has(normTitle(it.title))) continue;
-    ins.run(meetingId, it.title.slice(0, 120), it.why.slice(0, 80));
+    const info = ins.run(meetingId, it.title.slice(0, 120), it.why.slice(0, 80));
+    addAgendaEvent(meetingId, info.lastInsertRowid as number, 'created', it.why.slice(0, 120));
     known.add(normTitle(it.title));
   }
 }
 
 /** recap 생성 직후 호출 — 미결 안건 정산.
  *  결론에 이른 안건은 AI가 인덱스로만 지목(환각 방어), 나머지는 rounds+1로 이월.
- *  AI 없거나 실패하면 보수적으로 전부 이월 (틀린 종결이 미결 유실보다 나쁘다). */
+ *  AI 없거나 실패하면 보수적으로 전부 이월 (틀린 종결이 미결 유실보다 나쁘다).
+ *  decisionRefs: 이번 회의 결정들의 원장 좌표(recapId+idx — dedup으로 auto 행에 남은 결정 포함).
+ *  매칭되면 안건에 명시 링크(resolved_recap_id/idx) 저장 — 타임라인의 "이런 이유로 결정했고" 근거 */
 export async function settleAgendaAfterRecap(
   meetingId: number,
-  recap: { summary: string; decisions: string[] },
+  recap: { summary: string; decisionRefs: { text: string; recapId: number; idx: number }[] },
+  currentRecapId?: number | null,
 ): Promise<void> {
   const open = db
     .prepare('SELECT id, title FROM agenda_items WHERE meeting_id = ? AND resolved = 0')
     .all(meetingId) as { id: number; title: string }[];
   if (open.length === 0) return;
 
-  let resolvedIds: number[] = [];
-  if (openai && recap.decisions.length > 0) {
+  // {안건 id → 결정 인덱스} — AI가 어떤 결정이 어떤 안건을 닫았는지까지 지목
+  const resolvedMap = new Map<number, number>();
+  if (openai && recap.decisionRefs.length > 0) {
     try {
       const system =
         '너는 exist의 AI 총무다. 회의 안건 목록과 방금 끝난 회의의 결정을 비교해, 이번 회의에서 결론(결정)에 이른 안건을 고른다.\n' +
         '확실히 대응되는 것만 고른다 — 애매하면 고르지 않는다 (미결로 남기는 쪽이 안전).\n' +
-        '응답은 오직 JSON: {"resolved_ids": number[]} (없으면 빈 배열)';
+        '응답은 오직 JSON: {"resolved": [{"id": 안건id, "decision_idx": 그 안건을 종결시킨 결정의 배열 인덱스}]} (없으면 빈 배열)';
       const response = await openai.chat.completions.create({
         model: OPENAI_MODEL,
         temperature: 0,
-        max_tokens: 200,
+        max_tokens: 300,
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: system },
@@ -382,35 +408,60 @@ export async function settleAgendaAfterRecap(
             content: JSON.stringify({
               agenda_items: open.map((o) => ({ id: o.id, title: o.title })),
               meeting_summary: recap.summary,
-              meeting_decisions: recap.decisions,
+              meeting_decisions: recap.decisionRefs.map((d) => d.text),
             }),
           },
         ],
       });
       const raw = response.choices[0]?.message?.content ?? '';
       const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
-        resolved_ids?: unknown;
+        resolved?: unknown;
+        resolved_ids?: unknown; // 구형 응답 호환
       };
       const valid = new Set(open.map((o) => o.id));
-      resolvedIds = (Array.isArray(parsed.resolved_ids) ? parsed.resolved_ids : [])
-        .map(Number)
-        .filter((n) => valid.has(n));
+      if (Array.isArray(parsed.resolved)) {
+        for (const r of parsed.resolved as { id?: unknown; decision_idx?: unknown }[]) {
+          const id = Number(r?.id);
+          const di = Number(r?.decision_idx);
+          if (valid.has(id) && Number.isInteger(di) && di >= 0 && di < recap.decisionRefs.length)
+            resolvedMap.set(id, di);
+        }
+      } else if (Array.isArray(parsed.resolved_ids)) {
+        for (const n of parsed.resolved_ids.map(Number))
+          if (valid.has(n)) resolvedMap.set(n, -1); // 결정 특정 실패 — 종결만
+      }
     } catch (err) {
       console.error('[steward] 안건 정산 AI 실패 — 전부 이월:', err);
     }
   }
 
   const resolve = db.prepare(
-    `UPDATE agenda_items SET resolved = 1, updated_at = datetime('now') WHERE id = ?`,
+    `UPDATE agenda_items SET resolved = 1, resolved_recap_id = ?, resolved_decision_idx = ?,
+       updated_at = datetime('now') WHERE id = ?`,
   );
-  for (const id of resolvedIds) resolve.run(id);
+  for (const [id, di] of resolvedMap) {
+    const ref = di >= 0 ? recap.decisionRefs[di] : null;
+    resolve.run(ref?.recapId ?? null, ref?.idx ?? null, id);
+    addAgendaEvent(
+      meetingId,
+      id,
+      'resolved',
+      ref ? ref.text.slice(0, 200) : '회의 결정으로 종결',
+      null,
+      ref?.recapId ?? currentRecapId ?? null,
+    );
+  }
+  // 남은 미결은 이월 — "회의가 지나갔지만 결론 없음"도 생애 이벤트로 남긴다
+  const remaining = open.filter((o) => !resolvedMap.has(o.id));
   db.prepare(
     `UPDATE agenda_items SET rounds = rounds + 1, updated_at = datetime('now')
      WHERE meeting_id = ? AND resolved = 0`,
   ).run(meetingId);
-  if (resolvedIds.length > 0 || open.length > 0)
+  for (const o of remaining)
+    addAgendaEvent(meetingId, o.id, 'carried', null, null, currentRecapId ?? null);
+  if (resolvedMap.size > 0 || open.length > 0)
     console.log(
-      `[steward] 안건 정산 — 종결 ${resolvedIds.length}, 이월 ${open.length - resolvedIds.length}`,
+      `[steward] 안건 정산 — 종결 ${resolvedMap.size}, 이월 ${open.length - resolvedMap.size}`,
     );
 }
 
@@ -631,7 +682,11 @@ export async function generateAgenda(meetingId: number, channelId: number): Prom
       meetingId,
       result.items.map((it) => it.title),
     );
-    result.items = result.items.map((it, i) => ({ ...it, closedBefore: closed[i] }));
+    result.items = result.items.map((it, i) => ({
+      ...it,
+      closedBefore: closed[i]?.text ?? null,
+      closedBeforeId: closed[i]?.agendaId ?? null,
+    }));
   } catch {
     /* 표시 생략 */
   }
@@ -642,7 +697,12 @@ export async function generateAgenda(meetingId: number, channelId: number): Prom
 /** 안건 수동 종결 — "다음에 보시죠"로 보류된 안건이 영원히 이월되는 것을 사람이 끊는 장치.
  *  AI 정산(settleAgendaAfterRecap)과 달리 결정 대응 없이도 닫는다.
  *  사유(선택)는 기록으로 남고 RAG 색인 — "검토했음/채택 안 함/이유"의 마지막 정리 (박형우 8/19) */
-export function resolveAgendaItem(meetingId: number, itemId: number, note?: string | null): boolean {
+export function resolveAgendaItem(
+  meetingId: number,
+  itemId: number,
+  note?: string | null,
+  actorId?: number,
+): boolean {
   const item = db
     .prepare('SELECT title FROM agenda_items WHERE id = ? AND meeting_id = ? AND resolved = 0')
     .get(itemId, meetingId) as { title: string } | undefined;
@@ -657,6 +717,7 @@ export function resolveAgendaItem(meetingId: number, itemId: number, note?: stri
   if (r.changes > 0) {
     invalidateAgenda(meetingId); // 10분 캐시가 닫은 안건을 되살리지 않게
     indexAgendaResolution(meetingId, itemId, item.title, cleanNote);
+    addAgendaEvent(meetingId, itemId, 'closed', cleanNote, actorId ?? null);
   }
   return r.changes > 0;
 }
@@ -669,6 +730,7 @@ export function setAgendaStatus(
   meetingId: number,
   itemId: number,
   status: string | null,
+  actorId?: number,
 ): boolean {
   if (status !== null && !AGENDA_STATUSES.includes(status as (typeof AGENDA_STATUSES)[number]))
     return false;
@@ -678,7 +740,10 @@ export function setAgendaStatus(
        WHERE id = ? AND meeting_id = ? AND resolved = 0`,
     )
     .run(status, itemId, meetingId);
-  if (r.changes > 0) invalidateAgenda(meetingId);
+  if (r.changes > 0) {
+    invalidateAgenda(meetingId);
+    addAgendaEvent(meetingId, itemId, 'status', status ?? 'none', actorId ?? null);
+  }
   return r.changes > 0;
 }
 

@@ -19647,6 +19647,110 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   border-color: var(--green);
 }
 
+/* ── 안건 생애 타임라인 — 검토→대기→재논의→결정→실행→완료 한 줄 ── */
+.hub-agenda-body.clickable {
+  cursor: pointer;
+}
+.hub-agenda-body.clickable:hover .hub-agenda-title {
+  text-decoration: underline;
+}
+.hub-atl-modal {
+  max-width: 460px;
+  padding: 16px;
+}
+.hub-atl-loading {
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+.hub-atl-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+.hub-atl-head b {
+  font-size: 15px;
+  color: var(--text);
+}
+.hub-atl-sub {
+  font-size: 12px;
+  color: var(--text-sub);
+}
+.hub-atl-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 60dvh;
+  overflow-y: auto;
+}
+.hub-atl-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0 5px 2px;
+  position: relative;
+}
+.hub-atl-row + .hub-atl-row::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: -8px;
+  height: 12px;
+  width: 2px;
+  background: var(--border);
+}
+.hub-atl-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  align-self: center;
+}
+.hub-atl-row.created .hub-atl-dot {
+  background: var(--green);
+}
+.hub-atl-row.status .hub-atl-dot {
+  background: var(--amber, #d97706);
+}
+.hub-atl-row.resolved .hub-atl-dot,
+.hub-atl-row.todo.done .hub-atl-dot {
+  background: var(--green);
+}
+.hub-atl-row.closed .hub-atl-dot {
+  background: var(--red, #e5484d);
+}
+.hub-atl-when {
+  flex: none;
+  min-width: 34px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+.hub-atl-text {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+  min-width: 0;
+}
+.hub-atl-text.dim {
+  color: var(--text-sub);
+}
+.hub-atl-jump {
+  border: none;
+  background: none;
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: 6px;
+  padding: 0;
+}
+.hub-atl-jump:hover {
+  text-decoration: underline;
+}
+
 /* 유사 과거 종결 안내 — "예전에 이런 사유로 접었던 건" (재검토 반복 방지 신호) */
 .hub-agenda-closedbefore {
   display: block;

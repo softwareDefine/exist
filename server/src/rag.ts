@@ -194,23 +194,31 @@ export async function searchRagAcross(
 export async function findSimilarClosedAgenda(
   meetingId: number,
   titles: string[],
-): Promise<(string | null)[]> {
+): Promise<({ text: string; agendaId: number } | null)[]> {
   if (!openai || titles.length === 0) return titles.map(() => null);
   const chunks = db
-    .prepare(`SELECT text, embedding FROM rag_chunks WHERE meeting_id = ? AND kind = 'agenda'`)
-    .all(meetingId) as { text: string; embedding: Buffer }[];
+    .prepare(
+      `SELECT ref_id, text, embedding FROM rag_chunks WHERE meeting_id = ? AND kind = 'agenda'`,
+    )
+    .all(meetingId) as { ref_id: number; text: string; embedding: Buffer }[];
   if (chunks.length === 0) return titles.map(() => null);
   const vecs = await embed(titles);
   if (!vecs) return titles.map(() => null);
   return titles.map((_, i) => {
     const q = new Float32Array(vecs[i]);
-    let best: { text: string; score: number } | null = null;
+    let best: { text: string; agendaId: number; score: number } | null = null;
     for (const c of chunks) {
       const s = cosine(q, fromBlob(c.embedding));
-      if (s >= 0.5 && (!best || s > best.score)) best = { text: c.text, score: s };
+      if (s >= 0.5 && (!best || s > best.score))
+        best = { text: c.text, agendaId: c.ref_id, score: s };
     }
-    // "[안건 종결 YYYY-MM-DD] 제목 — 사유" → 표시용으로 정리
-    return best ? best.text.replace(/^\[안건 종결 (\d{4})-(\d{2})-(\d{2})\]\s*/, '$2/$3 종결: ') : null;
+    // "[안건 종결 YYYY-MM-DD] 제목 — 사유" → 표시용으로 정리. agendaId = 생애 타임라인 입구
+    return best
+      ? {
+          text: best.text.replace(/^\[안건 종결 (\d{4})-(\d{2})-(\d{2})\]\s*/, '$2/$3 종결: '),
+          agendaId: best.agendaId,
+        }
+      : null;
   });
 }
 

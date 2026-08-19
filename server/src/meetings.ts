@@ -1665,9 +1665,115 @@ router.post('/:code/agenda/:itemId/resolve', (req: AuthedRequest, res) => {
   if (!Number.isInteger(itemId) || itemId <= 0)
     return res.status(400).json({ error: '잘못된 안건이에요' });
   const note = typeof (req.body ?? {}).note === 'string' ? (req.body.note as string) : null;
-  const done = resolveAgendaItem(r.meeting.id, itemId, note);
+  const done = resolveAgendaItem(r.meeting.id, itemId, note, req.userId!);
   if (!done) return res.status(404).json({ error: '이미 종결됐거나 없는 안건이에요' });
   res.json({ ok: true });
+});
+
+/** 안건 생애 타임라인 — 검토 시작→대기→재논의→결정(이유)→실행→완료를 한 줄로 (참가자만).
+ *  종결된 안건도 조회 가능 — "예전에 어떻게 끝났나"가 타임라인의 존재 이유 */
+router.get('/:code/agenda/:itemId/timeline', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const item = db
+    .prepare(
+      `SELECT id, title, why, rounds, status, resolved, resolved_note,
+              resolved_recap_id, resolved_decision_idx, created_at
+       FROM agenda_items WHERE id = ? AND meeting_id = ?`,
+    )
+    .get(Number(req.params.itemId), r.meeting.id) as
+    | {
+        id: number;
+        title: string;
+        why: string;
+        rounds: number;
+        status: string | null;
+        resolved: number;
+        resolved_note: string | null;
+        resolved_recap_id: number | null;
+        resolved_decision_idx: number | null;
+        created_at: string;
+      }
+    | undefined;
+  if (!item) return res.status(404).json({ error: '없는 안건이에요' });
+
+  const events = db
+    .prepare(
+      `SELECT e.kind, e.detail, e.recap_id, e.created_at, u.username AS actor
+       FROM agenda_events e LEFT JOIN users u ON u.id = e.actor_id
+       WHERE e.agenda_id = ? ORDER BY e.id ASC`,
+    )
+    .all(item.id) as {
+    kind: string;
+    detail: string | null;
+    recap_id: number | null;
+    created_at: string;
+    actor: string | null;
+  }[];
+  // 이벤트 로그 도입(8/20) 이전에 만들어진 안건 — 기존 컬럼에서 최소 이력 합성
+  if (!events.some((e) => e.kind === 'created')) {
+    events.unshift({
+      kind: 'created',
+      detail: item.why || null,
+      recap_id: null,
+      created_at: item.created_at,
+      actor: null,
+    });
+  }
+  if (item.resolved && !events.some((e) => e.kind === 'resolved' || e.kind === 'closed')) {
+    const updated = (
+      db.prepare('SELECT updated_at FROM agenda_items WHERE id = ?').get(item.id) as
+        | { updated_at: string }
+        | undefined
+    )?.updated_at;
+    events.push({
+      kind: 'closed',
+      detail: item.resolved_note,
+      recap_id: item.resolved_recap_id,
+      created_at: updated ?? item.created_at,
+      actor: null,
+    });
+  }
+
+  // 명시 링크된 결정 텍스트 + 그 recap에서 파생된 할 일(실행 추적)
+  let decision: { recapId: number; idx: number; text: string } | null = null;
+  let todos: { title: string; done: number }[] = [];
+  if (item.resolved_recap_id != null) {
+    try {
+      const rec = db
+        .prepare('SELECT decisions FROM meeting_recaps WHERE id = ?')
+        .get(item.resolved_recap_id) as { decisions: string } | undefined;
+      const text = rec
+        ? ((JSON.parse(rec.decisions) as string[])[item.resolved_decision_idx ?? 0] ?? null)
+        : null;
+      if (text)
+        decision = {
+          recapId: item.resolved_recap_id,
+          idx: item.resolved_decision_idx ?? 0,
+          text,
+        };
+      todos = db
+        .prepare('SELECT title, done FROM todos WHERE recap_id = ? ORDER BY id')
+        .all(item.resolved_recap_id) as { title: string; done: number }[];
+    } catch {
+      /* 링크 조회 실패는 표시 생략 */
+    }
+  }
+
+  res.json({
+    item: {
+      id: item.id,
+      title: item.title,
+      why: item.why,
+      rounds: item.rounds,
+      status: item.status,
+      resolved: !!item.resolved,
+      resolvedNote: item.resolved_note,
+    },
+    events,
+    decision,
+    todos,
+  });
 });
 
 /** 안건 멈춤 상태 — 타부서 대기·승인 대기·보류 (참가자 누구나, null = 해제) */
@@ -1679,7 +1785,7 @@ router.post('/:code/agenda/:itemId/status', (req: AuthedRequest, res) => {
     return res.status(400).json({ error: '잘못된 안건이에요' });
   const raw = (req.body ?? {}).status;
   const status = raw == null || raw === '' ? null : String(raw);
-  const ok = setAgendaStatus(r.meeting.id, itemId, status);
+  const ok = setAgendaStatus(r.meeting.id, itemId, status, req.userId!);
   if (!ok) return res.status(400).json({ error: '상태를 바꿀 수 없어요 (종결됐거나 잘못된 상태)' });
   res.json({ ok: true });
 });

@@ -896,6 +896,32 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 안건↔결정 명시 링크 — AI 정산이 어느 결정으로 이 안건을 종결시켰는지
+// (텍스트 유사도 추정이 아니라 확정 링크 — 타임라인의 "이런 이유로 결정했고"가 근거를 가짐)
+try {
+  db.exec(`ALTER TABLE agenda_items ADD COLUMN resolved_recap_id INTEGER`);
+  db.exec(`ALTER TABLE agenda_items ADD COLUMN resolved_decision_idx INTEGER`);
+} catch {
+  /* 이미 존재 */
+}
+
+/* 안건 생애 이벤트 로그 — "검토 시작→대기→재논의→결정→실행→완료"를 한 줄로 꿰는 재료.
+ * append-only: created(등장) / carried(회의가 지나갔지만 결론 없음) / status(멈춤 상태 변경)
+ * / resolved(결정으로 종결, AI 정산) / closed(수동 종결). actor_id는 사람 액션만, 시스템·AI는 NULL */
+db.exec(`
+  CREATE TABLE IF NOT EXISTS agenda_events (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    agenda_id  INTEGER NOT NULL REFERENCES agenda_items(id),
+    meeting_id INTEGER NOT NULL REFERENCES meetings(id),
+    kind       TEXT NOT NULL,
+    detail     TEXT,
+    actor_id   INTEGER REFERENCES users(id),
+    recap_id   INTEGER REFERENCES meeting_recaps(id),
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_agenda_events ON agenda_events(agenda_id);
+`);
+
 /* RAG 청크 — 결정 원장·통화 정리·문서의 임베딩 (rag.ts). @AI가 최근 창 밖의
  * 오래된 기록도 질문의 의미로 찾게 한다. embedding = Float32Array BLOB */
 db.exec(`
