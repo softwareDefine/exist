@@ -17,6 +17,8 @@ import {
   ackDecision,
   markNextMeetingRegistered,
   runRecapForMeeting,
+  runFieldRecap,
+  markCallStarted,
   getRecapSource,
 } from './recap.js';
 import {
@@ -1326,6 +1328,26 @@ router.post('/:code/recaps/run', async (req: AuthedRequest, res) => {
     trigger: 'manual',
   });
   res.json({ id }); // id null = 정리할 새 기록 부족
+});
+
+/* ── 현장 녹음(TBM) — 통화 없이 대면 회의를 폰 마이크로 기록하는 두 번째 입구.
+ * 시작: 세션 창만 연다(markCallStarted). 청크 업로드는 기존 /:code/stt/audio 그대로.
+ * 종료: whisper 전사 → recap 파이프라인(원장·할일·안건 정산·RAG) 전부 통화와 동일 경로 ── */
+
+/** 현장 녹음 시작 — 세션 창 오픈 (참가자 누구나) */
+router.post('/:code/field-recording/start', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  markCallStarted(String(req.params.code).toUpperCase());
+  res.json({ ok: true });
+});
+
+/** 현장 녹음 종료 — 즉시 전사·정리. 응답은 바로 주고 진행 상태는 recap:status로 방송 */
+router.post('/:code/field-recording/finish', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  void runFieldRecap(String(req.params.code).toUpperCase(), [req.userId!]);
+  res.json({ ok: true });
 });
 
 /** 채팅 결정 수동 기록 — AI 제안 카드의 [기록] 버튼 (참가자 누구나) */

@@ -3097,6 +3097,92 @@ input:focus {
   color: #fff;
 }
 
+/* 통화 참여 옆 현장 녹음(TBM) — 초록 히어로 위 보조 버튼. 녹음 중(on)엔 빨강 */
+.hub-cta-btns {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.hub-fieldrec {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hub-fieldrec:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.hub-fieldrec:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.hub-fieldrec.on {
+  background: #e5484d;
+  border-color: #e5484d;
+}
+
+/* 현장 녹음 전역 표시줄 — 화면 어디서든 보이는 고정 알약 (탭=종료) */
+.fieldrec-pill {
+  position: fixed;
+  top: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1300;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 999px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 16px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(229, 72, 77, 0.45);
+}
+
+.fieldrec-pill:disabled {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.fieldrec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  animation: fieldrec-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes fieldrec-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* 기록 아카이브 — 현장 녹음 배지 */
+.ma-src-field {
+  color: #e5484d;
+  font-weight: 700;
+}
+
 /* ── 2단 본문 ── */
 /* ── 3단 파이프라인 — 결정의 생애주기(지난 회의 → 실행 중 → 다음 회의)를 화면 구조로 ──
  * 그리드 영역으로 배치해서 JSX 순서와 무관하게 시안 순서를 유지한다 */
@@ -21084,6 +21170,22 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
     flex: 1;
     justify-content: center;
     white-space: nowrap;
+  }
+
+  /* 통화 참여·현장 녹음 두 버튼이 한 줄을 나눠 쓴다 */
+  .hub-hero-cta .hub-cta-btns {
+    flex: 1;
+  }
+
+  .hub-hero-cta .hub-fieldrec {
+    flex: 1;
+    justify-content: center;
+  }
+
+  /* 모바일 상단은 알림바가 없으니 알약을 하단 안전영역 위로 */
+  .fieldrec-pill {
+    top: auto;
+    bottom: calc(78px + env(safe-area-inset-bottom));
   }
 
   /* 할 일 "추가" 버튼 — 40px 고정폭이면 글자가 세로로 깨짐 */

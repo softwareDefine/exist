@@ -23,6 +23,7 @@ import {
   SearchIcon,
 } from './Icons';
 import { getSocket } from '../lib/socket';
+import { useFieldRec, stopFieldRecording } from '../lib/fieldRecording';
 import { useOrgStore } from '../orgStore';
 import { dueBadge } from '../lib/due';
 import { useDisplayName } from '../names';
@@ -37,6 +38,34 @@ function SearchButton() {
     >
       <SearchIcon size={17} />
     </button>
+  );
+}
+
+/** 현장 녹음(TBM) 전역 표시줄 — 녹음 켜놓고 어느 화면을 돌아다녀도 잃어버리지 않게.
+ *  position:fixed portal이라 nowbar 레이아웃과 무관. 탭하면 종료(=정리 시작) */
+function FieldRecPill() {
+  const rec = useFieldRec();
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!rec.startedAt) return;
+    const t = window.setInterval(() => tick((n) => n + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [rec.startedAt]);
+  if (!rec.code || !rec.startedAt) return null;
+  const sec = Math.max(0, Math.floor((Date.now() - rec.startedAt) / 1000));
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+  const ss = String(sec % 60).padStart(2, '0');
+  return createPortal(
+    <button
+      className="fieldrec-pill"
+      disabled={rec.finishing}
+      onClick={() => void stopFieldRecording()}
+      title="탭하면 녹음을 마치고 AI가 정리를 시작해요"
+    >
+      <i className="fieldrec-dot" />
+      {rec.finishing ? '정리 요청 중…' : `현장 녹음 ${mm}:${ss} · 종료`}
+    </button>,
+    document.body,
   );
 }
 
@@ -1140,6 +1169,7 @@ function NowBar({
         avatar={avatar}
         onAvatarChange={setAvatar}
       />
+      <FieldRecPill />
     </header>
   );
 }

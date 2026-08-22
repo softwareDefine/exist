@@ -23,6 +23,8 @@ interface Recap {
   actions: RecapAction[];
   attendees: string[];
   source: string;
+  /** 'field'=현장 녹음(TBM) 정리 — 통화·채팅 기록과 배지로 구분 */
+  origin?: string | null;
   ts: number;
   /** 이 회의 동안 열람·편집된 문서 — 회의↔공동편집 다리 */
   files?: { id: number; name: string; type: string }[];
@@ -196,6 +198,7 @@ export default function MeetingArchive({
                             <ListIcon size={11} /> {r.actions.length}
                           </b>
                         )}
+                        {r.origin === 'field' && <i className="ma-src-field">현장 녹음</i>}
                         <i>{SRC_LABEL[r.source] ?? r.source}</i>
                       </span>
                     </button>

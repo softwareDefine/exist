@@ -18,8 +18,10 @@ import MentionInput, { type MentionCandidate } from './MentionInput';
 import { togglePin, isPinned, PINS_EVENT } from '../lib/pins';
 import { dueBadge } from '../lib/due';
 import { useDisplayName } from '../names';
+import { useFieldRec, startFieldRecording, stopFieldRecording } from '../lib/fieldRecording';
 import {
   PhoneIcon,
+  MicIcon,
   CalendarIcon,
   ChatIcon,
   GridIcon,
@@ -234,6 +236,29 @@ const PIP_TILE_W = 320;
 const PIP_TILE_H = 180;
 
 /** 회의 탭 = 대시보드(메인) + 통화/채팅 서브탭 */
+/** 현장 녹음(TBM) 버튼 — 통화 참여 옆의 두 번째 회의 입구.
+ *  원격이면 통화, 모여 있으면 녹음 — 종료하면 whisper 전사 후 통화와 같은 정리 경로를 탄다 */
+function FieldRecButton({ code }: { code: string }) {
+  const rec = useFieldRec();
+  const mine = rec.code === code;
+  const busy = rec.finishing || (rec.code !== null && !mine);
+  return (
+    <button
+      className={'hub-fieldrec' + (mine ? ' on' : '')}
+      disabled={busy}
+      onClick={() => (mine ? void stopFieldRecording() : void startFieldRecording(code))}
+      title={
+        mine
+          ? '녹음을 마치면 AI가 정리해 기록·원장에 올려요'
+          : '대면 회의(TBM)를 폰 마이크로 기록 — 끝나면 통화처럼 자동 정리돼요'
+      }
+    >
+      <MicIcon size={16} />
+      {rec.finishing && mine ? '정리 요청 중…' : mine ? '녹음 종료' : '현장 녹음'}
+    </button>
+  );
+}
+
 function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }: Props) {
   const user = useAuthStore((s) => s.user);
   const presence = usePresence();
@@ -1481,9 +1506,12 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                     ) : (
                       <span className="hub-hero-idle">대기 중</span>
                     )}
-                    <button className="hub-join lg" onClick={joinCall}>
-                      <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여'}
-                    </button>
+                    <div className="hub-cta-btns">
+                      <button className="hub-join lg" onClick={joinCall}>
+                        <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여'}
+                      </button>
+                      <FieldRecButton code={detail.code} />
+                    </div>
                   </div>
                 </section>
 

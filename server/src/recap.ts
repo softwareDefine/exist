@@ -335,6 +335,8 @@ export interface RecapRow {
   attendees: string[];
   nextMeeting: NextMeeting | null;
   source: string;
+  /** 'field'=현장 녹음(TBM) 정리 — 통화·채팅 기록(null)과 배지로 구분 */
+  origin: string | null;
   ts: number;
   /** 이 기록이 열린 일정 이벤트 — 즉석 회의면 null */
   eventId: number | null;
@@ -370,7 +372,7 @@ function parseAlts(raw: string | null, count: number): string[][] {
 export function listRecaps(meetingId: number, limit = 20): RecapRow[] {
   const rows = db
     .prepare(
-      `SELECT id, summary, decisions, whys, alts, actions, attendees, next_meeting, source, created_at, event_id, files
+      `SELECT id, summary, decisions, whys, alts, actions, attendees, next_meeting, source, origin, created_at, event_id, files
        FROM meeting_recaps WHERE meeting_id = ? ORDER BY id DESC LIMIT ?`,
     )
     .all(meetingId, limit) as {
@@ -383,6 +385,7 @@ export function listRecaps(meetingId: number, limit = 20): RecapRow[] {
     attendees: string;
     next_meeting: string | null;
     source: string;
+    origin: string | null;
     created_at: string;
     event_id: number | null;
     files: string | null;
@@ -399,6 +402,7 @@ export function listRecaps(meetingId: number, limit = 20): RecapRow[] {
       attendees: JSON.parse(r.attendees),
       nextMeeting: r.next_meeting ? (JSON.parse(r.next_meeting) as NextMeeting) : null,
       source: r.source,
+      origin: r.origin ?? null,
       ts: new Date(r.created_at + 'Z').getTime(),
       eventId: r.event_id ?? null,
       files: r.files ? (JSON.parse(r.files) as { id: number; name: string; type: string }[]) : [],
@@ -415,9 +419,11 @@ export function listRecaps(meetingId: number, limit = 20): RecapRow[] {
 export async function runRecapForMeeting(
   code: string,
   sessionUserIds: number[],
-  opts: { trigger?: 'call' | 'manual' } = {},
+  opts: { trigger?: 'call' | 'manual' | 'field' } = {},
 ): Promise<number | null> {
   const trigger = opts.trigger ?? 'call';
+  // 'field'(현장 녹음)는 통화와 같은 세션 의미론 — 세션 창·whisper 전사·세션 소비를 공유한다
+  const isSession = trigger !== 'manual';
   const meeting = db
     .prepare('SELECT id, code, title, org_id FROM meetings WHERE code = ?')
     .get(code.toUpperCase()) as
@@ -439,7 +445,7 @@ export async function runRecapForMeeting(
   // 통화 전사와 섞여 엉뚱한 결론이 나오는 것 방지. 통화 직전 맥락 공유까지는 재료로
   // 인정 (시작 10분 전부터). 수동 "지금 정리하기"는 기존 창(지난 정리 이후) 유지
   const callStart =
-    trigger === 'call'
+    isSession
       ? ((
           db.prepare('SELECT call_started_at AS t FROM meetings WHERE id = ?').get(meeting.id) as
             | { t: string | null }
@@ -457,7 +463,7 @@ export async function runRecapForMeeting(
 
   // 통화 원음 청크가 쌓여 있으면 먼저 whisper 재전사 — 아래 voiceMsgs가 whisper 행을 우선 쓴다.
   // 실패해도 Web Speech 기록으로 폴백되므로 recap 자체는 계속 간다
-  if (trigger === 'call') {
+  if (isSession) {
     try {
       await transcribeMeetingAudio(meeting.id);
     } catch (e) {
@@ -559,12 +565,16 @@ export async function runRecapForMeeting(
             members.map((m) => m.username),
           );
           const said = msgs.map((m) => `${m.from}: "${m.text.trim()}"`).join(' · ');
-          return { ...r, summary: `짧은 통화 — ${said}`.slice(0, 160) };
+          return { ...r, summary: `${trigger === 'field' ? '짧은 현장 녹음' : '짧은 통화'} — ${said}`.slice(0, 160) };
         })()
       : await extractRecap(
           msgs,
           members.map((m) => m.username),
-          docContext || undefined,
+          // 현장 녹음은 마이크 하나 — 발화가 전부 녹음자 이름으로 찍히므로 담당자 오지정 방어
+          (trigger === 'field'
+            ? `(안내) 이 재료는 현장 녹음(단일 마이크) 전사라 화자가 구분되지 않는다. 발언 앞의 이름은 녹음자일 뿐 실제 화자가 아닐 수 있다 — 할 일 담당자는 대화에서 이름이 명시적으로 불린 경우에만 지정하고, 아니면 null로 둔다.` +
+              (docContext ? `\n${docContext}` : '')
+            : docContext) || undefined,
         );
 
   // ── 실시간 감지(자동 기록)와의 이중 기입 방지 ──
@@ -621,7 +631,7 @@ export async function runRecapForMeeting(
     recap.actions.length === 0
   ) {
     console.log('[recap] 짧은 통화 — 발언 전부가 자동 기록에 있음, recap 생략');
-    if (trigger === 'call')
+    if (isSession)
       db.prepare('UPDATE meetings SET call_started_at = NULL WHERE id = ?').run(meeting.id); // 세션 소비
     return droppedDups[0].autoId; // 이 세션의 기록 = 자동 기록 (status는 done으로)
   }
@@ -642,13 +652,13 @@ export async function runRecapForMeeting(
       .map((e) => ({ id: e.id, diff: e.time ? Math.abs(toMin(e.time) - toMin(nowHm)) : 12 * 60 }))
       .sort((a, b) => a.diff - b.diff)[0]?.id ?? null;
 
-  if (trigger === 'call')
+  if (isSession)
     db.prepare('UPDATE meetings SET call_started_at = NULL WHERE id = ?').run(meeting.id); // 세션 소비
 
   const info = db
     .prepare(
-      `INSERT INTO meeting_recaps (meeting_id, summary, decisions, whys, alts, actions, attendees, next_meeting, source, event_id, files)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO meeting_recaps (meeting_id, summary, decisions, whys, alts, actions, attendees, next_meeting, source, event_id, files, origin)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       meeting.id,
@@ -662,6 +672,7 @@ export async function runRecapForMeeting(
       recap.source,
       eventId,
       touchedFiles.length > 0 ? JSON.stringify(touchedFiles) : null,
+      trigger === 'field' ? 'field' : null,
     );
   const recapId = info.lastInsertRowid as number;
 
@@ -1081,6 +1092,24 @@ export function scheduleRecap(code: string, sessionUserIds: number[]) {
       });
   }, GRACE_MS);
   pending.set(key, timer);
+}
+
+/** 현장 녹음(TBM) 종료 → 즉시 정리. 통화의 scheduleRecap과 달리 유예(재입장 대기)가
+ *  필요 없어 바로 돈다 — whisper 전사가 포함되니 수십 초 걸릴 수 있고, 그동안
+ *  참가자에겐 'generating' 상태가 방송된다 (통화 recap과 같은 스피너·토스트 동선) */
+export async function runFieldRecap(code: string, sessionUserIds: number[]): Promise<number | null> {
+  const key = code.toUpperCase();
+  cancelScheduledRecap(key); // 혹시 걸려 있던 통화 유예와 충돌 방지
+  emitRecapStatus(key, 'generating');
+  try {
+    const recapId = await runRecapForMeeting(key, sessionUserIds, { trigger: 'field' });
+    emitRecapStatus(key, recapId == null ? 'skipped' : 'done');
+    return recapId;
+  } catch (err) {
+    console.error('[recap] 현장 녹음 정리 실패:', err);
+    emitRecapStatus(key, 'done');
+    return null;
+  }
 }
 
 /** 통화 방이 다시 생기면(재입장) 예약된 요약 취소 — 세션이 이어진 것으로 본다 */
