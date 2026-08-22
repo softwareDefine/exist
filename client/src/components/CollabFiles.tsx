@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
 import { parseHwpx, type HwpxBlock, type HwpxRun } from '../lib/hwpx';
+import { parseHwp, looksLikeHwp } from '../lib/hwp';
 import { useAuthStore } from '../store';
 import { useDisplayName } from '../names';
 import CodeDocEditor from './CodeDocEditor';
@@ -204,7 +205,7 @@ function fmtDate(iso: string | undefined): string {
     : `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
 }
 
-/* ── 업로드 파일 인앱 미리보기 — 이미지·PDF·영상·음성·텍스트·한글(hwpx)은 앱 안에서 바로 연다 ── */
+/* ── 업로드 파일 인앱 미리보기 — 이미지·PDF·영상·음성·텍스트·한글(hwpx·hwp)은 앱 안에서 바로 연다 ── */
 type ViewKind = 'image' | 'pdf' | 'video' | 'audio' | 'text' | 'hwpx' | 'other';
 function viewKindOf(name: string): ViewKind {
   const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
@@ -212,7 +213,7 @@ function viewKindOf(name: string): ViewKind {
   if (ext === 'pdf') return 'pdf';
   if (['mp4', 'webm', 'mov', 'm4v', 'mkv', 'ogv', '3gp'].includes(ext)) return 'video';
   if (['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac', 'opus', 'weba', 'oga'].includes(ext)) return 'audio';
-  if (ext === 'hwpx') return 'hwpx';
+  if (ext === 'hwpx' || ext === 'hwp') return 'hwpx';
   if (
     ['txt', 'md', 'csv', 'log', 'json', 'js', 'ts', 'tsx', 'jsx', 'py', 'c', 'cpp', 'h', 'java', 'sql', 'yml', 'yaml', 'xml', 'html', 'css', 'sh', 'ini', 'conf', 'toml'].includes(ext)
   )
@@ -244,11 +245,13 @@ function TextPreview({ url }: { url: string }) {
   );
 }
 
-/* ── 한글(hwpx) 미리보기 — OWPML zip에서 문단·표·이미지를 추출해 읽기 전용 렌더.
- * 제조 현업 격차 대응: 품의서·공문류가 hwp로 도는 환경. 구형 .hwp(바이너리)는 미지원 ──
- * 파싱 로직은 lib/hwpx.ts(순수 함수)로 분리 — 섹션 발견(spine→글롭→전수 탐색)·
- * 네임스페이스 변형·인코딩·런 서식(charPr)·정렬(paraPr)·셀 병합/폭/배경·
- * 서식 없는 텍스트 폴백까지 그쪽에서 처리. 이미지 바이트→블롭 URL 변환만 여기 책임 */
+/* ── 한글(hwpx·hwp) 미리보기 — 읽기 전용 렌더.
+ * 제조 현업 격차 대응: 품의서·공문류가 한글 문서로 도는 환경.
+ * hwpx(OWPML zip): lib/hwpx.ts — 섹션 발견·네임스페이스 변형·인코딩·런 서식(charPr)·
+ * 정렬(paraPr)·셀 병합/폭/배경·서식 없는 텍스트 폴백까지. 문단·표·이미지 전부.
+ * 구형 hwp(OLE 바이너리): lib/hwp.ts — 문단 텍스트만(서식·표 구조·이미지 미지원,
+ * 셀 텍스트는 읽기 순서대로). 바이트 매직으로 구분하니 확장자가 틀려도 맞는 파서를 탄다.
+ * 이미지 바이트→블롭 URL 변환만 여기 책임 */
 
 /** 런 서식 → 인라인 스타일. 색 지정이 없으면 상속(var(--text)) */
 function hwpxRunStyle(r: HwpxRun): CSSProperties | undefined {
@@ -329,6 +332,13 @@ function HwpxPreview({ url }: { url: string }) {
     (async () => {
       try {
         const buf = await (await fetch(url)).arrayBuffer();
+        // 구형 hwp(OLE 컨테이너)는 바이너리 파서로 — 텍스트 문단만 나온다
+        if (looksLikeHwp(new Uint8Array(buf))) {
+          const blocks = await parseHwp(new Uint8Array(buf));
+          if (!alive) return;
+          setState({ blocks, imgUrls: new Map() });
+          return;
+        }
         const { default: JSZip } = await import('jszip');
         const zip = await JSZip.loadAsync(buf);
         // 파서가 볼 만한 엔트리만 추려 바이트로 넘긴다
@@ -370,7 +380,7 @@ function HwpxPreview({ url }: { url: string }) {
   if (state === 'error' || state.blocks.length === 0)
     return (
       <div className="cf-viewer-loading">
-        내용을 추출하지 못했어요 — 구형 .hwp이거나 지원하지 않는 구조예요. 다운로드로 확인해주세요.
+        내용을 추출하지 못했어요 — 암호가 걸렸거나 지원하지 않는 구조예요. 다운로드로 확인해주세요.
       </div>
     );
   return (
