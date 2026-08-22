@@ -12335,12 +12335,15 @@ input:focus {
 }
 .cf-hwpx {
   /* A4 고정(210×297mm) — 창 폭 따라 종이가 늘어나지 않게. 한글 기본 여백(상하 20·좌우 30mm).
+   * 여백은 변수로 — 페이지네이션의 본문 높이 실측(cf-hwpx-cap)이 같은 값을 쓴다.
    * 뷰포트가 종이보다 좁으면 부모(.cf-viewer-body.hwpx overflow:auto)가 가로 스크롤로 받는다 */
+  --hwpx-pv: 20mm;
+  --hwpx-ph: 30mm;
   width: 210mm;
   min-height: 297mm;
   box-sizing: border-box;
   margin: 18px auto;
-  padding: 20mm 30mm;
+  padding: var(--hwpx-pv) var(--hwpx-ph);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -12352,9 +12355,43 @@ input:focus {
  * 종이 폭 자체는 유지(가로 스크롤) — 표·서식 문서의 배치가 틀어지지 않게 */
 @media (max-width: 860px) {
   .cf-hwpx {
+    --hwpx-pv: 12mm;
+    --hwpx-ph: 14mm;
     margin: 10px auto;
-    padding: 12mm 14mm;
   }
+}
+/* 페이지네이션 측정용 — 화면 밖에서 같은 서식으로 흘려놓고 블록 높이만 잰다 */
+.cf-hwpx-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  left: -99999px;
+  top: 0;
+}
+.cf-hwpx-cap {
+  /* 한 장의 본문 높이 프로브 — A4에서 상하 여백을 뺀 값 */
+  position: absolute;
+  width: 0;
+  height: calc(297mm - var(--hwpx-pv) * 2);
+}
+.cf-hwpx-page {
+  height: 297mm; /* 진짜 한 장 — 넘치는 블록은 분할이 다음 장으로 보냈다 */
+  overflow: hidden;
+  margin-bottom: 0;
+}
+.cf-hwpx-page.cf-hwpx-tall {
+  /* 블록 하나(긴 표 등)가 한 장보다 큰 예외 — 자르면 내용을 잃으니 이 장만 늘린다 */
+  height: auto;
+  min-height: 297mm;
+  overflow: visible;
+}
+.cf-hwpx-pageno {
+  width: 210mm;
+  margin: 6px auto 16px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.45;
 }
 .cf-hwpx p {
   margin: 0 0 10px;

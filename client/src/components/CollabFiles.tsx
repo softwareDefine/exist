@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { api } from '../api';
 import { getSocket } from '../lib/socket';
 import { parseHwpx, type HwpxBlock, type HwpxRun } from '../lib/hwpx';
@@ -322,6 +322,100 @@ function HwpxBlocks({ blocks, imgUrls }: { blocks: HwpxBlock[]; imgUrls: Map<Hwp
   );
 }
 
+/** A4 페이지네이션 — 숨긴 컨테이너에서 블록 높이를 실측해 본문 높이(297mm−상하 여백)로
+ * 그리디 분할, 장마다 종이 카드로 렌더. 블록 하나가 한 장보다 크면(긴 표 등) 그 장만
+ * 늘어난다(잘라서 내용을 잃는 것보다 비율 깨짐이 낫다). 여백은 CSS 변수(--hwpx-pv)라
+ * 모바일 축소 여백도 실측에 자동 반영. 이미지가 있으면 로드 후 측정. */
+function HwpxPaged({ blocks, imgUrls }: { blocks: HwpxBlock[]; imgUrls: Map<HwpxBlock, string> }) {
+  // img 블록인데 블롭 URL이 없으면 렌더가 null이라 측정 인덱스가 어긋난다 — 미리 걸러 1:1 보장
+  const items = useMemo(
+    () => blocks.filter((b) => b.kind !== 'img' || imgUrls.has(b)),
+    [blocks, imgUrls],
+  );
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [pages, setPages] = useState<{ items: HwpxBlock[]; tall: boolean }[] | null>(null);
+
+  useLayoutEffect(() => {
+    setPages(null); // 블록이 바뀌면 재측정
+  }, [items]);
+
+  useLayoutEffect(() => {
+    if (pages !== null) return;
+    const el = measureRef.current;
+    if (!el) return;
+    let alive = true;
+    const run = () => {
+      if (!alive || !measureRef.current) return;
+      const root = measureRef.current;
+      const kids = Array.from(root.children) as HTMLElement[];
+      const cap = kids[0]?.getBoundingClientRect().height ?? 0; // 프로브 = 한 장의 본문 높이
+      const els = kids.slice(1);
+      if (cap <= 0 || els.length !== items.length) {
+        setPages([{ items, tall: true }]); // 측정 불능 — 한 장에 흘려보내는 기존 동작으로 강등
+        return;
+      }
+      const rootTop = root.getBoundingClientRect().top;
+      const tops = els.map((c) => c.getBoundingClientRect().top - rootTop);
+      const bottom = root.scrollHeight;
+      // 인접 블록 top 차이로 높이를 잡아 문단 margin까지 자연 포함
+      const heights = els.map((_c, i) => (i < els.length - 1 ? tops[i + 1] - tops[i] : bottom - tops[i]));
+      const eps = 1;
+      const out: { items: HwpxBlock[]; tall: boolean }[] = [];
+      let page: HwpxBlock[] = [];
+      let acc = 0;
+      for (let i = 0; i < items.length; i++) {
+        if (page.length > 0 && acc + heights[i] > cap + eps) {
+          out.push({ items: page, tall: acc > cap + eps });
+          page = [];
+          acc = 0;
+        }
+        page.push(items[i]);
+        acc += heights[i];
+      }
+      if (page.length > 0) out.push({ items: page, tall: acc > cap + eps });
+      setPages(out);
+    };
+    // 이미지가 있으면 로드를 기다렸다 측정 — 높이 0으로 재면 분할이 틀어진다
+    const imgs = Array.from(el.querySelectorAll('img')).filter((im) => !im.complete);
+    if (imgs.length === 0) run();
+    else {
+      let left = imgs.length;
+      const done = () => {
+        if (--left === 0) run();
+      };
+      imgs.forEach((im) => {
+        im.addEventListener('load', done, { once: true });
+        im.addEventListener('error', done, { once: true });
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [pages, items]);
+
+  if (pages === null)
+    return (
+      <div ref={measureRef} className="cf-hwpx cf-hwpx-measure" aria-hidden>
+        <div className="cf-hwpx-cap" />
+        <HwpxBlocks blocks={items} imgUrls={imgUrls} />
+      </div>
+    );
+  return (
+    <>
+      {pages.map((p, i) => (
+        <div key={i}>
+          <div className={'cf-hwpx cf-hwpx-page' + (p.tall ? ' cf-hwpx-tall' : '')}>
+            <HwpxBlocks blocks={p.items} imgUrls={imgUrls} />
+          </div>
+          <div className="cf-hwpx-pageno">
+            {i + 1} / {pages.length}
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
+
 function HwpxPreview({ url }: { url: string }) {
   const [state, setState] = useState<
     'loading' | 'error' | { blocks: HwpxBlock[]; imgUrls: Map<HwpxBlock, string> }
@@ -383,11 +477,7 @@ function HwpxPreview({ url }: { url: string }) {
         내용을 추출하지 못했어요 — 암호가 걸렸거나 지원하지 않는 구조예요. 다운로드로 확인해주세요.
       </div>
     );
-  return (
-    <div className="cf-hwpx">
-      <HwpxBlocks blocks={state.blocks} imgUrls={state.imgUrls} />
-    </div>
-  );
+  return <HwpxPaged blocks={state.blocks} imgUrls={state.imgUrls} />;
 }
 
 /** 실행 취소 스택 항목 — 역연산 클로저 (삭제는 복구 불가라 스택에 안 쌓음) */
