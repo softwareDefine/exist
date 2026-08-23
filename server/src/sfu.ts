@@ -209,6 +209,15 @@ export function attachSfu(io: Server) {
       try {
         room = await getOrCreateRoom(code);
         const userId = socket.data.userId as number;
+        // 유령 피어 청소 — disconnect 신호가 유실된(탭 강제종료 등) 죽은 소켓의 피어가
+        // 방 목록에 남아 "같은 사람이 두 명"으로 보이는 것 방지. 입장 시점마다 정리
+        for (const [sid, stale] of [...room.peers]) {
+          if (io.sockets.sockets.get(sid)) continue; // 소켓이 살아 있으면 정상 참가자
+          for (const t of stale.transports.values()) t.close();
+          room.peers.delete(sid);
+          io.to(`room:${room.code}`).emit('peer:left', { peerId: sid });
+          console.log(`[sfu] 유령 피어 정리 — ${stale.username} (${sid})`);
+        }
         if (room.locked && userId !== room.hostUserId) {
           room = null;
           return ack({ error: '호스트가 회의를 잠갔습니다' });
