@@ -19752,9 +19752,16 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 /* ── 개정 발행 모달 — 근거 결정 선택 (결정↔문서 다리) ── */
 .cf-revise-modal {
   max-width: 480px;
+  max-height: min(560px, 85dvh);
 }
 .cf-revise-basis {
   padding: 12px 16px 4px;
+  /* 결정이 쌓이면 목록만 스크롤 — 안 그러면 부모 overflow:hidden이 하단 버튼까지 잘라먹는다 */
+  overflow-y: auto;
+  min-height: 0;
+}
+.cf-revise-actions {
+  flex: none; /* 목록이 길어도 취소·발행 버튼은 항상 보인다 */
 }
 .cf-revise-basis-t {
   font-size: 12px;
