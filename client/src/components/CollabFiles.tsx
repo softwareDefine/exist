@@ -4676,7 +4676,8 @@ export default function CollabFiles({
               </button>
             </div>
             {/* 회람 상태 카드 — 실시간 현황·서명 (요청/해제·개정 발행은 아래 "관리"로) */}
-            {selected.type !== 'folder' && selected.ack_required && (
+            {/* !! 필수 — ack_required는 숫자(0/1)라 && 그대로 두면 React가 "0"을 그린다 */}
+            {selected.type !== 'folder' && !!selected.ack_required && (
               <div className="cf-ack">
                 {/* 회람 현황 — "확인 서명 수/대상 수" (전원 완료 초록 · 미완 빨강, ackdot 색 문법) */}
                 <div className="cf-ack-head">
