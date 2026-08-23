@@ -16837,6 +16837,23 @@ html:not(.dark) .meeting-controls .leave:hover {
 }
 
 /* 라이브 자막 — 통화 화면 하단 중앙. 발화자별 줄로 쌓임(동시 발화) */
+/* 자막 인식 중단 경고 — 조용한 실패를 보이게 (내 발화가 기록에서 빠지는 중) */
+.call-stt-warn {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  z-index: 7;
+  background: rgba(229, 72, 77, 0.92);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 6px 14px;
+  max-width: min(90%, 560px);
+  text-align: center;
+}
+
 .call-captions {
   position: absolute;
   left: 50%;

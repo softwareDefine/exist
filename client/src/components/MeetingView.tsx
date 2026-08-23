@@ -349,6 +349,8 @@ export default function MeetingView({
   const [locked, setLocked] = useState(false);
   // 음성 전사(STT) — 내 발화를 브라우저가 전사해 서버로 (recap·결정 원장·AI 총무 근거)
   const [sttOn, setSttOn] = useState(true);
+  /** 자막 인식 오류 — 조용한 실패 대신 화면에 (null=정상) */
+  const [sttError, setSttError] = useState<string | null>(null);
   // 발화자별 자막 — 여러 명이 동시에 말하면 줄로 쌓아서 함께 표시 (최근 발화 순)
   const [captions, setCaptions] = useState<
     Record<string, { text: string; interim?: boolean; ts: number }>
@@ -1046,7 +1048,7 @@ export default function MeetingView({
       interimResults: boolean;
       onresult: ((e: SttEvent) => void) | null;
       onend: (() => void) | null;
-      onerror: (() => void) | null;
+      onerror: ((e: { error?: string }) => void) | null;
       start(): void;
       stop(): void;
     }
@@ -1058,6 +1060,7 @@ export default function MeetingView({
     rec.interimResults = true;
     let lastInterim = 0;
     rec.onresult = (e) => {
+      setSttError(null); // 인식이 실제로 돌고 있음 — 경고 내림
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const r = e.results[i];
@@ -1086,8 +1089,21 @@ export default function MeetingView({
         }
       }
     };
-    rec.onerror = () => {
-      /* no-speech 등 — onend에서 재시작 */
+    rec.onerror = (e) => {
+      // no-speech·aborted는 정상 흐름 (침묵·재시작) — 그 외는 사용자에게 보인다.
+      // 조용히 삼키면 "자막이 그냥 안 뜨는" 미스터리가 된다 (8/24 실사용 디버깅)
+      const code = e?.error ?? 'unknown';
+      if (code !== 'no-speech' && code !== 'aborted') {
+        const label =
+          code === 'not-allowed' || code === 'service-not-allowed'
+            ? '마이크 권한이 막혀 있어요 — 주소창 자물쇠에서 마이크 허용'
+            : code === 'network'
+              ? '음성인식 서버에 연결할 수 없어요 — 네트워크/방화벽 확인'
+              : code === 'audio-capture'
+                ? '음성인식이 마이크를 열지 못했어요'
+                : `음성인식 오류 (${code})`;
+        setSttError(label);
+      }
     };
     try {
       rec.start();
@@ -2168,6 +2184,10 @@ export default function MeetingView({
           )}
         </div>
 
+        {/* 자막 인식 경고 — 내 인식이 죽어 있으면 내 발화가 아무에게도 자막·기록으로 안 남는다 */}
+        {sttError && sttOn && micOn && phase === 'live' && (
+          <div className="call-stt-warn">CC 자막 중단: {sttError}</div>
+        )}
         {/* 라이브 자막 — 발화자별로 쌓임(동시 발화 지원, 먼저 말한 순 위→아래, 최대 3명) */}
         {Object.keys(captions).length > 0 && (
           <div className="call-captions">
