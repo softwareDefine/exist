@@ -14314,7 +14314,7 @@ button.cf-home-fold {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 4px 2px;
+  padding: 4px 14px;
 }
 
 .cf-props-sec {
