@@ -1821,7 +1821,9 @@ router.post('/:code/agenda/:itemId/status', (req: AuthedRequest, res) => {
     return res.status(400).json({ error: '잘못된 안건이에요' });
   const raw = (req.body ?? {}).status;
   const status = raw == null || raw === '' ? null : String(raw);
-  const ok = setAgendaStatus(r.meeting.id, itemId, status, req.userId!);
+  // 대기 조건("무엇을 기다리나") — 선택. 보류 깨우기 의미 매칭의 재료
+  const note = typeof (req.body ?? {}).note === 'string' ? String(req.body.note) : null;
+  const ok = setAgendaStatus(r.meeting.id, itemId, status, req.userId!, note);
   if (!ok) return res.status(400).json({ error: '상태를 바꿀 수 없어요 (종결됐거나 잘못된 상태)' });
   res.json({ ok: true });
 });

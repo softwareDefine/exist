@@ -296,6 +296,8 @@ export interface AgendaItem {
   id?: number;
   /** 멈춤 상태 — waiting_dept(타부서 대기)·waiting_approval(승인 대기)·hold(보류)·null */
   status?: string | null;
+  /** 대기 조건 — "무엇을 기다리며 멈췄나" (보류 깨우기 매칭 재료, 칩 툴팁 표시) */
+  statusNote?: string | null;
   /** 유사한 과거 종결 안건 — "이거 예전에 이런 사유로 접었던 건이에요" ("M/D 종결: 사유") */
   closedBefore?: string | null;
   /** 그 과거 종결 안건의 id — 생애 타임라인 입구 */
@@ -325,12 +327,13 @@ interface CarryoverRow {
   why: string;
   rounds: number;
   status: string | null;
+  status_note: string | null;
 }
 
 function listCarryover(meetingId: number): CarryoverRow[] {
   return db
     .prepare(
-      `SELECT id, title, why, rounds, status FROM agenda_items
+      `SELECT id, title, why, rounds, status, status_note FROM agenda_items
        WHERE meeting_id = ? AND resolved = 0 ORDER BY rounds DESC, id ASC LIMIT ?`,
     )
     .all(meetingId, CARRYOVER_MAX) as CarryoverRow[];
@@ -463,6 +466,10 @@ export async function settleAgendaAfterRecap(
     console.log(
       `[steward] 안건 정산 — 종결 ${resolvedMap.size}, 이월 ${open.length - resolvedMap.size}`,
     );
+  // 보류 깨우기 — 이번 결정·요약이 대기 중 안건의 조건을 충족시켰는지 (비동기·실패 무해)
+  void wakeWaitingAgendas(meetingId, recap.decisionRefs, currentRecapId, recap.summary).catch(
+    () => {},
+  );
 }
 
 /** 규칙 폴백 — 미완료 할 일과 최근 결정 후속을 안건으로 */
@@ -663,6 +670,7 @@ export async function generateAgenda(meetingId: number, channelId: number): Prom
       why: c.rounds >= 2 ? `${c.rounds}회째 안건 — 아직 결론 없음` : c.why,
       rounds: c.rounds,
       status: c.status,
+      statusNote: c.status_note,
     })),
     ...result.items.filter((it) => !carrySet.has(normTitle(it.title))),
   ].slice(0, 5);
@@ -731,20 +739,129 @@ export function setAgendaStatus(
   itemId: number,
   status: string | null,
   actorId?: number,
+  note?: string | null,
 ): boolean {
   if (status !== null && !AGENDA_STATUSES.includes(status as (typeof AGENDA_STATUSES)[number]))
     return false;
+  // 대기 조건("무엇을 기다리나") — 상태 해제 시 함께 비움. 보류 깨우기 매칭의 재료
+  const cleanNote = status === null ? null : (note?.trim().slice(0, 120) || null);
   const r = db
     .prepare(
-      `UPDATE agenda_items SET status = ?, updated_at = datetime('now')
+      `UPDATE agenda_items SET status = ?, status_note = ?, updated_at = datetime('now')
        WHERE id = ? AND meeting_id = ? AND resolved = 0`,
     )
-    .run(status, itemId, meetingId);
+    .run(status, cleanNote, itemId, meetingId);
   if (r.changes > 0) {
     invalidateAgenda(meetingId);
-    addAgendaEvent(meetingId, itemId, 'status', status ?? 'none', actorId ?? null);
+    addAgendaEvent(
+      meetingId,
+      itemId,
+      'status',
+      (status ?? 'none') + (cleanNote ? ` — ${cleanNote}` : ''),
+      actorId ?? null,
+    );
   }
   return r.changes > 0;
+}
+
+/* ── 보류 깨우기 — "기다리던 조건이 충족된 걸 아무도 모른다" 대응.
+ * 새 recap의 결정들과 대기 중 안건(제목+대기 조건)을 임베딩 매칭해, 걸리면
+ * 호스트·상태 지정자에게 "다시 올려볼까요" 알림 + 생애 타임라인에 감지 기록.
+ * 확신 없으면 침묵(임계 0.42) — 잘못 깨우는 것보다 안 깨우는 게 낫다 */
+const WAKE_MIN = 0.42;
+
+export async function wakeWaitingAgendas(
+  meetingId: number,
+  decisionRefs: { text: string; recapId: number; idx: number }[],
+  currentRecapId?: number | null,
+  summary?: string | null,
+): Promise<void> {
+  // 매칭 후보 = 결정문들 + 회의 요약 — 결정문은 좁게 적혀 조건과 안 닿는 경우가 많다
+  // (실측: "인증서는 다음 주 발급" 0.33 vs 요약 "품질 인증 최종 승인" 0.65)
+  const candidates: { text: string; recapId: number | null }[] = decisionRefs.map((d) => ({
+    text: d.text,
+    recapId: d.recapId,
+  }));
+  if (summary?.trim()) candidates.push({ text: summary.trim(), recapId: currentRecapId ?? null });
+  if (candidates.length === 0) return;
+  const waiting = db
+    .prepare(
+      `SELECT id, title, status, status_note FROM agenda_items
+       WHERE meeting_id = ? AND resolved = 0 AND status IS NOT NULL`,
+    )
+    .all(meetingId) as { id: number; title: string; status: string; status_note: string | null }[];
+  if (waiting.length === 0) return;
+  const { embedTexts } = await import('./rag.js'); // rag가 이 모듈을 물고 있어 동적 import (순환 회피)
+  const itemTexts = waiting.map((w) => `${w.title}${w.status_note ? ` — ${w.status_note}` : ''}`);
+  const vecs = await embedTexts([...itemTexts, ...candidates.map((c) => c.text)]);
+  if (!vecs) return;
+  const cos = (a: number[], b: number[]) => {
+    let dot = 0;
+    let na = 0;
+    let nb = 0;
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      na += a[i] * a[i];
+      nb += b[i] * b[i];
+    }
+    const d = Math.sqrt(na) * Math.sqrt(nb);
+    return d > 0 ? dot / d : 0;
+  };
+  const meeting = db.prepare('SELECT code, title, host_id FROM meetings WHERE id = ?').get(meetingId) as
+    | { code: string; title: string; host_id: number }
+    | undefined;
+  if (!meeting) return;
+  const { notifyUser } = await import('./notify.js'); // 이 모듈의 기존 관례 (순환 회피)
+  for (let i = 0; i < waiting.length; i++) {
+    let best = -1;
+    let bestScore = 0;
+    for (let j = 0; j < candidates.length; j++) {
+      const s = cos(vecs[i], vecs[waiting.length + j]);
+      if (s > bestScore) {
+        bestScore = s;
+        best = j;
+      }
+    }
+    if (best < 0 || bestScore < WAKE_MIN) continue;
+    const w = waiting[i];
+    const cand = candidates[best];
+    const evRecapId = cand.recapId ?? currentRecapId ?? null;
+    // recap당 1회 — 같은 정산에서 중복 감지 방지
+    const dup = db
+      .prepare(
+        `SELECT 1 FROM agenda_events WHERE agenda_id = ? AND kind = 'wake' AND recap_id IS ?`,
+      )
+      .get(w.id, evRecapId);
+    if (dup) continue;
+    addAgendaEvent(
+      meetingId,
+      w.id,
+      'wake',
+      `기다리던 조건과 관련된 회의 내용 감지 — '${cand.text.slice(0, 120)}'`,
+      null,
+      evRecapId,
+    );
+    // 알림 대상 — 호스트 + 마지막으로 상태를 지정한 사람 (같으면 1명)
+    const setter = db
+      .prepare(
+        `SELECT actor_id FROM agenda_events WHERE agenda_id = ? AND kind = 'status' AND actor_id IS NOT NULL
+         ORDER BY id DESC LIMIT 1`,
+      )
+      .get(w.id) as { actor_id: number } | undefined;
+    const targets = new Set<number>([meeting.host_id]);
+    if (setter?.actor_id) targets.add(setter.actor_id);
+    const statusKo =
+      w.status === 'hold' ? '보류' : w.status === 'waiting_dept' ? '타부서 대기' : '승인 대기';
+    for (const uid of targets) {
+      notifyUser(uid, {
+        from: 'exist AI',
+        text: `${statusKo} 안건 '${w.title.slice(0, 40)}'이 기다리던 것과 관련된 내용이 올라왔어요: '${cand.text.slice(0, 60)}' — 다시 올려볼까요? ('${meeting.title}')`,
+        kind: 'recap',
+        meetingCode: meeting.code.toUpperCase(),
+      });
+    }
+    console.log(`[steward] 보류 깨우기 — 안건 ${w.id} ← 결정 매칭 (score ${bestScore.toFixed(2)})`);
+  }
 }
 
 /** io 최소 인터페이스 — 테스트에서 스텁 주입용 */

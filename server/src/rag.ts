@@ -51,6 +51,11 @@ async function embed(texts: string[]): Promise<number[][] | null> {
   }
 }
 
+/** 외부용 임베딩 — steward의 보류 깨우기(안건↔결정 매칭)가 사용. 실패 시 null(조용히) */
+export async function embedTexts(texts: string[]): Promise<number[][] | null> {
+  return embed(texts);
+}
+
 /** 청크 저장(교체) — 같은 (kind, ref_id)의 기존 청크를 지우고 다시 넣는다 */
 async function upsertChunks(
   meetingId: number,

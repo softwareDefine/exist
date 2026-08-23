@@ -980,6 +980,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 안건 대기 조건 — "무엇을 기다리며 멈췄나" 한 줄 (보류 깨우기 의미 매칭의 재료)
+try {
+  db.exec(`ALTER TABLE agenda_items ADD COLUMN status_note TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 결정 미확인 자동 에스컬레이션 발송 기록 — 회람(file_ack_autoremind)의 결정판.
 // 마지막 자동 발송에서 ACK_AUTOREMIND_HOURS가 다시 지나야 재발송
 db.exec(`

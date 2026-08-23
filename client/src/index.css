@@ -19975,6 +19975,10 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 .hub-atl-row.todo.done .hub-atl-dot {
   background: var(--green);
 }
+.hub-atl-row.wake .hub-atl-dot {
+  background: #f59e0b; /* 앰버 — "깨어날 조건 감지"는 주의를 끌되 완료(초록)와 구분 */
+}
+
 .hub-atl-row.closed .hub-atl-dot {
   background: var(--red, #e5484d);
 }

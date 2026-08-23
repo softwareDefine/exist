@@ -1113,6 +1113,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     id?: number;
     /** 멈춤 상태 — waiting_dept·waiting_approval·hold·null ("지금 뭘 기다리는지" 가시화) */
     status?: string | null;
+    /** 대기 조건 — "무엇을 기다리며 멈췄나" (보류 깨우기 매칭 재료) */
+    statusNote?: string | null;
     /** 유사한 과거 종결 안건 — "예전에 이런 사유로 접었던 건" ("M/D 종결: 사유") */
     closedBefore?: string | null;
     /** 그 과거 종결 안건의 id — 클릭하면 생애 타임라인 */
@@ -1192,13 +1194,24 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     hold: '보류',
     none: '상태 해제',
   };
-  /** 안건 멈춤 상태 변경 — "왜 안 끝나는지"를 다른 사람이 봐도 알게 */
+  /** 안건 멈춤 상태 변경 — "왜 안 끝나는지"를 다른 사람이 봐도 알게.
+   *  대기 조건(선택)을 같이 받으면 나중에 관련 결정이 올라올 때 AI가 "깨워준다" */
   async function setAgendaItemStatus(itemId: number, status: string | null) {
-    setAgenda((prev) => (prev ? prev.map((x) => (x.id === itemId ? { ...x, status } : x)) : prev));
+    let note: string | null = null;
+    if (status) {
+      note =
+        window.prompt(
+          `무엇을 기다리고 있나요? (선택 — 적어두면 관련 결정이 올라올 때 AI가 이 안건을 다시 알려줘요)\n예: "설비 예산 확정되면 다시 검토"`,
+          '',
+        ) || null;
+    }
+    setAgenda((prev) =>
+      prev ? prev.map((x) => (x.id === itemId ? { ...x, status, statusNote: note } : x)) : prev,
+    );
     try {
       await api(`/api/meetings/${code}/agenda/${itemId}/status`, {
         method: 'POST',
-        body: { status },
+        body: { status, note },
       });
     } catch {
       /* 전역 토스트 */
@@ -1788,7 +1801,11 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                               {a.id != null && (
                                 <select
                                   className={`hub-agenda-status${a.status ? ' has' : ''}`}
-                                  title="이 안건이 왜 멈춰 있는지 표시"
+                                  title={
+                                    a.statusNote
+                                      ? `기다리는 것: ${a.statusNote} — 관련 결정이 올라오면 AI가 알려줘요`
+                                      : '이 안건이 왜 멈춰 있는지 표시'
+                                  }
                                   value={a.status ?? ''}
                                   onChange={(e) =>
                                     void setAgendaItemStatus(a.id!, e.target.value || null)
@@ -3009,9 +3026,35 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                       ) : e.kind === 'carried' ? (
                         <>회의에서 다뤘지만 결론 없음 — 다음 회의로 이월</>
                       ) : e.kind === 'status' ? (
+                        (() => {
+                          // detail = "hold — 예산 확정 대기" 꼴 — 상태 키와 대기 조건 분리
+                          const [key, ...rest] = (e.detail ?? '').split(' — ');
+                          const cond = rest.join(' — ');
+                          return (
+                            <>
+                              상태 변경 — <b>{ATL_STATUS_LABEL[key] ?? key}</b>
+                              {cond ? ` (기다리는 것: ${cond})` : ''}
+                              {e.actor ? ` (${dn(e.actor)})` : ''}
+                            </>
+                          );
+                        })()
+                      ) : e.kind === 'wake' ? (
                         <>
-                          상태 변경 — <b>{ATL_STATUS_LABEL[e.detail ?? ''] ?? e.detail}</b>
-                          {e.actor ? ` (${dn(e.actor)})` : ''}
+                          ⏰ {e.detail ?? '기다리던 조건과 관련된 결정 감지'}
+                          {e.recap_id != null && (
+                            <button
+                              className="hub-atl-jump"
+                              onClick={() =>
+                                window.dispatchEvent(
+                                  new CustomEvent('exist:goto-recap', {
+                                    detail: { code, recapId: e.recap_id },
+                                  }),
+                                )
+                              }
+                            >
+                              기록 보기
+                            </button>
+                          )}
                         </>
                       ) : e.kind === 'resolved' ? (
                         <>
