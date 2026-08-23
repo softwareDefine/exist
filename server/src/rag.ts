@@ -9,6 +9,7 @@
 import OpenAI from 'openai';
 import db from './db.js';
 import { extractFileText } from './fileai.js';
+import { extractUploadedFileText } from './filetext.js';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 const EMBED_MODEL = process.env.OPENAI_EMBED_MODEL || 'text-embedding-3-small';
@@ -87,21 +88,46 @@ export function indexRecap(
   void upsertChunks(meetingId, 'recap', recapId, texts).catch(() => {});
 }
 
-/** 문서 색인 — 본문을 ~600자 청크로. 개정 발행·재색인 때 호출 */
+/** 문서 색인 — 본문을 ~600자 청크로. 개정 발행·업로드·재색인 때 호출.
+ *  편집 문서(Yjs)는 extractFileText, 업로드 파일(hwp·hwpx·docx·txt 등)은 filetext 추출 폴백 */
 export function indexFile(meetingId: number, fileId: number, name: string): void {
-  let text: string | null = null;
-  try {
-    text = extractFileText(fileId);
-  } catch {
-    return;
-  }
-  if (!text) return;
-  const flat = text.replace(/\s+/g, ' ').trim();
-  const chunks: string[] = [];
-  for (let i = 0; i < flat.length && chunks.length < 20; i += 600) {
-    chunks.push(`[문서 "${name}"] ${flat.slice(i, i + 600)}`);
-  }
-  void upsertChunks(meetingId, 'file', fileId, chunks).catch(() => {});
+  void (async () => {
+    let text: string | null = null;
+    try {
+      text = extractFileText(fileId);
+      if (!text) text = await extractUploadedFileText(fileId);
+    } catch {
+      return;
+    }
+    if (!text) return;
+    const flat = text.replace(/\s+/g, ' ').trim();
+    const chunks: string[] = [];
+    for (let i = 0; i < flat.length && chunks.length < 20; i += 600) {
+      chunks.push(`[문서 "${name}"] ${flat.slice(i, i + 600)}`);
+    }
+    await upsertChunks(meetingId, 'file', fileId, chunks);
+  })().catch(() => {});
+}
+
+/** 개정 연혁 색인 — "언제 왜 무엇이 바뀌었나"가 의미 검색으로 찾아지게.
+ *  rev당 1청크(바뀐 점 요약 + 근거 결정 + 기타 사유). 발행 시점에 확정되는 불변 기록이라
+ *  RAG에 맞다 (서명 현황 같은 실시간 상태는 색인하지 않는다 — 낡은 답 방지) */
+export function indexFileRevision(
+  meetingId: number,
+  fileId: number,
+  name: string,
+  rev: number,
+  p: { note?: string | null; basisText?: string | null; basisNote?: string | null },
+): void {
+  const parts: string[] = [];
+  if (p.note?.trim()) parts.push(`바뀐 점: ${p.note.trim().split('\n').join(' · ')}`);
+  if (p.basisText?.trim()) parts.push(`근거 결정: ${p.basisText.trim()}`);
+  if (p.basisNote?.trim()) parts.push(`개정 사유: ${p.basisNote.trim()}`);
+  if (parts.length === 0) return; // 알맹이 없는 개정은 색인 생략
+  const date = new Date().toISOString().slice(0, 10);
+  const text = `[문서 "${name}" 개정 v${rev} ${date}] ${parts.join(' / ')}`;
+  // ref_id에 rev를 함께 인코딩 — rev마다 별도 청크로 남긴다 (fileId 단독이면 새 rev가 옛 rev를 지움)
+  void upsertChunks(meetingId, 'filerev', fileId * 100_000 + rev, [text]).catch(() => {});
 }
 
 /** 종결 안건 색인 — "검토했음/채택하지 않음/이유"가 몇 년 뒤 같은 아이디어 재검토 때 소환되게
@@ -153,11 +179,46 @@ export async function reindexMeeting(meetingId: number): Promise<number> {
   const files = db
     .prepare(
       `SELECT id, name FROM collab_files
-       WHERE meeting_id = ? AND deleted_at IS NULL AND type NOT IN ('folder', 'file')`,
+       WHERE meeting_id = ? AND deleted_at IS NULL AND type != 'folder'`,
     )
     .all(meetingId) as { id: number; name: string }[];
   for (const f of files) indexFile(meetingId, f.id, f.name);
-  return recaps.length + files.length;
+  // 개정 연혁 백필 — note·근거·사유가 있는 rev만
+  const revs = db
+    .prepare(
+      `SELECT s.file_id, s.rev, s.note, s.basis_recap_id, s.basis_decision_idx, s.basis_note, f.name
+       FROM file_rev_snapshots s JOIN collab_files f ON f.id = s.file_id
+       WHERE f.meeting_id = ? AND f.deleted_at IS NULL
+         AND (s.note IS NOT NULL OR s.basis_recap_id IS NOT NULL OR s.basis_note IS NOT NULL)`,
+    )
+    .all(meetingId) as {
+    file_id: number;
+    rev: number;
+    note: string | null;
+    basis_recap_id: number | null;
+    basis_decision_idx: number | null;
+    basis_note: string | null;
+    name: string;
+  }[];
+  for (const s of revs) {
+    let basisText: string | null = null;
+    if (s.basis_recap_id != null && s.basis_decision_idx != null) {
+      try {
+        const rec = db
+          .prepare('SELECT decisions FROM meeting_recaps WHERE id = ?')
+          .get(s.basis_recap_id) as { decisions: string } | undefined;
+        basisText = rec ? ((JSON.parse(rec.decisions) as string[])[s.basis_decision_idx] ?? null) : null;
+      } catch {
+        basisText = null;
+      }
+    }
+    indexFileRevision(meetingId, s.file_id, s.name, s.rev, {
+      note: s.note,
+      basisText,
+      basisNote: s.basis_note,
+    });
+  }
+  return recaps.length + files.length + revs.length;
 }
 
 /** 여러 그룹에 걸친 의미 검색 — DM 1:1 AI 질의용 (임베딩 1회, 그룹 경계 없이 top k) */

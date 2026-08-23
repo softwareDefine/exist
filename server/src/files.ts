@@ -965,6 +965,8 @@ async function finishUpload(
       'INSERT INTO collab_files (meeting_id, parent_id, name, type, created_by, mime, size, blob_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
     .run(meeting.id, p.parentId, p.name, 'file', userId, p.mime, p.buf.length, blobName);
+  // RAG 색인 — 올린 파일(hwp·hwpx·docx·txt 등)의 본문도 의미 검색에 (비동기·실패 무해)
+  indexFileRag(meeting.id, Number(info.lastInsertRowid), p.name);
   res.json({ id: info.lastInsertRowid, parent_id: p.parentId, name: p.name, type: 'file', mime: p.mime, size: p.buf.length });
 }
 

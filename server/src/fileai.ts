@@ -176,6 +176,27 @@ export function afterRevise(p: {
         }
       }
     }
+    // 개정 연혁 RAG 색인 — "언제 왜 바뀌었나"가 의미 검색으로 찾아지게.
+    // 동적 import — rag가 이 모듈(extractFileText)을 정적으로 물고 있어 순환 참조 회피
+    try {
+      let basisText: string | null = null;
+      if (p.basisRecapId != null && p.basisDecisionIdx != null) {
+        const rec = db
+          .prepare('SELECT decisions FROM meeting_recaps WHERE id = ?')
+          .get(p.basisRecapId) as { decisions: string } | undefined;
+        basisText = rec
+          ? ((JSON.parse(rec.decisions) as string[])[p.basisDecisionIdx] ?? null)
+          : null;
+      }
+      const { indexFileRevision } = await import('./rag.js');
+      indexFileRevision(p.meetingId, p.fileId, p.fileName, p.rev, {
+        note,
+        basisText,
+        basisNote: p.basisNote ?? null,
+      });
+    } catch {
+      /* 색인 실패는 조용히 — RAG는 보강 재료 */
+    }
     if (!p.ackRequired) return; // 회람 문서 아니면 알림 없음 (기존 동작과 동일)
     try {
       const members = db
