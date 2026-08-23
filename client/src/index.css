@@ -14277,10 +14277,6 @@ button.cf-home-fold {
   cursor: pointer;
 }
 
-.cf-back svg {
-  transform: rotate(90deg);
-}
-
 .cf-back:hover {
   border-color: var(--green);
   color: var(--green);
