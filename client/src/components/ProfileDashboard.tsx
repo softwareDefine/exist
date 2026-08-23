@@ -129,6 +129,20 @@ export default function ProfileDashboard() {
   // 발신자 카드 — 행동 기반 노출: 보낸 결정이 있을 때만 뜬다 (역할 설정 없이 대시보드가 역할을 따라감)
   const [sent, setSent] = useState<{ entries: SentEntry[]; totalSent: number } | null>(null);
   const [reminding, setReminding] = useState<string | null>(null);
+  // 우리 조 확인 현황 — 마디(relay)·관리자 전용 카드 재료 (부서 멤버의 미확인 결정)
+  const [teamAcks, setTeamAcks] = useState<{
+    department: string | null;
+    items: {
+      recapId: number;
+      idx: number;
+      text: string;
+      meetingCode: string;
+      meetingTitle: string;
+      total: number;
+      acked: number;
+      missing: string[];
+    }[];
+  } | null>(null);
   // 인박스 DM 답장 — 우하단 플로팅 창 (허브·홈 통합 메시지와 같은 창)
   const [dmPeer, setDmPeer] = useState<Thread | null>(null);
   const [statsOpen, setStatsOpen] = useState(false); // 지표·인사이트 한 줄 접힘
@@ -153,6 +167,23 @@ export default function ProfileDashboard() {
       /* 전역 토스트 */
     }
   }
+
+  // 우리 조 확인 현황 — 마디(relay)·hq·관리자만 조회 (field에겐 서버도 403)
+  useEffect(() => {
+    setTeamAcks(null);
+    if (typeof org !== 'number') return;
+    const info = orgs.find((o) => o.id === org);
+    const tier = info?.myTier ?? null;
+    if (!info || (!info.isManager && tier !== 'relay' && tier !== 'hq')) return;
+    let alive = true;
+    void api<typeof teamAcks>(`/api/orgs/${org}/team-acks`, { silent: true })
+      .then((d) => alive && setTeamAcks(d))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [org, orgs]);
 
   // 확인(서명) 변동 푸시 — "지금 처리할 것" 인박스·발신자 카드 즉시 갱신
   useEffect(() => {
@@ -668,6 +699,42 @@ export default function ProfileDashboard() {
     const orgInfo = orgs.find((o) => o.id === org);
     const orgName = orgInfo?.name ?? '조직';
     const orgManager = !!orgInfo?.isManager;
+    /** 내 계층 — 카드 게이팅: field는 발신·현황 카드가 노이즈, relay는 "막힌 전달"이 최우선 */
+    const myTier = orgInfo?.myTier ?? null;
+    // 우리 조 확인 현황 — 마디의 존재 이유(막힌 전달 뚫기)를 카드 하나로
+    const teamAcksCard = teamAcks && teamAcks.items.length > 0 && (
+      <div style={cellCard} className="pd-sent pd-teamacks">
+        <div style={sectionHead}>
+          <span style={headIcon}><UsersIcon size={16} /></span> 우리 조 확인 현황
+          <span className="pd-ack-count">{teamAcks.items.length}</span>
+          <span className="pd-inbox-hint">
+            {teamAcks.department ? `${teamAcks.department} 기준` : '조직 전체 기준'} · 아직 안 본 사람
+          </span>
+        </div>
+        {teamAcks.items.slice(0, 5).map((e) => (
+          <div key={`${e.recapId}-${e.idx}`} className="pd-sent-row">
+            <div
+              className="pd-act-main"
+              onClick={() => openMeeting(e.meetingCode, e.meetingTitle)}
+              title={`"${e.meetingTitle}" 열기`}
+            >
+              <Marquee className="pd-act-title">{e.text}</Marquee>
+              <span className="pd-act-sub">
+                {e.meetingTitle} · 확인 {e.acked}/{e.total}
+                <span className="pd-sent-missing" title={e.missing.join(', ')}>
+                  {' '}
+                  — 미확인: {e.missing.slice(0, 3).join(', ')}
+                  {e.missing.length > 3 ? ` 외 ${e.missing.length - 3}명` : ''}
+                </span>
+              </span>
+              <span className="pd-sent-bar" aria-hidden>
+                <i style={{ width: `${Math.round((e.acked / Math.max(1, e.total)) * 100)}%` }} />
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
     return (
       <div className="pd-wrap" style={wrap}>
         {/* 히어로 — 카운트 한 줄 + AI 브리핑 문장 (시안1: 오늘 회의 N · 마감 지남 N · 미확인 결정 N) */}
@@ -699,7 +766,10 @@ export default function ProfileDashboard() {
 
         {inboxCard}
 
-        {sentCard}
+        {teamAcksCard}
+
+        {/* 발신 카드 — field에겐 노이즈(결정을 보내는 쪽이 아님), 나머지는 유지 */}
+        {myTier !== 'field' && sentCard}
 
         <div className="pd-quad">
           <div className="pd-quad-col">

@@ -3183,6 +3183,37 @@ input:focus {
   font-weight: 700;
 }
 
+/* 조직도 — 계층(tier) 배지: 본사/중간관리/현장. 대시보드 게이팅 기준의 가시화 */
+.org-tier {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+
+.org-tier.hq {
+  background: color-mix(in srgb, #3b82f6 14%, transparent);
+  color: #2563eb;
+}
+
+.org-tier.relay {
+  background: color-mix(in srgb, #a855f7 14%, transparent);
+  color: #9333ea;
+}
+
+.org-tier.field {
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  color: #b45309;
+}
+
+/* 현장(field) 뷰 — ③열이 "작업 전 확인"으로 바뀐 카드. 살짝 주황 톤으로 구분 */
+.pipe-field .pipe-step {
+  color: #b45309;
+}
+
 /* ── 2단 본문 ── */
 /* ── 3단 파이프라인 — 결정의 생애주기(지난 회의 → 실행 중 → 다음 회의)를 화면 구조로 ──
  * 그리드 영역으로 배치해서 JSX 순서와 무관하게 시안 순서를 유지한다 */

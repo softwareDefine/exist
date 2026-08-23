@@ -578,6 +578,16 @@ router.get('/:code', (req: AuthedRequest, res) => {
     canManage: canManageMeeting(meeting, req.userId!),
     orgId: meeting.org_id,
     orgName: meeting.org_name,
+    /** 이 그룹 조직에서의 내 계층 — 대시보드 카드 게이팅 ('hq'|'relay'|'field'|null=미지정·개인그룹) */
+    myTier: meeting.org_id
+      ? ((
+          db
+            .prepare(
+              `SELECT tier FROM organization_members WHERE org_id = ? AND user_id = ? AND status = 'active'`,
+            )
+            .get(meeting.org_id, req.userId) as { tier: string | null } | undefined
+        )?.tier ?? null)
+      : null,
     thumbnail: meeting.thumbnail,
     settings: (() => {
       try {

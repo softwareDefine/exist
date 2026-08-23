@@ -107,6 +107,8 @@ interface MeetingDetail {
   canManage?: boolean;
   orgId: number | null;
   orgName: string | null;
+  /** 이 그룹 조직에서의 내 계층 — 'hq'|'relay'|'field'|null. 대시보드 카드 게이팅 기준 */
+  myTier?: string | null;
   thumbnail: string | null;
   online: number;
   settings?: MeetingSettings;
@@ -1117,14 +1119,17 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     closedBeforeId?: number | null;
   }
   const [recentDecisions, setRecentDecisions] = useState<LedgerEntry[]>([]);
+  /** 원장 전체 — 현장(field) 뷰 "작업 전 확인"의 미확인 결정 소스 (상위 3만으론 놓친다) */
+  const [ledgerAll, setLedgerAll] = useState<LedgerEntry[]>([]);
   async function ackDecisionRow(d: LedgerEntry) {
-    setRecentDecisions((prev) =>
-      prev.map((x) =>
+    const markAck = (list: LedgerEntry[]) =>
+      list.map((x) =>
         x.recapId === d.recapId && x.idx === d.idx
           ? { ...x, acks: [...x.acks, { username: user?.username ?? '', ts: Date.now() }] }
           : x,
-      ),
-    );
+      );
+    setRecentDecisions(markAck);
+    setLedgerAll(markAck);
     await api(`/api/meetings/${code}/decisions/ack`, {
       method: 'POST',
       body: { recapId: d.recapId, idx: d.idx },
@@ -1282,7 +1287,11 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
     let alive = true;
     // silent: 삭제된 그룹의 잔존 탭이 마운트 직후 404 토스트를 쏘지 않게
     void api<LedgerEntry[]>(`/api/meetings/${code}/decisions`, { silent: true })
-      .then((d) => alive && setRecentDecisions(d.slice(0, 3)))
+      .then((d) => {
+        if (!alive) return;
+        setRecentDecisions(d.slice(0, 3));
+        setLedgerAll(d);
+      })
       .catch(() => {});
     void api<{ items: AgendaItem[] }>(`/api/meetings/${code}/agenda`, { silent: true })
       .then((a) => alive && setAgenda(a.items))
@@ -1666,7 +1675,58 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                     <ChevronRightIcon size={17} />
                   </div>
 
-                  {/* ③ 다음 회의 — AI 안건(지연 할일 승격 표기) + 일정 잡기 */}
+                  {/* ③ — 계층 게이팅: 현장(field)에겐 안건이 노이즈("생산직이 다음 회의 안건 알아서 뭐해")라
+                   * 이 열이 "작업 전 확인"으로 바뀐다. 화면은 하나, 구성만 tier를 탄다 (8/4 확정) */}
+                  {detail.myTier === 'field' ? (
+                    <section className="hub-section pipe-card pa-p3 pipe-field">
+                      <div className="pipe-step">작업 전 확인</div>
+                      <div className="hub-section-title">
+                        <CheckMarkIcon size={15} /> 확인할 결정
+                        <span className="hub-fold-meta">
+                          {ledgerAll.filter((d) => !d.acks.some((a) => a.username === user?.username)).length}건
+                        </span>
+                      </div>
+                      {(() => {
+                        const unacked = ledgerAll
+                          .filter((d) => !d.acks.some((a) => a.username === user?.username))
+                          .slice(0, 6);
+                        if (unacked.length === 0)
+                          return (
+                            <div className="hub-section-empty">
+                              확인할 결정이 없어요 — 오늘 기준으로 작업 시작하면 돼요 ✅
+                            </div>
+                          );
+                        return (
+                          <div className="hub-decision-list">
+                            {unacked.map((d, i) => (
+                              <div key={`${d.recapId}-${d.idx}-${i}`} className="hub-decision-row">
+                                <span className="hub-decision-dot" aria-hidden>
+                                  <CheckMarkIcon size={12} />
+                                </span>
+                                <Marquee className="hub-decision-text">{d.decision}</Marquee>
+                                <span className="hub-decision-when">
+                                  {new Date(d.ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}
+                                </span>
+                                <button
+                                  className="hub-decision-ack"
+                                  title="확인했음을 남기기 (회람 사인)"
+                                  onClick={() => void ackDecisionRow(d)}
+                                >
+                                  확인
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      <div className="pipe-summary">
+                        확인이 끝나야 오늘 기준이 현장에 도착한 거예요 — 회의 내용이 궁금하면 기록 탭
+                      </div>
+                      <button className="pipe-cta" onClick={() => setSubtab('decisions')}>
+                        <CheckMarkIcon size={14} /> 기록 전체 보기
+                      </button>
+                    </section>
+                  ) : (
                   <section className="hub-section pipe-card pa-p3">
                     <div className="pipe-step">다음 회의</div>
                     <div className="hub-section-title">
@@ -1793,6 +1853,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                       <CalendarIcon size={14} /> 일정 잡기
                     </button>
                   </section>
+                  )}
 
                 {/* 일정 (하단 보조) */}
                 <section className="hub-section pa-sched">

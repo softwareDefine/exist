@@ -194,6 +194,13 @@ try {
 } catch {
   /* 이미 존재 */
 }
+// 마이그레이션: 사용자 계층(tier) — 'hq'(본사)/'relay'(중간관리)/'field'(현장), NULL=미지정.
+// 인사 지정이 주(主) — 대시보드 카드 게이팅의 기준 (8/4 확정: 화면은 하나, 구성만 tier로)
+try {
+  db.exec(`ALTER TABLE organization_members ADD COLUMN tier TEXT`);
+} catch {
+  /* 이미 존재 */
+}
 
 // 마이그레이션: 커스텀 역할(IAM식) — 소유자가 권한 조합을 만들어 멤버에게 부여(중간관리자).
 // perms = JSON 배열 (액션 키: member:approve | member:edit | member:remove), 스코프는 자기 부서

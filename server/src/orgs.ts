@@ -139,12 +139,14 @@ interface FullMembership {
   status: string;
   department: string | null;
   role_id: number | null;
+  /** 사용자 계층 — 'hq'|'relay'|'field'|null(미지정). 대시보드 게이팅 기준 */
+  tier: string | null;
 }
 
 function getFullMembership(orgId: number, userId: number): FullMembership | undefined {
   return db
     .prepare(
-      'SELECT role, status, department, role_id FROM organization_members WHERE org_id = ? AND user_id = ?',
+      'SELECT role, status, department, role_id, tier FROM organization_members WHERE org_id = ? AND user_id = ?',
     )
     .get(orgId, userId) as FullMembership | undefined;
 }
@@ -196,7 +198,7 @@ function canActOnMember(
 router.get('/', (req: AuthedRequest, res) => {
   const rows = db
     .prepare(
-      `SELECT o.id, o.name, o.join_code, o.owner_id, om.role, om.role_id,
+      `SELECT o.id, o.name, o.join_code, o.owner_id, om.role, om.role_id, om.tier,
               (SELECT COUNT(*) FROM organization_members m2
                WHERE m2.org_id = o.id AND m2.status = 'active') AS member_count,
               (SELECT COUNT(*) FROM organization_members m3
@@ -213,6 +215,7 @@ router.get('/', (req: AuthedRequest, res) => {
     owner_id: number;
     role: string;
     role_id: number | null;
+    tier: string | null;
     member_count: number;
     pending_count: number;
   }[];
@@ -226,6 +229,8 @@ router.get('/', (req: AuthedRequest, res) => {
         joinCode: o.join_code,
         role: o.role,
         isManager: managing,
+        /** 내 계층 — 조직 홈 카드 게이팅 기준 ('hq'|'relay'|'field'|null=미지정) */
+        myTier: o.tier ?? null,
         // 클라가 "새 그룹 만들기" 버튼을 숨길 근거 — 서버 POST /meetings에서도 같은 규칙으로 거른다
         canCreateGroup: managing || rolePerms(o.role_id).includes('group:create'),
         memberCount: o.member_count,
@@ -401,7 +406,7 @@ router.get('/:id', (req: AuthedRequest, res) => {
   const members = db
     .prepare(
       `SELECT u.id AS user_id, u.username, u.avatar, om.role, om.status,
-              om.position, om.department, om.created_at, om.role_id, r.name AS role_name
+              om.position, om.department, om.tier, om.created_at, om.role_id, r.name AS role_name
        FROM organization_members om
        JOIN users u ON u.id = om.user_id
        LEFT JOIN org_roles r ON r.id = om.role_id
@@ -415,6 +420,7 @@ router.get('/:id', (req: AuthedRequest, res) => {
     status: string;
     position: string | null;
     department: string | null;
+    tier: string | null;
     created_at: string;
     role_id: number | null;
     role_name: string | null;
@@ -513,6 +519,7 @@ router.get('/:id', (req: AuthedRequest, res) => {
       roleName: m.role_name,
       position: m.position,
       department: m.department,
+      tier: m.tier,
     })),
     pending: pending.map((p) => ({ userId: p.user_id, username: p.username, avatar: p.avatar })),
   });
@@ -652,6 +659,93 @@ router.get('/:id/my-focus', (req: AuthedRequest, res) => {
     }));
 
   res.json({ todos, events, unread });
+});
+
+/** 우리 조 확인 현황 — 마디(중간관리)의 존재 이유: "막힌 전달 뚫기".
+ *  최근 7일 조직 그룹들의 결정 중, 내 부서 멤버(부서 미지정이면 조직 전체)가
+ *  아직 확인 안 한 것만 돌려준다. 관리자·relay·hq만 (field에겐 노이즈) */
+router.get('/:id/team-acks', (req: AuthedRequest, res) => {
+  const orgId = Number(req.params.id);
+  const me = getFullMembership(orgId, req.userId!);
+  if (!me || me.status !== 'active') return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
+  const manager = isManager(orgId, req.userId!);
+  const myTier = me.tier;
+  if (!manager && myTier !== 'relay' && myTier !== 'hq') {
+    return res.status(403).json({ error: '확인 현황은 관리자·중간관리자만 볼 수 있어요' });
+  }
+
+  // 우리 조 = 내 부서 (부서 미지정이면 조직 전체)
+  const teamRows = db
+    .prepare(
+      `SELECT om.user_id, u.username FROM organization_members om
+       JOIN users u ON u.id = om.user_id
+       WHERE om.org_id = ? AND om.status = 'active'
+         AND (? IS NULL OR om.department = ?)`,
+    )
+    .all(orgId, me.department ?? null, me.department ?? null) as { user_id: number; username: string }[];
+  const team = new Map(teamRows.map((r) => [r.user_id, r.username]));
+
+  // 최근 7일, 결정이 있는 recap (조직 그룹 전체 — 마디는 감독 시야)
+  const recaps = db
+    .prepare(
+      `SELECT r.id, r.decisions, r.created_at, m.id AS mid, m.code, m.title
+       FROM meeting_recaps r JOIN meetings m ON m.id = r.meeting_id
+       WHERE m.org_id = ? AND r.created_at > datetime('now', '-7 days') AND r.decisions != '[]'
+       ORDER BY r.id DESC LIMIT 40`,
+    )
+    .all(orgId) as { id: number; decisions: string; created_at: string; mid: number; code: string; title: string }[];
+
+  const items: {
+    recapId: number;
+    idx: number;
+    text: string;
+    meetingCode: string;
+    meetingTitle: string;
+    at: string;
+    total: number;
+    acked: number;
+    missing: string[];
+  }[] = [];
+  for (const r of recaps) {
+    if (items.length >= 8) break;
+    let decisions: string[];
+    try {
+      decisions = JSON.parse(r.decisions) as string[];
+    } catch {
+      continue;
+    }
+    if (decisions.length === 0) continue;
+    // 확인 대상 = 그 그룹 참가자 ∩ 우리 조
+    const targets = (
+      db.prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ?').all(r.mid) as {
+        user_id: number;
+      }[]
+    ).filter((p) => team.has(p.user_id));
+    if (targets.length === 0) continue;
+    for (let idx = 0; idx < decisions.length && items.length < 8; idx++) {
+      const acked = new Set(
+        (
+          db
+            .prepare('SELECT user_id FROM decision_acks WHERE recap_id = ? AND decision_idx = ?')
+            .all(r.id, idx) as { user_id: number }[]
+        ).map((a) => a.user_id),
+      );
+      const missing = targets.filter((t) => !acked.has(t.user_id));
+      if (missing.length === 0) continue; // 다 봤으면 마디가 할 일 없음
+      items.push({
+        recapId: r.id,
+        idx,
+        text: decisions[idx],
+        meetingCode: r.code,
+        meetingTitle: r.title,
+        at: r.created_at,
+        total: targets.length,
+        acked: targets.length - missing.length,
+        missing: missing.map((t) => team.get(t.user_id)!),
+      });
+    }
+  }
+  res.json({ department: me.department ?? null, items });
 });
 
 /** 가입 승인 (관리자) — 직급·부서를 함께 지정할 수 있음 */
@@ -825,6 +919,26 @@ router.patch('/:id/members/:userId', (req: AuthedRequest, res) => {
           : '일반 멤버로 변경됐어요',
       kind: 'org-role',
     });
+  }
+
+  // 계층(tier) 지정 — 관리자(owner/admin)만. 'hq' 본사 / 'relay' 중간관리 / 'field' 현장 / null 미지정.
+  // 대시보드 카드 게이팅의 기준 — 인사 지정이 주(主), 미지정은 기존 화면 그대로(폴백)
+  if (body.tier !== undefined) {
+    const me = getMembership(orgId, req.userId!);
+    if (!me || me.status !== 'active' || (me.role !== 'owner' && me.role !== 'admin')) {
+      return res.status(403).json({ error: '계층 지정은 관리자만 할 수 있어요' });
+    }
+    const tier = body.tier === null ? null : String(body.tier);
+    if (tier !== null && !['hq', 'relay', 'field'].includes(tier)) {
+      return res.status(400).json({ error: '계층은 hq·relay·field 중 하나예요' });
+    }
+    db.prepare('UPDATE organization_members SET tier = ? WHERE org_id = ? AND user_id = ?').run(
+      tier,
+      orgId,
+      targetId,
+    );
+    const tierKo = tier === 'hq' ? '본사' : tier === 'relay' ? '중간관리' : tier === 'field' ? '현장' : '미지정';
+    audit(orgId, req.userId!, 'member.update', targetId, `${usernameOf(targetId)}님 계층 → ${tierKo}`);
   }
 
   // 직급·부서 변경 — 관리자(owner/admin) 또는 해당 액션 권한의 중간관리자(자기 부서 멤버만).

@@ -18,6 +18,8 @@ interface Member {
   roleName: string | null;
   position: string | null;
   department: string | null;
+  /** 사용자 계층 — 'hq' 본사 / 'relay' 중간관리 / 'field' 현장 / null 미지정. 대시보드 게이팅 기준 */
+  tier: string | null;
 }
 interface Pending {
   userId: number;
@@ -302,6 +304,14 @@ export default function OrgChartPage() {
     await api(`/api/orgs/${orgId}/members/${userId}`, {
       method: 'PATCH',
       body: { department: department || null },
+    });
+    await load();
+  }
+  /** 계층(tier) 지정 — 관리자만 (서버도 같은 규칙). 대시보드 카드 구성이 이걸 따른다 */
+  async function setTier(userId: number, tier: string) {
+    await api(`/api/orgs/${orgId}/members/${userId}`, {
+      method: 'PATCH',
+      body: { tier: tier || null },
     });
     await load();
   }
@@ -653,6 +663,11 @@ export default function OrgChartPage() {
                           <div className="orgchart-pos">
                             {m.position ?? '직급 미지정'}
                             {m.department && ` · ${m.department}`}
+                            {m.tier && (
+                              <span className={`org-tier ${m.tier}`}>
+                                {m.tier === 'hq' ? '본사' : m.tier === 'relay' ? '중간관리' : '현장'}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -694,6 +709,20 @@ export default function OrgChartPage() {
                                 }
                               }}
                             />
+                          )}
+                          {/* 계층 지정 — 관리자 전용. 대시보드가 역할에 맞게 재구성되는 기준 */}
+                          {manager && (
+                            <select
+                              className="org-field-select"
+                              value={m.tier ?? ''}
+                              onChange={(e) => void setTier(m.userId, e.target.value)}
+                              title="계층 — 대시보드 구성 기준 (본사/중간관리/현장)"
+                            >
+                              <option value="">계층 미지정</option>
+                              <option value="hq">본사</option>
+                              <option value="relay">중간관리</option>
+                              <option value="field">현장</option>
+                            </select>
                           )}
                           {/* 역할 지정 — 소유자 전용: 멤버/관리자/커스텀 역할(중간관리자) */}
                           {owner && m.role !== 'owner' && (

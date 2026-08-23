@@ -8,6 +8,8 @@ export interface Org {
   joinCode: string;
   role: 'owner' | 'admin' | 'member';
   isManager: boolean;
+  /** 내 계층 — 'hq' 본사 / 'relay' 중간관리 / 'field' 현장 / null 미지정. 조직 홈 카드 게이팅 기준 */
+  myTier?: string | null;
   /** 이 조직에 그룹을 만들 수 있나 (owner/admin 또는 group:create 역할) — 생성 버튼 노출 근거 */
   canCreateGroup: boolean;
   memberCount: number;
