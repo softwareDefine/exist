@@ -14277,6 +14277,63 @@ button.cf-home-fold {
   cursor: pointer;
 }
 
+/* 속성 버튼 — 세부정보 맨 아래 (윈도우 탐색기의 "속성" 자리) */
+.cf-props-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: none;
+  color: var(--text-sub);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.cf-props-btn:hover {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* 속성 창 — 조회성 정보 팝업. 긴 내용(연혁·버전)은 본문만 스크롤 (dvh — 모바일 주소창 변동 대응) */
+.cf-props-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80dvh, 720px);
+  display: flex;
+  flex-direction: column;
+}
+
+.cf-props-body {
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+.cf-props-sec {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cf-props-sec-t {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
 .cf-back:hover {
   border-color: var(--green);
   color: var(--green);

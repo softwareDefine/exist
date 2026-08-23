@@ -649,14 +649,10 @@ export default function CollabFiles({
   const [fileVersions, setFileVersions] = useState<
     { id: number; size: number | null; created_at: string; username: string | null }[] | null
   >(null);
-  // 버전 기록 접기 — 기본 접힘 (세부정보 과밀 방지, 제목의 vN이 요약)
-  const [versionsOpen, setVersionsOpen] = useState(false);
-  // 세부정보 참고·관리 섹션 접기 — 전부 기본 접힘 (버전 기록과 같은 문법)
-  const [meetsOpen, setMeetsOpen] = useState(false); // 다룬 회의
-  const [previewOpen, setPreviewOpen] = useState(false); // 내용 미리보기
   const [manageOpen, setManageOpen] = useState(false); // 관리 (서명 요청·개정 발행·새 버전)
-  // 문서 연혁 — "왜 이 문서가 지금 모습인가" 타임라인 (기본 접힘, 열 때 lazy 로드)
-  const [historyOpen, setHistoryOpen] = useState(false);
+  // 속성 창 — 조회성 정보(위치·작성자·버전·연혁·다룬 회의·미리보기)는 사이드바 대신
+  // 별도 팝업으로 (윈도우 탐색기 문법: 세부정보=요약·행동, 속성=자세히). 연혁은 열 때 lazy 로드
+  const [propsOpen, setPropsOpen] = useState(false);
   const [fileHistory, setFileHistory] = useState<{
     rev: number;
     entries: {
@@ -1381,7 +1377,7 @@ export default function CollabFiles({
       setAckStatus(null);
     }
     setAckSignedOpen(false); // 선택이 바뀌면 서명자 명단은 다시 접는다
-    setHistoryOpen(false); // 연혁도 접고 비움 — 다른 파일 연혁이 잠깐 보이는 것 방지
+    setPropsOpen(false); // 속성 창도 닫고 연혁 비움 — 다른 파일 정보가 잠깐 보이는 것 방지
     setFileHistory(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selected?.ack_required]);
@@ -1408,10 +1404,7 @@ export default function CollabFiles({
   // 선택된 업로드 파일의 버전 기록
   useEffect(() => {
     setFileVersions(null);
-    setVersionsOpen(false); // 선택이 바뀌면 다시 접는다 (서명자 명단과 같은 문법)
-    setMeetsOpen(false); // 참고·관리 섹션도 같이 초기화
-    setPreviewOpen(false);
-    setManageOpen(false);
+    setManageOpen(false); // 선택이 바뀌면 관리 섹션 접기 (서명자 명단과 같은 문법)
     if (!selected || selected.type !== 'file') return;
     void api<{ id: number; size: number | null; created_at: string; username: string | null }[]>(
       `/api/meetings/${code}/files/${selected.id}/versions`,
@@ -4821,230 +4814,24 @@ export default function CollabFiles({
                 )}
               </div>
             )}
-            <div className="cf-details-rows">
-              <div className="cf-details-row">
-                <span>위치</span>
-                <b>
-                  {[rootName, ...crumbs.map((c) => c.name)].join(' › ')}
-                </b>
-              </div>
-              <div className="cf-details-row">
-                <span>만든 사람</span>
-                <b>{dn(selected.author) || '—'}</b>
-              </div>
-              {selected.created_at && (
+            {/* 폴더는 정보가 이게 전부라 인라인 유지 — 파일의 조회성 정보(위치·작성자·버전·연혁·
+             * 다룬 회의·미리보기)는 아래 [속성] 팝업으로 (사이드바 = 요약·행동만) */}
+            {selected.type === 'folder' && (
+              <div className="cf-details-rows">
                 <div className="cf-details-row">
-                  <span>만든 날짜</span>
+                  <span>위치</span>
                   <b>
-                    {new Date(selected.created_at + 'Z').toLocaleString('ko-KR', {
-                      year: 'numeric',
-                      month: 'numeric',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {[rootName, ...crumbs.map((c) => c.name)].join(' › ')}
                   </b>
                 </div>
-              )}
-              {selected.type === 'folder' && (
+                <div className="cf-details-row">
+                  <span>만든 사람</span>
+                  <b>{dn(selected.author) || '—'}</b>
+                </div>
                 <div className="cf-details-row">
                   <span>포함 항목</span>
                   <b>{(byParent.get(selected.id) ?? []).length}개</b>
                 </div>
-              )}
-            </div>
-            {/* 이 문서를 다룬 회의 — 클릭하면 기록 탭 해당 회의로 (문서 → 회의 다리). 기본 접힘 */}
-            {(fileMeetings?.length ?? 0) > 0 && (
-              <div className="cf-filemeets">
-                <button
-                  type="button"
-                  className="cf-ack-fold cf-versions-fold"
-                  onClick={() => setMeetsOpen((v) => !v)}
-                >
-                  <span className={`side-chevron${meetsOpen ? ' open' : ''}`}>
-                    <ChevronIcon size={10} />
-                  </span>
-                  <CalendarIcon size={13} /> 다룬 회의 ({fileMeetings!.length})
-                </button>
-                {meetsOpen && fileMeetings!.map((m) => (
-                  <button
-                    key={m.recapId}
-                    className="cf-filemeet-row"
-                    onClick={() =>
-                      window.dispatchEvent(
-                        new CustomEvent('exist:goto-recap', {
-                          detail: { code, recapId: m.recapId },
-                        }),
-                      )
-                    }
-                  >
-                    <span className="cf-filemeet-date">
-                      {new Date(m.ts).toLocaleDateString('ko-KR', {
-                        month: 'numeric',
-                        day: 'numeric',
-                      })}
-                    </span>
-                    <span className="cf-filemeet-sum">{m.summary}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* 업로드 파일 버전 기록 — 접기 섹션 (vN = 현재 개정), 지난 판 다운로드 */}
-            {selected.type === 'file' && (
-              <div className="cf-versions">
-                <button
-                  type="button"
-                  className="cf-ack-fold cf-versions-fold"
-                  onClick={() => setVersionsOpen((v) => !v)}
-                >
-                  <span className={`side-chevron${versionsOpen ? ' open' : ''}`}>
-                    <ChevronIcon size={10} />
-                  </span>
-                  <HistoryIcon size={13} /> 버전 기록 (v{selected.rev ?? 1})
-                </button>
-                {versionsOpen && (
-                  <>
-                    {(fileVersions?.length ?? 0) > 0 &&
-                      /* 서버는 최신순(DESC) — 가장 오래된 판이 v1 */
-                      fileVersions!.map((v, i) => (
-                        <div key={v.id} className="cf-version-row">
-                          <b className="cf-version-no">v{fileVersions!.length - i}</b>
-                          <span className="cf-version-meta">
-                            {v.username ? dn(v.username) : '—'} · {fmtDate(v.created_at)} ·{' '}
-                            {fmtSize(v.size)}
-                          </span>
-                          <a
-                            className="cf-version-dl"
-                            href={`/api/meetings/${code}/files/${selected.id}/versions/${v.id}/download?token=${encodeURIComponent(token ?? '')}`}
-                            onClick={(e) => {
-                              // 구본 경고 — GMP 문법: 지난 판은 참고용, 현장 사용 금지
-                              const vNo = fileVersions!.length - i;
-                              if (
-                                !confirm(
-                                  `v${vNo}은(는) 구본이에요 — 최신은 v${selected.rev ?? 1}. 참고용으로만 받아주세요.`,
-                                )
-                              )
-                                e.preventDefault();
-                            }}
-                          >
-                            다운로드
-                          </a>
-                        </div>
-                      ))}
-                    {(fileVersions?.length ?? 0) === 0 && (
-                      <div className="cf-version-none">이전 버전 없음</div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-            {/* 미리보기 — 문서 안에 뭐가 들었는지. 기본 접힘 */}
-            {preview && preview.id === selected.id && (preview.items.length > 0 || preview.count != null) && (
-              <div className="cf-details-preview">
-                <button
-                  type="button"
-                  className="cf-ack-fold cf-versions-fold"
-                  onClick={() => setPreviewOpen((v) => !v)}
-                >
-                  <span className={`side-chevron${previewOpen ? ' open' : ''}`}>
-                    <ChevronIcon size={10} />
-                  </span>
-                  <DocIcon size={13} /> 내용 미리보기
-                </button>
-                {previewOpen &&
-                  (preview.count != null ? (
-                    <div className="cf-details-previtem">슬라이드 {preview.count}장</div>
-                  ) : (
-                    preview.items.map((it, i) => (
-                      <div key={i} className="cf-details-previtem">
-                        {it}
-                      </div>
-                    ))
-                  ))}
-              </div>
-            )}
-            {/* 연혁 — "왜 이 문서가 지금 모습인가" 타임라인 (개정 이력표의 디지털판, 기본 접힘) */}
-            {selected.type !== 'folder' && (
-              <div className="cf-history">
-                <button
-                  type="button"
-                  className="cf-ack-fold cf-versions-fold"
-                  onClick={() => {
-                    const next = !historyOpen;
-                    setHistoryOpen(next);
-                    if (next && !fileHistory) void loadFileHistory(selected.id);
-                  }}
-                >
-                  <span className={`side-chevron${historyOpen ? ' open' : ''}`}>
-                    <ChevronIcon size={10} />
-                  </span>
-                  <RefreshIcon size={13} /> 연혁
-                  {(selected.rev ?? 1) > 1 && (
-                    <span className="cf-history-meta">v{selected.rev}</span>
-                  )}
-                </button>
-                {historyOpen &&
-                  (fileHistory === null ? (
-                    <div className="cf-history-empty">연혁을 불러오는 중…</div>
-                  ) : fileHistory.entries.length <= 1 && !fileHistory.entries[0]?.note ? (
-                    <div className="cf-history-empty">
-                      아직 개정 이력이 없어요 — 개정을 발행하면 바뀐 점·근거 결정이 여기에
-                      쌓여요.
-                    </div>
-                  ) : (
-                    <div className="cf-history-list">
-                      {fileHistory.entries.map((h) => (
-                        <div key={h.rev} className={`cf-history-row${h.current ? ' cur' : ''}`}>
-                          <span className="cf-history-rev">v{h.rev}</span>
-                          <div className="cf-history-body">
-                            <div className="cf-history-head">
-                              {h.at && (
-                                <span className="cf-history-date">
-                                  {new Date(h.at + 'Z').toLocaleDateString('ko-KR', {
-                                    month: 'numeric',
-                                    day: 'numeric',
-                                  })}
-                                </span>
-                              )}
-                              {h.current && <span className="cf-history-curbadge">현재</span>}
-                              {h.signs > 0 && (
-                                <span className="cf-history-signs">서명 {h.signs}</span>
-                              )}
-                            </div>
-                            {h.note &&
-                              h.note.split('\n').map((ln, i) => (
-                                <div key={i} className="cf-history-note">
-                                  {ln}
-                                </div>
-                              ))}
-                            {h.basis?.text && (
-                              <button
-                                className="cf-history-basis"
-                                title="이 개정의 근거 결정 — 기록에서 보기"
-                                onClick={() =>
-                                  window.dispatchEvent(
-                                    new CustomEvent('exist:goto-recap', {
-                                      detail: { code, recapId: h.basis!.recapId },
-                                    }),
-                                  )
-                                }
-                              >
-                                근거 결정 ·{' '}
-                                {h.basis.text.length > 36
-                                  ? h.basis.text.slice(0, 36) + '…'
-                                  : h.basis.text}
-                              </button>
-                            )}
-                            {!h.note && !h.basis?.text && (
-                              <div className="cf-history-note dim">
-                                {h.rev === 1 ? '최초 작성' : '개정 발행 (요약 없음)'}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
               </div>
             )}
             {/* 관리 — 파괴적·관리자성 액션 모음 (기본 접힘): 서명 요청/해제·개정 발행·새 버전 업로드 */}
@@ -5103,10 +4890,222 @@ export default function CollabFiles({
                 )}
               </div>
             )}
+            {/* 속성 — 조회성 정보 팝업 (윈도우 탐색기의 "속성" 문법, 항상 맨 아래) */}
+            {selected.type !== 'folder' && (
+              <button
+                className="cf-props-btn"
+                onClick={() => {
+                  setPropsOpen(true);
+                  if (!fileHistory) void loadFileHistory(selected.id);
+                }}
+              >
+                <DocIcon size={13} /> 속성
+              </button>
+            )}
           </aside>
         )}
         </div>
         </div>
+
+        {/* 속성 창 — 조회성 정보 전용 (위치·작성자·다룬 회의·버전·미리보기·연혁).
+         * 사이드바는 요약·행동(열기·공유·회람·관리)만 남긴다. 데이터는 선택 시 이미
+         * 로드돼 있는 것들(fileMeetings·fileVersions·preview) + 연혁(버튼에서 lazy) */}
+        {propsOpen && selected && selected.type !== 'folder' && (
+          <div className="cf-move-overlay" onClick={() => setPropsOpen(false)}>
+            <div className="cf-move-modal cf-props-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="cf-share-head">
+                <span className={`cf-share-head-ic cf-icon ${selected.type}`}>
+                  <TypeIcon type={selected.type} size={22} name={selected.name} />
+                </span>
+                <span className="cf-share-head-txt">
+                  <b>{selected.name}</b>
+                  <span>
+                    {TYPE_LABEL[selected.type]} 파일
+                    {(selected.rev ?? 1) > 1 ? ` · 개정 v${selected.rev}` : ''}
+                  </span>
+                </span>
+              </div>
+              <div className="cf-props-body">
+                <div className="cf-details-rows">
+                  <div className="cf-details-row">
+                    <span>위치</span>
+                    <b>{[rootName, ...crumbs.map((c) => c.name)].join(' › ')}</b>
+                  </div>
+                  <div className="cf-details-row">
+                    <span>만든 사람</span>
+                    <b>{dn(selected.author) || '—'}</b>
+                  </div>
+                  {selected.created_at && (
+                    <div className="cf-details-row">
+                      <span>만든 날짜</span>
+                      <b>
+                        {new Date(selected.created_at + 'Z').toLocaleString('ko-KR', {
+                          year: 'numeric',
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </b>
+                    </div>
+                  )}
+                </div>
+                {/* 내용 미리보기 */}
+                {preview && preview.id === selected.id && (preview.items.length > 0 || preview.count != null) && (
+                  <div className="cf-props-sec">
+                    <div className="cf-props-sec-t">
+                      <DocIcon size={13} /> 내용 미리보기
+                    </div>
+                    {preview.count != null ? (
+                      <div className="cf-details-previtem">슬라이드 {preview.count}장</div>
+                    ) : (
+                      preview.items.map((it, i) => (
+                        <div key={i} className="cf-details-previtem">
+                          {it}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                {/* 다룬 회의 — 클릭하면 기록 탭 해당 회의로 (문서 → 회의 다리) */}
+                {(fileMeetings?.length ?? 0) > 0 && (
+                  <div className="cf-props-sec">
+                    <div className="cf-props-sec-t">
+                      <CalendarIcon size={13} /> 다룬 회의 ({fileMeetings!.length})
+                    </div>
+                    {fileMeetings!.map((m) => (
+                      <button
+                        key={m.recapId}
+                        className="cf-filemeet-row"
+                        onClick={() => {
+                          setPropsOpen(false);
+                          window.dispatchEvent(
+                            new CustomEvent('exist:goto-recap', {
+                              detail: { code, recapId: m.recapId },
+                            }),
+                          );
+                        }}
+                      >
+                        <span className="cf-filemeet-date">
+                          {new Date(m.ts).toLocaleDateString('ko-KR', {
+                            month: 'numeric',
+                            day: 'numeric',
+                          })}
+                        </span>
+                        <span className="cf-filemeet-sum">{m.summary}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {/* 버전 기록 — 업로드 파일만 (vN = 현재 개정), 지난 판 다운로드 */}
+                {selected.type === 'file' && (
+                  <div className="cf-props-sec">
+                    <div className="cf-props-sec-t">
+                      <HistoryIcon size={13} /> 버전 기록 (v{selected.rev ?? 1})
+                    </div>
+                    {(fileVersions?.length ?? 0) > 0 ? (
+                      /* 서버는 최신순(DESC) — 가장 오래된 판이 v1 */
+                      fileVersions!.map((v, i) => (
+                        <div key={v.id} className="cf-version-row">
+                          <b className="cf-version-no">v{fileVersions!.length - i}</b>
+                          <span className="cf-version-meta">
+                            {v.username ? dn(v.username) : '—'} · {fmtDate(v.created_at)} ·{' '}
+                            {fmtSize(v.size)}
+                          </span>
+                          <a
+                            className="cf-version-dl"
+                            href={`/api/meetings/${code}/files/${selected.id}/versions/${v.id}/download?token=${encodeURIComponent(token ?? '')}`}
+                            onClick={(e) => {
+                              // 구본 경고 — GMP 문법: 지난 판은 참고용, 현장 사용 금지
+                              const vNo = fileVersions!.length - i;
+                              if (
+                                !confirm(
+                                  `v${vNo}은(는) 구본이에요 — 최신은 v${selected.rev ?? 1}. 참고용으로만 받아주세요.`,
+                                )
+                              )
+                                e.preventDefault();
+                            }}
+                          >
+                            다운로드
+                          </a>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="cf-version-none">이전 버전 없음</div>
+                    )}
+                  </div>
+                )}
+                {/* 연혁 — "왜 이 문서가 지금 모습인가" 타임라인 (개정 이력표의 디지털판) */}
+                <div className="cf-props-sec">
+                  <div className="cf-props-sec-t">
+                    <RefreshIcon size={13} /> 연혁
+                    {(selected.rev ?? 1) > 1 && <span className="cf-history-meta">v{selected.rev}</span>}
+                  </div>
+                  {fileHistory === null ? (
+                    <div className="cf-history-empty">연혁을 불러오는 중…</div>
+                  ) : fileHistory.entries.length <= 1 && !fileHistory.entries[0]?.note ? (
+                    <div className="cf-history-empty">
+                      아직 개정 이력이 없어요 — 개정을 발행하면 바뀐 점·근거 결정이 여기에 쌓여요.
+                    </div>
+                  ) : (
+                    <div className="cf-history-list">
+                      {fileHistory.entries.map((h) => (
+                        <div key={h.rev} className={`cf-history-row${h.current ? ' cur' : ''}`}>
+                          <span className="cf-history-rev">v{h.rev}</span>
+                          <div className="cf-history-body">
+                            <div className="cf-history-head">
+                              {h.at && (
+                                <span className="cf-history-date">
+                                  {new Date(h.at + 'Z').toLocaleDateString('ko-KR', {
+                                    month: 'numeric',
+                                    day: 'numeric',
+                                  })}
+                                </span>
+                              )}
+                              {h.current && <span className="cf-history-curbadge">현재</span>}
+                              {h.signs > 0 && <span className="cf-history-signs">서명 {h.signs}</span>}
+                            </div>
+                            {h.note &&
+                              h.note.split('\n').map((ln, i) => (
+                                <div key={i} className="cf-history-note">
+                                  {ln}
+                                </div>
+                              ))}
+                            {h.basis?.text && (
+                              <button
+                                className="cf-history-basis"
+                                title="이 개정의 근거 결정 — 기록에서 보기"
+                                onClick={() => {
+                                  setPropsOpen(false);
+                                  window.dispatchEvent(
+                                    new CustomEvent('exist:goto-recap', {
+                                      detail: { code, recapId: h.basis!.recapId },
+                                    }),
+                                  );
+                                }}
+                              >
+                                근거 결정 ·{' '}
+                                {h.basis.text.length > 36 ? h.basis.text.slice(0, 36) + '…' : h.basis.text}
+                              </button>
+                            )}
+                            {!h.note && !h.basis?.text && (
+                              <div className="cf-history-note dim">
+                                {h.rev === 1 ? '최초 작성' : '개정 발행 (요약 없음)'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button className="cf-move-cancel" onClick={() => setPropsOpen(false)}>
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 하단 상태바 — 윈도우식 */}
         {/* 이동 다이얼로그 — 드라이브식 폴더 픽커 */}
