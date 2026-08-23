@@ -12,7 +12,7 @@ import { sweepHandoverEscalations } from './handover.js';
 import { sweepFileAckAutoReminders, ackAutoRemindHours } from './fileai.js';
 import { ensureAgentUser } from './steward.js';
 import { runTodoReminders } from './todos.js';
-import { runDecisionReminders } from './recap.js';
+import { runDecisionReminders, sweepDecisionAckAutoReminders } from './recap.js';
 import { createApp } from './app.js';
 
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173';
@@ -78,12 +78,23 @@ setTimeout(() => {
   } catch (err) {
     console.error('[fileai] 회람 자동 리마인드 스윕 실패:', err);
   }
+  // 결정 미확인도 같은 리듬으로 — 문서 서명과 대칭 (박형우: "마지막 한 단계"를 시스템이 챙긴다)
+  try {
+    sweepDecisionAckAutoReminders();
+  } catch (err) {
+    console.error('[recap] 결정 자동 리마인드 스윕 실패:', err);
+  }
 }, 45_000);
 setInterval(() => {
   try {
     sweepFileAckAutoReminders();
   } catch (err) {
     console.error('[fileai] 회람 자동 리마인드 스윕 실패:', err);
+  }
+  try {
+    sweepDecisionAckAutoReminders();
+  } catch (err) {
+    console.error('[recap] 결정 자동 리마인드 스윕 실패:', err);
   }
 }, ackSweepMs);
 

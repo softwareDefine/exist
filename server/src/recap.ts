@@ -4,7 +4,7 @@ import { notifyUser, emitToUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
 import { invalidateAgenda, ensureAgentUser, settleAgendaAfterRecap } from './steward.js';
 import { transcribeMeetingAudio } from './stt.js';
-import { extractFileText } from './fileai.js';
+import { extractFileText, ackAutoRemindHours } from './fileai.js';
 import { indexRecap } from './rag.js';
 
 /*
@@ -1109,6 +1109,143 @@ export async function runFieldRecap(code: string, sessionUserIds: number[]): Pro
     console.error('[recap] 현장 녹음 정리 실패:', err);
     emitRecapStatus(key, 'done');
     return null;
+  }
+}
+
+/** 결정 미확인 자동 에스컬레이션 스윕 — 회람(문서 서명)의 결정판, index.ts 스케줄러가 주기 호출.
+ * runDecisionReminders(24시간 후 1회, 부드러운 첫 조름)의 다음 단계: recap 생성에서
+ * ACK_AUTOREMIND_HOURS(기본 48시간)가 지나도 남은 미확인자를 결정 단위로 반복해서 보채고,
+ * 호스트에게 침묵 현황을 보고한다. 마지막 자동 발송에서 같은 간격이 다시 지나야 재발송.
+ * 최근 14일 결정만 — 옛 결정 무한 보챔 방지. (수동 리마인드 1시간 쿨다운과는 별개 층) */
+export function sweepDecisionAckAutoReminders(): void {
+  const ms = ackAutoRemindHours() * 3600_000;
+  const now = Date.now();
+  const recaps = db
+    .prepare(
+      `SELECT r.id, r.decisions, r.created_at, r.meeting_id, m.code, m.title, m.host_id
+       FROM meeting_recaps r JOIN meetings m ON m.id = r.meeting_id
+       WHERE r.created_at > datetime('now', '-14 days') AND r.decisions != '[]'`,
+    )
+    .all() as {
+    id: number;
+    decisions: string;
+    created_at: string;
+    meeting_id: number;
+    code: string;
+    title: string;
+    host_id: number;
+  }[];
+  const agentId = ensureAgentUser();
+  const partsCache = new Map<number, { id: number; username: string }[]>();
+  /** 그룹별 집계 — meetingId → { 대상자별 건수·샘플, 총 건수, 최장 대기 } */
+  const perMeetingUser = new Map<
+    number,
+    {
+      code: string;
+      title: string;
+      hostId: number;
+      users: Map<number, { username: string; count: number; sample: string }>;
+      items: number;
+      oldest: number;
+    }
+  >();
+  for (const r of recaps) {
+    let decisions: string[];
+    try {
+      decisions = JSON.parse(r.decisions) as string[];
+    } catch {
+      continue;
+    }
+    if (decisions.length === 0) continue;
+    const base = new Date(r.created_at + 'Z').getTime();
+    if (!Number.isFinite(base) || now - base < ms) continue;
+    if (!partsCache.has(r.meeting_id)) {
+      partsCache.set(
+        r.meeting_id,
+        db
+          .prepare(
+            `SELECT u.id, u.username FROM meeting_participants mp JOIN users u ON u.id = mp.user_id
+             WHERE mp.meeting_id = ? AND mp.user_id != ? ORDER BY u.username`,
+          )
+          .all(r.meeting_id, agentId) as { id: number; username: string }[],
+      );
+    }
+    const parts = partsCache.get(r.meeting_id)!;
+    if (parts.length === 0) continue;
+    // 그룹별 집계 후 사용자당 1건 — 결정마다 따로 쏘면 밀린 그룹에서 첫 스윕에 알림이 도배된다
+    // (박형우: 부담을 늘리는 도구는 안 쓴다 — 알림 피로도 같은 문제)
+    const perUser =
+      perMeetingUser.get(r.meeting_id) ??
+      perMeetingUser
+        .set(r.meeting_id, {
+          code: r.code,
+          title: r.title,
+          hostId: r.host_id,
+          users: new Map(),
+          items: 0,
+          oldest: 0,
+        })
+        .get(r.meeting_id)!;
+    for (let idx = 0; idx < decisions.length; idx++) {
+      try {
+        const lastAuto = db
+          .prepare(
+            'SELECT MAX(sent_at) AS t FROM decision_ack_autoremind WHERE recap_id = ? AND decision_idx = ?',
+          )
+          .get(r.id, idx) as { t: string | null };
+        if (lastAuto.t && now - new Date(lastAuto.t + 'Z').getTime() < ms) continue;
+        const acked = new Set(
+          (
+            db
+              .prepare('SELECT user_id FROM decision_acks WHERE recap_id = ? AND decision_idx = ?')
+              .all(r.id, idx) as { user_id: number }[]
+          ).map((a) => a.user_id),
+        );
+        const pending = parts.filter((p) => !acked.has(p.id));
+        if (pending.length === 0) continue;
+        for (const t of pending) {
+          const u = perUser.users.get(t.id) ?? { username: t.username, count: 0, sample: '' };
+          u.count++;
+          if (!u.sample) u.sample = decisions[idx].slice(0, 40);
+          perUser.users.set(t.id, u);
+        }
+        perUser.items++;
+        perUser.oldest = Math.max(perUser.oldest, now - base);
+        db.prepare(
+          'INSERT INTO decision_ack_autoremind (recap_id, decision_idx) VALUES (?, ?)',
+        ).run(r.id, idx);
+      } catch (e) {
+        console.error('[recap] 결정 자동 리마인드 실패:', r.id, idx, e);
+      }
+    }
+  }
+  // 발송 — 사용자당 1건 + 호스트 현황 보고 1건 (그룹 단위)
+  for (const m of perMeetingUser.values()) {
+    if (m.items === 0 || m.users.size === 0) continue;
+    const days = Math.floor(m.oldest / 86_400_000);
+    const waited =
+      days >= 1 ? `${days}일째` : `${Math.max(1, Math.floor(m.oldest / 3_600_000))}시간째`;
+    for (const [uid, u] of m.users) {
+      notifyUser(uid, {
+        from: 'exist AI',
+        text:
+          u.count === 1
+            ? `'${u.sample}' 결정이 ${waited} 확인 대기예요 — 확인 부탁해요 ('${m.title}')`
+            : `'${u.sample}' 외 ${u.count - 1}건이 확인 대기예요 (최장 ${waited}) — '${m.title}' 기록 탭에서 확인해 주세요`,
+        kind: 'recap',
+        meetingCode: m.code.toUpperCase(),
+      });
+    }
+    // 호스트 보고 — 침묵을 관리자에게 보이게 (회람 자동 리마인드와 같은 문법)
+    const names = [...m.users.values()].map((u) => u.username);
+    const roster =
+      names.slice(0, 5).join(', ') + (names.length > 5 ? ` 외 ${names.length - 5}명` : '');
+    notifyUser(m.hostId, {
+      from: 'exist AI',
+      text: `미확인 결정 ${m.items}건에 자동 리마인드를 보냈어요 ('${m.title}') — 대상: ${roster}`,
+      kind: 'recap',
+      meetingCode: m.code.toUpperCase(),
+    });
   }
 }
 

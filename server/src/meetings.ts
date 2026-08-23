@@ -841,6 +841,9 @@ router.delete('/:code', (req: AuthedRequest, res) => {
   db.prepare(
     'DELETE FROM decision_remind_sent WHERE recap_id IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)',
   ).run(meeting.id);
+  db.prepare(
+    'DELETE FROM decision_ack_autoremind WHERE recap_id IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)',
+  ).run(meeting.id);
   db.prepare('DELETE FROM meeting_recaps WHERE meeting_id = ?').run(meeting.id);
   db.prepare('DELETE FROM chat_reads WHERE meeting_id = ?').run(meeting.id);
   // 채널 알림 설정이 채널을 FK로 물고 있음 — 채널보다 먼저
@@ -1494,6 +1497,7 @@ router.delete('/:code/decisions/auto/:recapId', (req: AuthedRequest, res) => {
   db.prepare('DELETE FROM decision_acks WHERE recap_id = ?').run(recapId);
   // 리마인드 발송 기록도 recap FK — 리마인드가 나갔던 결정은 취소가 FK로 터지던 버그
   db.prepare('DELETE FROM decision_remind_sent WHERE recap_id = ?').run(recapId);
+  db.prepare('DELETE FROM decision_ack_autoremind WHERE recap_id = ?').run(recapId);
   db.prepare('DELETE FROM meeting_recaps WHERE id = ?').run(recapId);
   invalidateAgenda(r.meeting.id);
   const parts = db

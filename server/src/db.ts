@@ -980,6 +980,18 @@ try {
   /* 이미 존재 */
 }
 
+// 결정 미확인 자동 에스컬레이션 발송 기록 — 회람(file_ack_autoremind)의 결정판.
+// 마지막 자동 발송에서 ACK_AUTOREMIND_HOURS가 다시 지나야 재발송
+db.exec(`
+  CREATE TABLE IF NOT EXISTS decision_ack_autoremind (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    recap_id     INTEGER NOT NULL REFERENCES meeting_recaps(id),
+    decision_idx INTEGER NOT NULL,
+    sent_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_decision_ack_autoremind ON decision_ack_autoremind(recap_id, decision_idx);
+`);
+
 // 마이그레이션: 개인 DM 지원 — 기존 테이블 org_id가 NOT NULL이면 NULL 허용으로 재생성
 try {
   const col = db
