@@ -19763,6 +19763,26 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 .cf-revise-actions {
   flex: none; /* 목록이 길어도 취소·발행 버튼은 항상 보인다 */
 }
+/* 기타 사유 입력 — 라디오 선택 시에만 노출 */
+.cf-revise-note {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 2px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 10px;
+}
+.cf-revise-note:focus {
+  outline: none;
+  border-color: var(--green);
+}
+/* 기타 사유 표시 — 근거 결정 버튼과 같은 자리지만 점프 없는 정적 표기 */
+.cf-ack-basis.static {
+  cursor: default;
+}
 .cf-revise-basis-t {
   font-size: 12px;
   font-weight: 700;

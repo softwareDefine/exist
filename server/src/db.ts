@@ -973,6 +973,13 @@ try {
   /* 이미 존재 */
 }
 
+// 마이그레이션: 개정 사유 직접 입력("기타") — 원장에 없는 사유(오타 수정·고객 요청 등)도 연혁에 남게
+try {
+  db.exec(`ALTER TABLE file_rev_snapshots ADD COLUMN basis_note TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+
 // 마이그레이션: 개인 DM 지원 — 기존 테이블 org_id가 NOT NULL이면 NULL 허용으로 재생성
 try {
   const col = db

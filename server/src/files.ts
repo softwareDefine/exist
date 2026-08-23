@@ -223,6 +223,7 @@ function reviseFile(
   actorName: string,
   f: { id: number; name: string; ack_required: number },
   basis?: { recapId: number; decisionIdx: number } | null,
+  basisNote?: string | null,
 ): number {
   const cur = db
     .prepare('SELECT COALESCE(rev, 1) AS rev FROM collab_files WHERE id = ?')
@@ -260,6 +261,7 @@ function reviseFile(
     ackRequired: !!f.ack_required,
     basisRecapId: basis?.recapId ?? null,
     basisDecisionIdx: basis?.decisionIdx ?? null,
+    basisNote: basisNote ?? null,
   });
   indexFileRag(meeting.id, f.id, f.name); // RAG 재색인 — 개정된 본문이 의미 검색에 반영되게
   return nextRev;
@@ -532,7 +534,12 @@ router.post('/:fileId/revise', (req: AuthedRequest, res) => {
     }
     basis = { recapId, decisionIdx: idx };
   }
-  const rev = reviseFile(r.meeting, req.userId!, req.username ?? '누군가', f, basis);
+  // 기타 사유(직접 입력) — 원장에 없는 개정 이유(오타 수정·고객 요청 등)도 연혁에 남긴다
+  const basisNote =
+    typeof (req.body as { basisNote?: unknown })?.basisNote === 'string'
+      ? String((req.body as { basisNote: string }).basisNote).trim().slice(0, 200) || null
+      : null;
+  const rev = reviseFile(r.meeting, req.userId!, req.username ?? '누군가', f, basis, basisNote);
   // 재회람이면 전원이 다시 서명 대기 상태 — 홈 브리핑 갱신
   if (f.ack_required) invalidateBriefForMeeting(r.meeting.id);
   res.json({ ok: true, rev });
@@ -556,7 +563,7 @@ router.get('/:fileId/history', (req: AuthedRequest, res) => {
 
   const snaps = db
     .prepare(
-      `SELECT rev, note, basis_recap_id, basis_decision_idx, created_at
+      `SELECT rev, note, basis_recap_id, basis_decision_idx, basis_note, created_at
        FROM file_rev_snapshots WHERE file_id = ? ORDER BY rev DESC`,
     )
     .all(f.id) as {
@@ -564,6 +571,7 @@ router.get('/:fileId/history', (req: AuthedRequest, res) => {
     note: string | null;
     basis_recap_id: number | null;
     basis_decision_idx: number | null;
+    basis_note: string | null;
     created_at: string;
   }[];
   const histSigns = new Map(
@@ -606,6 +614,8 @@ router.get('/:fileId/history', (req: AuthedRequest, res) => {
               text: basisText(s.basis_recap_id, s.basis_decision_idx),
             }
           : null,
+      /** 기타 사유(직접 입력) — 원장 점프 없는 개정 이유 */
+      basisNote: s?.basis_note ?? null,
       signs: rev === f.rev ? curSigns : (histSigns.get(rev) ?? 0),
       current: rev === f.rev,
     });
@@ -677,10 +687,10 @@ router.get('/:fileId/acks', (req: AuthedRequest, res) => {
   // 최신 rev의 AI 요약 — "이번 개정에서 바뀐 것" 박스 (없으면 null, 클라는 숨김)
   const snap = db
     .prepare(
-      'SELECT note, basis_recap_id, basis_decision_idx FROM file_rev_snapshots WHERE file_id = ? AND rev = ?',
+      'SELECT note, basis_recap_id, basis_decision_idx, basis_note FROM file_rev_snapshots WHERE file_id = ? AND rev = ?',
     )
     .get(f.id, f.rev) as
-    | { note: string | null; basis_recap_id: number | null; basis_decision_idx: number | null }
+    | { note: string | null; basis_recap_id: number | null; basis_decision_idx: number | null; basis_note: string | null }
     | undefined;
   // 근거 결정 — "왜 이 개정이 나왔나" (원장 점프 링크의 재료)
   let basis: { recapId: number; idx: number; text: string } | null = null;
@@ -703,6 +713,8 @@ router.get('/:fileId/acks', (req: AuthedRequest, res) => {
     rev: f.rev,
     note: snap?.note ?? null,
     basis,
+    /** 기타 사유(직접 입력) — 근거 결정 없이 발행된 개정의 이유 */
+    basisNote: snap?.basis_note ?? null,
   });
 });
 

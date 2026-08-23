@@ -130,6 +130,8 @@ export function afterRevise(p: {
   /** 근거 결정 — 이 개정이 어느 원장 결정에서 나왔나 (수동 발행에서 선택, 없으면 null) */
   basisRecapId?: number | null;
   basisDecisionIdx?: number | null;
+  /** 기타 사유(직접 입력) — 원장에 없는 개정 이유. 근거 결정과 별개 필드 */
+  basisNote?: string | null;
 }): void {
   // ① 현재 본문 스냅샷 — 발행되는 새 rev 시점. 추출 불가 타입이면 text=null (기준 시각 기록은 유지)
   let text: string | null = null;
@@ -148,11 +150,11 @@ export function afterRevise(p: {
       .get(p.fileId, p.rev) as { text: string } | undefined;
     prevText = prev?.text ?? null;
     db.prepare(
-      `INSERT INTO file_rev_snapshots (file_id, rev, text, basis_recap_id, basis_decision_idx) VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO file_rev_snapshots (file_id, rev, text, basis_recap_id, basis_decision_idx, basis_note) VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT(file_id, rev) DO UPDATE SET text = excluded.text,
          basis_recap_id = excluded.basis_recap_id, basis_decision_idx = excluded.basis_decision_idx,
-         created_at = datetime('now')`,
-    ).run(p.fileId, p.rev, text, p.basisRecapId ?? null, p.basisDecisionIdx ?? null);
+         basis_note = excluded.basis_note, created_at = datetime('now')`,
+    ).run(p.fileId, p.rev, text, p.basisRecapId ?? null, p.basisDecisionIdx ?? null, p.basisNote ?? null);
   } catch (e) {
     console.error('[fileai] 개정 스냅샷 실패:', e);
   }

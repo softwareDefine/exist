@@ -104,6 +104,8 @@ interface FileAckStatus {
   note?: string | null;
   /** 이 개정의 근거 결정 — 원장 점프 링크 (수동 발행에서 선택 안 했으면 null) */
   basis?: { recapId: number; idx: number; text: string } | null;
+  /** 기타 사유(직접 입력) — 원장에 없는 개정 이유 (점프 없음) */
+  basisNote?: string | null;
 }
 
 const TYPE_LABEL: Record<Exclude<FileType, 'folder'>, string> = {
@@ -660,6 +662,8 @@ export default function CollabFiles({
       at: string | null;
       note: string | null;
       basis: { recapId: number; idx: number; text: string | null } | null;
+      /** 기타 사유(직접 입력) — 원장 점프 없는 개정 이유 */
+      basisNote: string | null;
       signs: number;
       current: boolean;
     }[];
@@ -2116,12 +2120,14 @@ export default function CollabFiles({
 
   /** 개정 발행(재회람) 모달 — 근거 결정 선택(선택사항) 후 발행. rev +1, 회람 문서면 전원 서명 리셋 */
   const [reviseFor, setReviseFor] = useState<CollabFile | null>(null);
-  const [reviseBasis, setReviseBasis] = useState<string | null>(null); // 'recapId-idx'
+  const [reviseBasis, setReviseBasis] = useState<string | null>(null); // 'recapId-idx' | 'other'
+  const [reviseNote, setReviseNote] = useState(''); // 기타(직접 입력) 사유
   const [reviseDecisions, setReviseDecisions] = useState<
     { recapId: number; idx: number; decision: string; ts: number }[]
   >([]);
   function reviseNow(f: CollabFile) {
     setReviseBasis(null);
+    setReviseNote('');
     setReviseDecisions([]);
     setReviseFor(f);
     // 최근 결정 후보 — "왜 이 개정이 나왔나"를 원장과 잇는 재료 (실패해도 발행은 가능)
@@ -2135,9 +2141,12 @@ export default function CollabFiles({
   async function confirmRevise() {
     const f = reviseFor;
     if (!f) return;
-    const basis = reviseBasis
-      ? { basisRecapId: Number(reviseBasis.split('-')[0]), basisDecisionIdx: Number(reviseBasis.split('-')[1]) }
-      : {};
+    const basis =
+      reviseBasis === 'other'
+        ? { basisNote: reviseNote.trim() || undefined } // 기타 — 직접 입력한 사유만
+        : reviseBasis
+          ? { basisRecapId: Number(reviseBasis.split('-')[0]), basisDecisionIdx: Number(reviseBasis.split('-')[1]) }
+          : {};
     setReviseFor(null);
     try {
       const r = await api<{ rev: number }>(`/api/meetings/${code}/files/${f.id}/revise`, {
@@ -4723,6 +4732,13 @@ export default function CollabFiles({
                     </span>
                   </button>
                 )}
+                {/* 기타 사유(직접 입력) — 원장 점프 없는 개정 이유 */}
+                {!ackStatus?.basis && ackStatus?.basisNote && (
+                  <div className="cf-ack-basis static">
+                    <span className="cf-ack-basis-t">개정 사유</span>
+                    <span className="cf-ack-basis-x">{ackStatus.basisNote}</span>
+                  </div>
+                )}
                 {/* 미확인자 명단 — 누가 아직 안 봤는지 (아바타 정사각 규칙) */}
                 {ackStatus &&
                   (ackStatus.pending.length > 0 ? (
@@ -5088,7 +5104,11 @@ export default function CollabFiles({
                                 {h.basis.text.length > 36 ? h.basis.text.slice(0, 36) + '…' : h.basis.text}
                               </button>
                             )}
-                            {!h.note && !h.basis?.text && (
+                            {/* 기타 사유(직접 입력) — 점프 없는 개정 이유 */}
+                            {!h.basis?.text && h.basisNote && (
+                              <div className="cf-history-note">개정 사유 · {h.basisNote}</div>
+                            )}
+                            {!h.note && !h.basis?.text && !h.basisNote && (
                               <div className="cf-history-note dim">
                                 {h.rev === 1 ? '최초 작성' : '개정 발행 (요약 없음)'}
                               </div>
@@ -5525,36 +5545,54 @@ export default function CollabFiles({
                 <CloseIcon size={14} />
               </button>
             </div>
-            {reviseDecisions.length > 0 && (
-              <div className="cf-revise-basis">
-                <div className="cf-revise-basis-t">
-                  이 개정의 근거 결정 <i>(선택) — 문서와 결정 원장이 서로 연결돼요</i>
-                </div>
-                <label className="cf-revise-opt">
+            <div className="cf-revise-basis">
+              <div className="cf-revise-basis-t">
+                이 개정의 근거 <i>(선택) — 문서와 결정 원장이 서로 연결돼요</i>
+              </div>
+              <label className="cf-revise-opt">
+                <input
+                  type="radio"
+                  name="revbasis"
+                  checked={reviseBasis === null}
+                  onChange={() => setReviseBasis(null)}
+                />
+                <span>근거 결정 없음</span>
+              </label>
+              {reviseDecisions.map((d) => (
+                <label key={`${d.recapId}-${d.idx}`} className="cf-revise-opt">
                   <input
                     type="radio"
                     name="revbasis"
-                    checked={reviseBasis === null}
-                    onChange={() => setReviseBasis(null)}
+                    checked={reviseBasis === `${d.recapId}-${d.idx}`}
+                    onChange={() => setReviseBasis(`${d.recapId}-${d.idx}`)}
                   />
-                  <span>근거 결정 없음</span>
+                  <span>
+                    {d.decision.length > 56 ? d.decision.slice(0, 56) + '…' : d.decision}
+                    <i>{new Date(d.ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</i>
+                  </span>
                 </label>
-                {reviseDecisions.map((d) => (
-                  <label key={`${d.recapId}-${d.idx}`} className="cf-revise-opt">
-                    <input
-                      type="radio"
-                      name="revbasis"
-                      checked={reviseBasis === `${d.recapId}-${d.idx}`}
-                      onChange={() => setReviseBasis(`${d.recapId}-${d.idx}`)}
-                    />
-                    <span>
-                      {d.decision.length > 56 ? d.decision.slice(0, 56) + '…' : d.decision}
-                      <i>{new Date(d.ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</i>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
+              ))}
+              {/* 기타 — 원장에 없는 개정 사유(오타 수정·고객 요청 등)를 직접 남긴다. 연혁에 표시 */}
+              <label className="cf-revise-opt">
+                <input
+                  type="radio"
+                  name="revbasis"
+                  checked={reviseBasis === 'other'}
+                  onChange={() => setReviseBasis('other')}
+                />
+                <span>기타 — 사유 직접 입력</span>
+              </label>
+              {reviseBasis === 'other' && (
+                <input
+                  className="cf-revise-note"
+                  autoFocus
+                  value={reviseNote}
+                  onChange={(e) => setReviseNote(e.target.value)}
+                  placeholder="개정 사유 (예: 오타 수정, 고객 요청 반영)"
+                  maxLength={200}
+                />
+              )}
+            </div>
             <div className="cf-revise-actions">
               <button className="cf-revise-cancel" onClick={() => setReviseFor(null)}>
                 취소
