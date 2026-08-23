@@ -15114,6 +15114,17 @@ button.cf-home-fold {
   padding: 0 2px;
 }
 
+/* 공동편집 문서 카드의 "열기" — 클릭 유도가 보이게 초록 칩 (그레이 텍스트는 묻힌다) */
+.chat-file-open {
+  flex: none;
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
 .chat-row.mine .chat-file-text {
   color: #fff;
 }

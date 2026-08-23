@@ -2722,11 +2722,14 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                         <span className="chat-file-dl"><DownloadIcon size={13} /></span>
                                       )
                                     ) : (
-                                      <span className="chat-file-dl">열기</span>
+                                      <span className="chat-file-open">열기</span>
                                     )}
                                   </span>
                                 )}
-                                {m.text && <span className="chat-file-text">{m.text}</span>}
+                                {/* 공동편집 카드(fileId만)의 text는 구 클라용 폴백 — 카드와 중복이라 숨김 */}
+                                {m.text && !(m.file.fileId && !m.file.url) && (
+                                  <span className="chat-file-text">{m.text}</span>
+                                )}
                               </a>
                             ) : m.from === 'exist AI' ? (
                               // 자동 기록 메시지 꼬리의 #R123 토큰(취소용 ID)은 화면에서 숨김
