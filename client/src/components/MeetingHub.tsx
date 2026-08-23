@@ -19,6 +19,7 @@ import { togglePin, isPinned, PINS_EVENT } from '../lib/pins';
 import { dueBadge } from '../lib/due';
 import { useDisplayName } from '../names';
 import { useFieldRec, startFieldRecording, stopFieldRecording } from '../lib/fieldRecording';
+import { registerCall, clearCall, leaveOtherCall } from '../lib/callSession';
 import {
   PhoneIcon,
   MicIcon,
@@ -268,6 +269,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
   const [detail, setDetail] = useState<MeetingDetail | null>(null);
   const [subtab, setSubtab] = useState<SubTab>('dash');
   const [inCall, setInCall] = useState(false);
+  // 허브(그룹 탭)가 닫히면 통화도 끝난다 — 전역 통화 레지스트리의 잔존 참조 정리
+  useEffect(() => () => clearCall(code), [code]);
   // 참가자 명함에서 연 1:1 DM 창 (홈의 통합 메시지는 회의 탭에서 언마운트라 여기서 직접 띄움)
   const [dm, setDm] = useState<{ scope: DmScope; peer: Thread } | null>(null);
   const navigate = useNavigate();
@@ -1402,6 +1405,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
   }
 
   function joinCall() {
+    // 한 번에 한 통화 — 다른 그룹 통화가 살아 있으면 먼저 종료 (마이크·소켓 방 충돌 방지)
+    leaveOtherCall(code);
     // 통화 탭으로 이동 → MeetingView가 프리뷰(디바이스 확인)부터 띄움.
     // 실제 통화 시작(inCall)은 프리뷰의 '입장하기' → onJoined에서 처리.
     setSubtab('call');
@@ -1433,7 +1438,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
         </button>
         <button
           className={`hub-tab${subtab === 'call' ? ' active' : ''}`}
-          onClick={() => setSubtab('call')}
+          onClick={joinCall}
         >
           <PhoneIcon size={13} /> 통화
           {/* 인원수 배지가 깜빡이며 라이브 표시까지 겸함 — live-dot과 중복이라 점은 제거 */}
@@ -1542,7 +1547,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                   <button className="hub-m-item" onClick={() => setSubtab('schedule')}>
                     <CalendarIcon size={19} /> 일정
                   </button>
-                  <button className="hub-m-item" onClick={() => setSubtab('call')}>
+                  <button className="hub-m-item" onClick={joinCall}>
                     <PhoneIcon size={19} /> 통화
                     {(detail?.online ?? 0) > 0 && (
                       <span className="hub-tab-count">{detail!.online}</span>
@@ -2481,7 +2486,17 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
               embedded
               expanded={expanded}
               onToggleExpand={onToggleExpand}
-              onJoined={() => setInCall(true)}
+              onJoined={() => {
+                // 프리뷰 우회 진입(딥링크 등) 대비 — 입장 확정 시점에도 타 통화 정리
+                leaveOtherCall(code);
+                setInCall(true);
+                // 전역 등록 — 다른 그룹에서 통화 참여 시 이 루틴이 호출돼 정리된다
+                // (inCall=false + 대시보드 복귀 → MeetingView 언마운트 → room:leave·트랙 정지)
+                registerCall(code, () => {
+                  setInCall(false);
+                  setSubtab('dash');
+                });
+              }}
               onlinePeers={detail?.callPeers ?? []}
               peerAvatars={Object.fromEntries(
                 (detail?.participants ?? []).map((p) => [p.username, p.avatar]),
@@ -2489,6 +2504,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
               mentionCandidates={mentionCandidates}
               onLeave={(message) => {
                 setInCall(false);
+                clearCall(code);
                 setSubtab('dash');
                 if (expanded) onToggleExpand?.();
                 if (message)
