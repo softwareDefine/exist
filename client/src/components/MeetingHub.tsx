@@ -262,39 +262,6 @@ function FieldRecButton({ code }: { code: string }) {
   );
 }
 
-/** 시연영상 촬영용 임시 버튼 — 제출 후 제거 예정. URL에 ?demo=1일 때만 노출(정식 UI엔 없음).
- *  클릭 한 번으로 "3번 포장기 수리 완료" 알림을 촬영용 계정 전원에게 재발사 —
- *  알림은 한 번 읽으면 사라져서, SSH로 스크립트 재실행하는 대신 촬영 중 바로 다시 쏠 수 있게 */
-function DemoRepairNotifyButton({ code }: { code: string }) {
-  const [busy, setBusy] = useState(false);
-  const [sent, setSent] = useState<string[] | null>(null);
-  if (new URLSearchParams(window.location.search).get('demo') !== '1') return null;
-  return (
-    <button
-      className="hub-fieldrec"
-      style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
-      disabled={busy}
-      onClick={async () => {
-        setBusy(true);
-        setSent(null);
-        try {
-          const r = await api<{ sent: string[] }>(`/api/meetings/${code}/demo/repair-notify`, {
-            method: 'POST',
-          });
-          setSent(r.sent);
-        } catch {
-          /* 전역 토스트 */
-        } finally {
-          setBusy(false);
-        }
-      }}
-      title="촬영용 — 수리 완료 알림 재발사"
-    >
-      🎬 {busy ? '발사 중…' : sent ? `발사됨 (${sent.length})` : '알림 재발사'}
-    </button>
-  );
-}
-
 function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }: Props) {
   const user = useAuthStore((s) => s.user);
   const presence = usePresence();
@@ -1571,7 +1538,6 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                         <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여'}
                       </button>
                       <FieldRecButton code={detail.code} />
-                      <DemoRepairNotifyButton code={detail.code} />
                     </div>
                   </div>
                 </section>

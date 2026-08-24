@@ -1363,27 +1363,6 @@ router.post('/:code/field-recording/finish', (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
-/* ── 시연영상 촬영용 임시 트리거 — 제출 후 제거 예정. 그룹 참가자면 누구나,
- * 클라에서 ?demo=1일 때만 버튼이 보인다 (정식 UI엔 노출 안 됨) ── */
-router.post('/:code/demo/repair-notify', (req: AuthedRequest, res) => {
-  const r = meetingForParticipant(req.params.code, req.userId!);
-  if (!r.ok) return res.status(r.status).json({ error: r.error });
-  const targets = ['cb_junghn', 'cb_leesm', 'cb_ohsy', 'cb_kimdh', 'test12'];
-  const ph = targets.map(() => '?').join(',');
-  const rows = db
-    .prepare(`SELECT id, username FROM users WHERE username IN (${ph})`)
-    .all(...targets) as { id: number; username: string }[];
-  for (const u of rows) {
-    notifyUser(u.id, {
-      from: '한지호',
-      text: '3번 포장기 수리 완료 — 시운전 체크리스트 확인 후 재가동 가능합니다',
-      kind: 'recap',
-      meetingCode: String(req.params.code).toUpperCase(),
-    });
-  }
-  res.json({ ok: true, sent: rows.map((u) => u.username) });
-});
-
 /** 채팅 결정 수동 기록 — AI 제안 카드의 [기록] 버튼 (참가자 누구나) */
 router.post('/:code/decisions/manual', (req: AuthedRequest, res) => {
   const r = meetingForParticipant(req.params.code, req.userId!);
