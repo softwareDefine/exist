@@ -264,36 +264,15 @@ function FieldRecButton({ code }: { code: string }) {
 
 /** 시연영상 촬영용 임시 버튼 — 제출 후 제거 예정. URL에 ?demo=1일 때만 노출(정식 UI엔 없음).
  *  클릭 한 번으로 "3번 포장기 수리 완료" 알림을 촬영용 계정 전원에게 재발사 —
- *  알림은 한 번 읽으면 사라져서, SSH로 스크립트 재실행하는 대신 촬영 중 바로 다시 쏠 수 있게.
- *  화면 우하단 고정 — 어느 서브탭(대시보드·채팅·공동편집…)에 있든 항상 보인다.
- *  ?demo=1 감지 시 localStorage에 남겨 이후 탭 전환·새로고침에도 계속 뜨게 함 */
+ *  알림은 한 번 읽으면 사라져서, SSH로 스크립트 재실행하는 대신 촬영 중 바로 다시 쏠 수 있게 */
 function DemoRepairNotifyButton({ code }: { code: string }) {
-  const [show, setShow] = useState(
-    () =>
-      new URLSearchParams(window.location.search).get('demo') === '1' ||
-      localStorage.getItem('exist-demo') === '1',
-  );
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<string[] | null>(null);
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('demo') === '1') {
-      localStorage.setItem('exist-demo', '1');
-      setShow(true);
-    }
-  }, []);
-  if (!show) return null;
+  if (new URLSearchParams(window.location.search).get('demo') !== '1') return null;
   return (
     <button
       className="hub-fieldrec"
-      style={{
-        position: 'fixed',
-        right: 16,
-        bottom: 16,
-        zIndex: 2000,
-        background: '#7c3aed',
-        borderColor: '#7c3aed',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-      }}
+      style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
       disabled={busy}
       onClick={async () => {
         setBusy(true);
@@ -1476,7 +1455,6 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
       onPointerUp={onHubPointerUp}
       onPointerCancel={onHubPointerAbort}
     >
-      <DemoRepairNotifyButton code={code} />
       {/* 서브탭 — 대시보드가 메인 */}
       <div className="hub-tabs">
         <button
@@ -1593,6 +1571,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                         <PhoneIcon size={18} /> {inCall ? '통화로 돌아가기' : '통화 참여'}
                       </button>
                       <FieldRecButton code={detail.code} />
+                      <DemoRepairNotifyButton code={detail.code} />
                     </div>
                   </div>
                 </section>
