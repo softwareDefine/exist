@@ -764,7 +764,7 @@ router.get('/sent', (req: AuthedRequest, res) => {
   }[];
 
   const partStmt = db.prepare(
-    `SELECT u.id, u.username FROM meeting_participants mp JOIN users u ON u.id = mp.user_id WHERE mp.meeting_id = ?`,
+    `SELECT u.id, COALESCE(NULLIF(u.name, ''), u.username) AS username FROM meeting_participants mp JOIN users u ON u.id = mp.user_id WHERE mp.meeting_id = ?`,
   );
   const ackStmt = db.prepare('SELECT decision_idx, user_id FROM decision_acks WHERE recap_id = ?');
   const partCache = new Map<number, { id: number; username: string }[]>();
