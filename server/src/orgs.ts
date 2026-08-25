@@ -677,7 +677,7 @@ router.get('/:id/team-acks', (req: AuthedRequest, res) => {
   // 우리 조 = 내 부서 (부서 미지정이면 조직 전체)
   const teamRows = db
     .prepare(
-      `SELECT om.user_id, u.username FROM organization_members om
+      `SELECT om.user_id, COALESCE(NULLIF(u.name, ''), u.username) AS username FROM organization_members om
        JOIN users u ON u.id = om.user_id
        WHERE om.org_id = ? AND om.status = 'active'
          AND (? IS NULL OR om.department = ?)`,
