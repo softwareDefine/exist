@@ -522,10 +522,16 @@ async function aiAgenda(ctx: AgentContext, carryTitles: string[] = []): Promise<
     items?: unknown;
   };
   if (!Array.isArray(parsed.items)) throw new Error('no items');
+  // 프롬프트 재료의 내부 키 이름(undone_todos 등)이 답변에 새어 나오는 것 차단
+  const stripKeys = (s: string) =>
+    s
+      .replace(/\s*\(?\b(undone_todos|call_summaries|recent_chat|carryover_titles|decisions)\b\)?/g, '')
+      .replace(/\(\s*\)/g, '')
+      .trim();
   const items = parsed.items
     .map((it) => ({
-      title: String((it as AgendaItem).title ?? '').trim().slice(0, 60),
-      why: String((it as AgendaItem).why ?? '').trim().slice(0, 40),
+      title: stripKeys(String((it as AgendaItem).title ?? '')).slice(0, 60),
+      why: stripKeys(String((it as AgendaItem).why ?? '')).slice(0, 40),
     }))
     .filter((it) => it.title)
     .slice(0, 4);
