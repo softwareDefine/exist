@@ -759,7 +759,7 @@ export default function ProfileDashboard() {
               </div>
               {/* 우리 조 리마인드 — 마디의 행동 버튼. 조원 미확인자에게만 AI 총무 명의로 */}
               <button
-                className="pd-sent-remind"
+                className="pd-ack-btn"
                 disabled={reminding === key}
                 onClick={() => void remindTeam(e, key)}
                 title="우리 조 미확인자에게만 AI가 리마인드"
