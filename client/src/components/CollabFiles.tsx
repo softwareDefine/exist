@@ -668,7 +668,14 @@ export default function CollabFiles({
       current: boolean;
     }[];
   } | null>(null);
+  // 마지막으로 연혁을 연 파일 — files:changed(개정 발행 등) 푸시 때 열린 속성 창을 재로드하기 위한 참조
+  const historyFileRef = useRef<number | null>(null);
+  const propsOpenRef = useRef(false);
+  useEffect(() => {
+    propsOpenRef.current = propsOpen;
+  }, [propsOpen]);
   async function loadFileHistory(fileId: number) {
+    historyFileRef.current = fileId;
     try {
       setFileHistory(
         await api(`/api/meetings/${code}/files/${fileId}/history`, { silent: true }),
@@ -1027,6 +1034,8 @@ export default function CollabFiles({
       if (p?.code !== code.toUpperCase()) return;
       load();
       void loadTrash(); // 삭제·복원도 변경에 포함 — 휴지통 개수 배지 동기화
+      // 속성 창이 열려 있으면 연혁도 즉시 재로드 — 개정 발행이 새로고침 없이 v_new로 반영되게
+      if (propsOpenRef.current && historyFileRef.current) void loadFileHistory(historyFileRef.current);
     };
     socket.on('files:changed', onFilesChanged);
     return () => {
