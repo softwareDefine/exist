@@ -467,6 +467,30 @@ export default function ProfileDashboard() {
     }
   }
 
+  /** 우리 조 리마인드 — 마디(중간관리)가 조원 미확인자에게. AI 총무 명의 (서버 1시간 쿨다운) */
+  async function remindTeam(e: { recapId: number; idx: number }, key: string) {
+    if (typeof org !== 'number') return;
+    setReminding(key);
+    try {
+      const r = await api<{ reminded: number }>(`/api/orgs/${org}/team-acks/remind`, {
+        method: 'POST',
+        body: { recapId: e.recapId, idx: e.idx },
+      });
+      window.dispatchEvent(
+        new CustomEvent(r.reminded > 0 ? 'app:info' : 'app:error', {
+          detail:
+            r.reminded > 0
+              ? `우리 조 미확인 ${r.reminded}명에게 리마인드를 보냈어요`
+              : '보낼 대상이 없어요 (쿨다운 중이거나 전원 확인)',
+        }),
+      );
+    } catch {
+      /* 전역 토스트 */
+    } finally {
+      setReminding(null);
+    }
+  }
+
   // 발신자 카드 — 보낸 결정이 있을 때만 (행동 기반 노출)
   const sentCard = sent && sent.entries.length > 0 && (
     <div style={cellCard} className="pd-sent">
@@ -711,28 +735,40 @@ export default function ProfileDashboard() {
             {teamAcks.department ? `${teamAcks.department} 기준` : '조직 전체 기준'} · 아직 안 본 사람
           </span>
         </div>
-        {teamAcks.items.slice(0, 5).map((e) => (
-          <div key={`${e.recapId}-${e.idx}`} className="pd-sent-row">
-            <div
-              className="pd-act-main"
-              onClick={() => openMeeting(e.meetingCode, e.meetingTitle)}
-              title={`"${e.meetingTitle}" 열기`}
-            >
-              <Marquee className="pd-act-title">{e.text}</Marquee>
-              <span className="pd-act-sub">
-                {e.meetingTitle} · 확인 {e.acked}/{e.total}
-                <span className="pd-sent-missing" title={e.missing.join(', ')}>
-                  {' '}
-                  — 미확인: {e.missing.slice(0, 3).join(', ')}
-                  {e.missing.length > 3 ? ` 외 ${e.missing.length - 3}명` : ''}
+        {teamAcks.items.slice(0, 5).map((e) => {
+          const key = `team-${e.recapId}-${e.idx}`;
+          return (
+            <div key={`${e.recapId}-${e.idx}`} className="pd-sent-row">
+              <div
+                className="pd-act-main"
+                onClick={() => openMeeting(e.meetingCode, e.meetingTitle)}
+                title={`"${e.meetingTitle}" 열기`}
+              >
+                <Marquee className="pd-act-title">{e.text}</Marquee>
+                <span className="pd-act-sub">
+                  {e.meetingTitle} · 확인 {e.acked}/{e.total}
+                  <span className="pd-sent-missing" title={e.missing.join(', ')}>
+                    {' '}
+                    — 미확인: {e.missing.slice(0, 3).join(', ')}
+                    {e.missing.length > 3 ? ` 외 ${e.missing.length - 3}명` : ''}
+                  </span>
                 </span>
-              </span>
-              <span className="pd-sent-bar" aria-hidden>
-                <i style={{ width: `${Math.round((e.acked / Math.max(1, e.total)) * 100)}%` }} />
-              </span>
+                <span className="pd-sent-bar" aria-hidden>
+                  <i style={{ width: `${Math.round((e.acked / Math.max(1, e.total)) * 100)}%` }} />
+                </span>
+              </div>
+              {/* 우리 조 리마인드 — 마디의 행동 버튼. 조원 미확인자에게만 AI 총무 명의로 */}
+              <button
+                className="pd-sent-remind"
+                disabled={reminding === key}
+                onClick={() => void remindTeam(e, key)}
+                title="우리 조 미확인자에게만 AI가 리마인드"
+              >
+                {reminding === key ? '보내는 중…' : '리마인드'}
+              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
     return (

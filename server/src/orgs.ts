@@ -748,6 +748,81 @@ router.get('/:id/team-acks', (req: AuthedRequest, res) => {
   res.json({ department: me.department ?? null, items });
 });
 
+// 우리 조 리마인드 쿨다운 — 같은 결정에 반복 조르기 방지 (조직·결정 단위, 1시간)
+const teamRemindLast = new Map<string, number>();
+
+/** 우리 조 미확인자 리마인드 — 마디(중간관리)가 자기 조원에게만. AI 총무 명의 (사람이 조르지 않는다) */
+router.post('/:id/team-acks/remind', (req: AuthedRequest, res) => {
+  const orgId = Number(req.params.id);
+  const me = getFullMembership(orgId, req.userId!);
+  if (!me || me.status !== 'active') return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
+  const manager = isManager(orgId, req.userId!);
+  if (!manager && me.tier !== 'relay' && me.tier !== 'hq') {
+    return res.status(403).json({ error: '리마인드는 관리자·중간관리자만 보낼 수 있어요' });
+  }
+  const recapId = Number(req.body?.recapId);
+  const idx = Number(req.body?.idx);
+  if (!Number.isInteger(recapId) || !Number.isInteger(idx)) {
+    return res.status(400).json({ error: '잘못된 요청입니다' });
+  }
+  const recap = db
+    .prepare(
+      `SELECT r.decisions, r.meeting_id, m.code, m.title FROM meeting_recaps r
+       JOIN meetings m ON m.id = r.meeting_id WHERE r.id = ? AND m.org_id = ?`,
+    )
+    .get(recapId, orgId) as
+    | { decisions: string; meeting_id: number; code: string; title: string }
+    | undefined;
+  if (!recap) return res.status(404).json({ error: '존재하지 않는 결정입니다' });
+  let decision: string | undefined;
+  try {
+    decision = (JSON.parse(recap.decisions) as string[])[idx];
+  } catch {
+    /* 아래 404 */
+  }
+  if (!decision) return res.status(404).json({ error: '존재하지 않는 결정입니다' });
+
+  const coolKey = `${orgId}:${recapId}:${idx}`;
+  if (Date.now() - (teamRemindLast.get(coolKey) ?? 0) < 60 * 60_000) {
+    return res.status(429).json({ error: '이미 최근에 리마인드했어요 — 1시간 뒤에 다시' });
+  }
+
+  // 대상 = 내 부서(미지정이면 조직 전체) ∩ 그 그룹 참가자 ∩ 미확인 — team-acks 조회와 동일한 경계
+  const team = new Set(
+    (
+      db
+        .prepare(
+          `SELECT om.user_id FROM organization_members om
+           WHERE om.org_id = ? AND om.status = 'active' AND (? IS NULL OR om.department = ?)`,
+        )
+        .all(orgId, me.department ?? null, me.department ?? null) as { user_id: number }[]
+    ).map((r) => r.user_id),
+  );
+  const acked = new Set(
+    (
+      db
+        .prepare('SELECT user_id FROM decision_acks WHERE recap_id = ? AND decision_idx = ?')
+        .all(recapId, idx) as { user_id: number }[]
+    ).map((a) => a.user_id),
+  );
+  const targets = (
+    db.prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ?').all(recap.meeting_id) as {
+      user_id: number;
+    }[]
+  ).filter((p) => team.has(p.user_id) && !acked.has(p.user_id) && p.user_id !== req.userId);
+
+  for (const t of targets) {
+    notifyUser(t.user_id, {
+      from: 'exist AI',
+      text: `[우리 조 확인 요청] '${decision.slice(0, 40)}' — 작업 전에 확인해 주세요 ('${recap.title}')`,
+      kind: 'recap',
+      meetingCode: recap.code.toUpperCase(),
+    });
+  }
+  if (targets.length > 0) teamRemindLast.set(coolKey, Date.now());
+  res.json({ reminded: targets.length });
+});
+
 /** 가입 승인 (관리자) — 직급·부서를 함께 지정할 수 있음 */
 router.post('/:id/members/:userId/approve', (req: AuthedRequest, res) => {
   const orgId = Number(req.params.id);
