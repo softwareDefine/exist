@@ -542,6 +542,14 @@ router.post('/:fileId/revise', (req: AuthedRequest, res) => {
   const rev = reviseFile(r.meeting, req.userId!, req.username ?? '누군가', f, basis, basisNote);
   // 재회람이면 전원이 다시 서명 대기 상태 — 홈 브리핑 갱신
   if (f.ack_required) invalidateBriefForMeeting(r.meeting.id);
+  // 개정 즉시 반영 — 열어둔 참가자 화면(목록·세부정보·rev 배지)이 새로고침 없이 갱신되게
+  {
+    const rows = db
+      .prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ?')
+      .all(r.meeting.id) as { user_id: number }[];
+    const upper = r.meeting.code.toUpperCase();
+    for (const row of rows) emitToUser(row.user_id, 'files:changed', { code: upper });
+  }
   res.json({ ok: true, rev });
 });
 
