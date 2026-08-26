@@ -260,7 +260,7 @@ app.get('/api/presence', (_req, res) => {
 
 // ── 시연영상 촬영용 임시 트리거 (제출 후 제거 예정) — 브라우저에서 URL 접속만으로
 // 보류 깨우기 알림을 최성원 화면에 재발사. 시크릿 키로 보호, 알림은 읽으면 사라져 무해.
-app.get('/film/fire-wake', (req, res) => {
+app.get('/api/film/fire-wake', (req, res) => {
   if (req.query.k !== 'film0826') return res.status(404).end();
   const u = db.prepare("SELECT id FROM users WHERE username = 'cb_choisw'").get() as
     | { id: number }
@@ -275,7 +275,7 @@ app.get('/film/fire-wake', (req, res) => {
   }
   res.send(
     '<meta charset="utf-8"><body style="font-family:sans-serif;padding:40px"><h2>깨우기 알림 발사 완료</h2>' +
-      '<p>2~3초 안에 최성원 화면에 뜹니다.</p><p><a href="/film/fire-wake?k=film0826">다시 쏘기</a></p></body>',
+      '<p>2~3초 안에 최성원 화면에 뜹니다.</p><p><a href="/api/film/fire-wake?k=film0826">다시 쏘기</a></p></body>',
   );
 });
 
