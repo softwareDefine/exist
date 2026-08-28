@@ -748,6 +748,32 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_decision_acks ON decision_acks(recap_id, decision_idx);
 `);
 
+/* ── 결정 정정·철회 (인간 감독) — AI가 원장에 쓴 줄을 관리자가 고치되, 지우지 않고 이력으로 남긴다.
+ * decision_state: recap의 결정 idx별 상태 JSON 배열 (null | {status:'withdrawn', reason, by, at})
+ * decision_revisions: 정정·철회 한 건마다 이전 값·새 값·사유·정정자·정정 전 서명 스냅샷 */
+try {
+  db.exec(`ALTER TABLE meeting_recaps ADD COLUMN decision_state TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+db.exec(`
+  CREATE TABLE IF NOT EXISTS decision_revisions (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    recap_id      INTEGER NOT NULL REFERENCES meeting_recaps(id) ON DELETE CASCADE,
+    decision_idx  INTEGER NOT NULL,
+    kind          TEXT NOT NULL,             -- 'edit' | 'withdraw'
+    prev_decision TEXT,
+    prev_why      TEXT,
+    new_decision  TEXT,
+    new_why       TEXT,
+    reason        TEXT NOT NULL,
+    prev_acks     TEXT,                      -- 정정 전 서명 스냅샷 JSON (구버전 서명 보존)
+    editor_id     INTEGER NOT NULL REFERENCES users(id),
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_decision_revisions ON decision_revisions(recap_id, decision_idx, id);
+`);
+
 // 마이그레이션: recap의 다음 회의 제안 (JSON {title,date,time,registered?} 또는 null)
 // — meeting_recaps CREATE 뒤에 있어야 새 DB에도 적용됨 (ALTER가 먼저면 조용히 스킵)
 try {

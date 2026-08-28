@@ -20,6 +20,9 @@ import {
   runFieldRecap,
   markCallStarted,
   getRecapSource,
+  editDecision,
+  withdrawDecision,
+  listDecisionRevisions,
 } from './recap.js';
 import {
   listChannels,
@@ -1483,10 +1486,20 @@ router.post('/:code/handovers/:id/ack', (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
-/** AI 자동 기록 취소 — 채팅의 [취소] 버튼 (참가자 누구나, 사후 거부권). source='auto'만 지울 수 있다 */
+/** AI 자동 기록 취소 — 채팅의 [취소] 버튼 (사후 거부권). source='auto'만 지울 수 있다.
+ *  발언자 본인 또는 호스트·관리자만 — 남의 결정을 아무나 지우는 일 방지 (정리된 결정은 정정·철회 경로) */
 router.delete('/:code/decisions/auto/:recapId', (req: AuthedRequest, res) => {
   const r = meetingForParticipant(req.params.code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
+  if (!canManageMeeting(r.meeting, req.userId!, 'group:recap')) {
+    const spoke = db
+      .prepare(
+        `SELECT 1 FROM meeting_recaps rc JOIN messages m ON m.meeting_id = rc.meeting_id AND m.user_id = ?
+         WHERE rc.id = ? AND rc.source = 'auto' AND m.created_at >= datetime(rc.call_ended_at, '-2 minutes') LIMIT 1`,
+      )
+      .get(req.userId!, Number(req.params.recapId));
+    if (!spoke) return res.status(403).json({ error: '자동 기록 취소는 발언자 본인이나 호스트·관리자만 할 수 있어요' });
+  }
   const recapId = Number(req.params.recapId);
   const row = db
     .prepare('SELECT source FROM meeting_recaps WHERE id = ? AND meeting_id = ?')
@@ -1579,6 +1592,110 @@ router.post('/:code/decisions/ack', (req: AuthedRequest, res) => {
   }
   emitLedgerChanged(r.meeting.id, String(req.params.code));
   res.json({ ok: true });
+});
+
+/* ── 결정 정정·철회 — 인간 감독의 두 번째 층. 실시간 자동 기록 [취소]는 사후 거부권,
+ * 여기는 정리된 원장 줄을 관리자가 고치거나 거두는 경로. 지우지 않고 이력으로 남긴다. ── */
+
+/** 결정 정정 — 호스트·조직 관리자·recap 권한 보유 중간관리자. 문장이 바뀌면 참가자에게 재확인 요청 */
+router.patch('/:code/decisions/:recapId/:idx', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  if (!canManageMeeting(r.meeting, req.userId!, 'group:recap')) {
+    return res.status(403).json({ error: '결정 정정은 호스트나 관리자만 할 수 있어요' });
+  }
+  const recapId = Number(req.params.recapId);
+  const idx = Number(req.params.idx);
+  if (!Number.isInteger(recapId) || !Number.isInteger(idx)) {
+    return res.status(400).json({ error: '잘못된 요청입니다' });
+  }
+  const owns = db.prepare('SELECT 1 FROM meeting_recaps WHERE id = ? AND meeting_id = ?').get(recapId, r.meeting.id);
+  if (!owns) return res.status(404).json({ error: '존재하지 않는 결정입니다' });
+  const body = req.body ?? {};
+  const result = editDecision(recapId, idx, req.userId!, {
+    decision: typeof body.decision === 'string' ? body.decision : undefined,
+    why: typeof body.why === 'string' ? body.why : undefined,
+    reason: typeof body.reason === 'string' ? body.reason : '',
+  });
+  if (!result.ok) return res.status(400).json({ error: result.error });
+
+  const code = String(req.params.code).toUpperCase();
+  const title = (db.prepare('SELECT title FROM meetings WHERE id = ?').get(r.meeting.id) as { title: string }).title;
+  const editor = (db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId!) as { username: string }).username;
+  if (result.acksReset) {
+    // 문장이 바뀌었으니 이전 서명은 구버전 — 참가자 전원에게 재확인 요청 (AI 총무 명의)
+    const parts = db.prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ?').all(r.meeting.id) as { user_id: number }[];
+    const newText = (typeof body.decision === 'string' ? body.decision : result.prevDecision).trim().slice(0, 60);
+    for (const p of parts) {
+      if (p.user_id === req.userId) continue;
+      notifyUser(p.user_id, {
+        from: 'exist AI',
+        text: `결정이 정정됐어요 — '${newText}' (${editor}, 사유: ${String(body.reason).trim().slice(0, 40)}). 다시 확인해 주세요 ('${title}')`,
+        kind: 'recap',
+        meetingCode: code,
+      });
+    }
+  }
+  if (r.meeting.org_id != null) {
+    orgAudit(r.meeting.org_id, req.userId!, 'decision:edit', recapId, `'${title}' 결정 #${recapId}-${idx} 정정 — ${String(body.reason).trim().slice(0, 80)}`);
+  }
+  invalidateAgenda(r.meeting.id);
+  void reindexMeeting(r.meeting.id).catch(() => {});
+  emitLedgerChanged(r.meeting.id, code);
+  res.json({ ok: true, acksReset: result.acksReset });
+});
+
+/** 결정 철회 — 삭제 대신 상태. 원장에 "철회됨 · 사유"로 남고 서명·확인 요구는 멈춘다 */
+router.post('/:code/decisions/:recapId/:idx/withdraw', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  if (!canManageMeeting(r.meeting, req.userId!, 'group:recap')) {
+    return res.status(403).json({ error: '결정 철회는 호스트나 관리자만 할 수 있어요' });
+  }
+  const recapId = Number(req.params.recapId);
+  const idx = Number(req.params.idx);
+  if (!Number.isInteger(recapId) || !Number.isInteger(idx)) {
+    return res.status(400).json({ error: '잘못된 요청입니다' });
+  }
+  const owns = db.prepare('SELECT decisions FROM meeting_recaps WHERE id = ? AND meeting_id = ?').get(recapId, r.meeting.id) as { decisions: string } | undefined;
+  if (!owns) return res.status(404).json({ error: '존재하지 않는 결정입니다' });
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason : '';
+  const result = withdrawDecision(recapId, idx, req.userId!, reason);
+  if (!result.ok) return res.status(400).json({ error: result.error });
+
+  const code = String(req.params.code).toUpperCase();
+  const title = (db.prepare('SELECT title FROM meetings WHERE id = ?').get(r.meeting.id) as { title: string }).title;
+  const editor = (db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId!) as { username: string }).username;
+  const text = ((JSON.parse(owns.decisions) as string[])[idx] ?? '').slice(0, 60);
+  const parts = db.prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ?').all(r.meeting.id) as { user_id: number }[];
+  for (const p of parts) {
+    if (p.user_id === req.userId) continue;
+    notifyUser(p.user_id, {
+      from: 'exist AI',
+      text: `결정이 철회됐어요 — '${text}' (${editor}, 사유: ${reason.trim().slice(0, 40)}) ('${title}')`,
+      kind: 'recap',
+      meetingCode: code,
+    });
+  }
+  if (r.meeting.org_id != null) {
+    orgAudit(r.meeting.org_id, req.userId!, 'decision:withdraw', recapId, `'${title}' 결정 #${recapId}-${idx} 철회 — ${reason.trim().slice(0, 80)}`);
+  }
+  invalidateAgenda(r.meeting.id);
+  void reindexMeeting(r.meeting.id).catch(() => {});
+  emitLedgerChanged(r.meeting.id, code);
+  res.json({ ok: true });
+});
+
+/** 정정·철회 이력 — 참가자 누구나 (투명성: 무엇이 언제 왜 바뀌었는지) */
+router.get('/:code/decisions/:recapId/:idx/revisions', (req: AuthedRequest, res) => {
+  const r = meetingForParticipant(req.params.code, req.userId!);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  const recapId = Number(req.params.recapId);
+  const idx = Number(req.params.idx);
+  if (!Number.isInteger(recapId) || !Number.isInteger(idx)) return res.status(400).json({ error: '잘못된 요청입니다' });
+  const owns = db.prepare('SELECT 1 FROM meeting_recaps WHERE id = ? AND meeting_id = ?').get(recapId, r.meeting.id);
+  if (!owns) return res.status(404).json({ error: '존재하지 않는 결정입니다' });
+  res.json(listDecisionRevisions(recapId, idx));
 });
 
 /** 미확인자 리마인드 쿨다운 — 같은 결정에 1시간 1회 (조르기 스팸 방지). 키 = recapId:idx */

@@ -32,6 +32,23 @@ interface LedgerEntry {
   todos?: { title: string; done: number }[];
   /** 이 결정을 근거로 발행된 문서 개정들 — 결정→문서 다리 */
   revisedFiles?: { id: number; rev: number; name: string }[];
+  /** 철회됨 — 지우지 않고 사유와 함께 남는다 */
+  withdrawn?: { reason: string; by: string; at: number } | null;
+  /** 정정 횟수 (관리자가 AI 문장을 고친 횟수) */
+  revisions?: number;
+}
+
+interface DecisionRevision {
+  id: number;
+  kind: 'edit' | 'withdraw';
+  prevDecision: string | null;
+  prevWhy: string | null;
+  newDecision: string | null;
+  newWhy: string | null;
+  reason: string;
+  prevAcks: string[];
+  editor: string;
+  ts: number;
 }
 
 function dateLabel(ts: number): string {
@@ -50,8 +67,87 @@ interface DecisionHistory {
   generatedAt: number;
 }
 
-export default function DecisionLedger({ code }: { code: string }) {
+export default function DecisionLedger({ code, canManage }: { code: string; canManage?: boolean }) {
   const user = useAuthStore((s) => s.user);
+  // 정정·철회 — 관리자의 인간 감독. 지우지 않고 이력으로 남긴다
+  const [editFor, setEditFor] = useState<LedgerEntry | null>(null);
+  const [editText, setEditText] = useState('');
+  const [editWhy, setEditWhy] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [wdFor, setWdFor] = useState<LedgerEntry | null>(null);
+  const [wdReason, setWdReason] = useState('');
+  const [revFor, setRevFor] = useState<string | null>(null);
+  const [revs, setRevs] = useState<DecisionRevision[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  function openEdit(e: LedgerEntry) {
+    setEditFor(e);
+    setEditText(e.decision);
+    setEditWhy(e.why ?? '');
+    setEditReason('');
+  }
+  async function submitEdit() {
+    if (!editFor || busy) return;
+    const reason = editReason.trim();
+    if (!reason) {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: '정정 사유를 적어주세요' }));
+      return;
+    }
+    setBusy(true);
+    try {
+      const r = await api<{ ok: true; acksReset: boolean }>(
+        `/api/meetings/${code}/decisions/${editFor.recapId}/${editFor.idx}`,
+        { method: 'PATCH', body: { decision: editText, why: editWhy, reason } },
+      );
+      window.dispatchEvent(
+        new CustomEvent('app:info', {
+          detail: r.acksReset ? '정정했어요 — 문장이 바뀌어 참가자에게 재확인을 요청했어요' : '배경을 정정했어요',
+        }),
+      );
+      setEditFor(null);
+      load();
+    } catch (err) {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: (err as Error).message }));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function submitWithdraw() {
+    if (!wdFor || busy) return;
+    const reason = wdReason.trim();
+    if (!reason) {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: '철회 사유를 적어주세요' }));
+      return;
+    }
+    setBusy(true);
+    try {
+      await api(`/api/meetings/${code}/decisions/${wdFor.recapId}/${wdFor.idx}/withdraw`, {
+        method: 'POST',
+        body: { reason },
+      });
+      window.dispatchEvent(new CustomEvent('app:info', { detail: '철회했어요 — 원장에 사유와 함께 남아요' }));
+      setWdFor(null);
+      load();
+    } catch (err) {
+      window.dispatchEvent(new CustomEvent('app:error', { detail: (err as Error).message }));
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function toggleRevisions(e: LedgerEntry) {
+    const key = `${e.recapId}-${e.idx}`;
+    if (revFor === key) {
+      setRevFor(null);
+      return;
+    }
+    setRevFor(key);
+    setRevs([]);
+    try {
+      setRevs(await api<DecisionRevision[]>(`/api/meetings/${code}/decisions/${e.recapId}/${e.idx}/revisions`));
+    } catch {
+      setRevs([]);
+    }
+  }
   const dn = useDisplayName();
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [query, setQuery] = useState('');
@@ -309,7 +405,7 @@ export default function DecisionLedger({ code }: { code: string }) {
                 return (
                   <div
                     key={`${e.recapId}-${i}`}
-                    className={`ledger-item${e.critical ? ' critical' : ''}`}
+                    className={`ledger-item${e.critical ? ' critical' : ''}${e.withdrawn ? ' withdrawn' : ''}`}
                   >
                     <span className={`ledger-check${e.critical ? ' critical' : ''}`}>
                       {/* 빨간 체크는 "정상"과 충돌 — 위험 결정은 느낌표로 "멈추고 확인" */}
@@ -317,13 +413,60 @@ export default function DecisionLedger({ code }: { code: string }) {
                     </span>
                     <div className="ledger-body">
                       <div className="ledger-decision">
-                        {e.critical && (
+                        {e.withdrawn && (
+                          <span className="ledger-withdrawn-badge" title={`${dn(e.withdrawn.by)} · ${e.withdrawn.reason}`}>
+                            철회됨
+                          </span>
+                        )}
+                        {e.critical && !e.withdrawn && (
                           <span className="ledger-critical" title="확인 시 손 서명이 필요해요">
                             작업 전 확인 필수
                           </span>
                         )}
                         {e.decision}
+                        {(e.revisions ?? 0) > 0 && (
+                          <button
+                            className="ledger-revised-chip"
+                            title="정정 이력 보기"
+                            onClick={() => void toggleRevisions(e)}
+                          >
+                            정정 {e.revisions}회
+                          </button>
+                        )}
                       </div>
+                      {e.withdrawn && (
+                        <div className="ledger-withdrawn-why">
+                          철회 · {e.withdrawn.reason} — {dn(e.withdrawn.by)}, {dateLabel(e.withdrawn.at)}
+                        </div>
+                      )}
+                      {revFor === `${e.recapId}-${e.idx}` && (
+                        <div className="ledger-revisions">
+                          {revs.length === 0 ? (
+                            <div className="ledger-revision">이력을 불러오는 중…</div>
+                          ) : (
+                            revs.map((rv) => (
+                              <div key={rv.id} className="ledger-revision">
+                                <b>{rv.kind === 'withdraw' ? '철회' : '정정'}</b> · {dn(rv.editor)} · {dateLabel(rv.ts)} — {rv.reason}
+                                {rv.kind === 'edit' && rv.prevDecision !== rv.newDecision && (
+                                  <div className="ledger-revision-diff">
+                                    <s>{rv.prevDecision}</s> → {rv.newDecision}
+                                  </div>
+                                )}
+                                {rv.kind === 'edit' && rv.prevWhy !== rv.newWhy && (
+                                  <div className="ledger-revision-diff">
+                                    배경: <s>{rv.prevWhy || '(없음)'}</s> → {rv.newWhy || '(없음)'}
+                                  </div>
+                                )}
+                                {rv.prevAcks.length > 0 && (
+                                  <div className="ledger-revision-diff">
+                                    구버전 서명 {rv.prevAcks.length}명 ({rv.prevAcks.map((u) => dn(u)).join(', ')}) — 재확인 요청됨
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
                       {e.why && <div className="ledger-why">배경 · {e.why}</div>}
                       {(e.alts?.length ?? 0) > 0 && (
                         <div className="ledger-alts">
@@ -367,6 +510,24 @@ export default function DecisionLedger({ code }: { code: string }) {
                         >
                           정리 보기
                         </button>
+                        {/* 관리자 인간 감독 — 정정·철회. 지우는 버튼은 없다 (원장 줄은 사라지지 않는다) */}
+                        {canManage && !e.withdrawn && (
+                          <>
+                            <button className="ledger-src-link" onClick={() => openEdit(e)} title="문장·배경을 고치고 이력으로 남겨요">
+                              정정
+                            </button>
+                            <button
+                              className="ledger-src-link ledger-withdraw-link"
+                              onClick={() => {
+                                setWdFor(e);
+                                setWdReason('');
+                              }}
+                              title="삭제 대신 철회 — 사유와 함께 남아요"
+                            >
+                              철회
+                            </button>
+                          </>
+                        )}
                       </div>
                       {/* 이 결정으로 개정된 문서 — 클릭 = 공동편집에서 열기 (결정→문서 다리) */}
                       {(e.revisedFiles ?? []).length > 0 && (
@@ -457,8 +618,8 @@ export default function DecisionLedger({ code }: { code: string }) {
                         </form>
                       )}
                     </div>
-                    {/* 수신 확인 — 회람 사인. 이미 확인했으면 상태 뱃지 */}
-                    {acked ? (
+                    {/* 수신 확인 — 회람 사인. 이미 확인했으면 상태 뱃지. 철회된 결정은 확인을 받지 않는다 */}
+                    {e.withdrawn ? null : acked ? (
                       <span className="ledger-ack done">확인함 <CheckMarkIcon size={12} /></span>
                     ) : (
                       <button
@@ -473,6 +634,67 @@ export default function DecisionLedger({ code }: { code: string }) {
               })}
             </div>
           ))}
+        </div>
+      )}
+      {/* 정정 모달 — 무엇을 왜 고치는지 명시. 문장이 바뀌면 서명이 초기화됨을 미리 알린다 */}
+      {editFor && (
+        <div className="cf-signmodal-backdrop" onClick={() => !busy && setEditFor(null)}>
+          <div className="cf-signmodal ledger-edit-modal" onClick={(ev) => ev.stopPropagation()}>
+            <div className="cf-signmodal-head">결정 정정</div>
+            <div className="cf-signmodal-desc">
+              AI가 정리한 문장을 고쳐요. 원래 문장은 이력으로 남고, <b>문장이 바뀌면 기존 서명은 구버전 서명이 되어 참가자에게 재확인을 요청</b>해요. 배경만 고치면 서명은 유지돼요.
+            </div>
+            <label className="ledger-edit-label">결정</label>
+            <textarea value={editText} onChange={(ev) => setEditText(ev.target.value)} maxLength={300} rows={3} />
+            <label className="ledger-edit-label">배경 (왜)</label>
+            <input value={editWhy} onChange={(ev) => setEditWhy(ev.target.value)} maxLength={300} placeholder="없으면 비워두기" />
+            <label className="ledger-edit-label">정정 사유 (필수)</label>
+            <input
+              value={editReason}
+              onChange={(ev) => setEditReason(ev.target.value)}
+              maxLength={200}
+              placeholder="예: 회의에서 65도가 아니라 63도로 합의함 (원문 확인)"
+              autoFocus
+            />
+            <div className="ledger-edit-actions">
+              <button className="ledger-src-link" onClick={() => setEditFor(null)} disabled={busy}>
+                취소
+              </button>
+              <button className="ledger-ack" onClick={() => void submitEdit()} disabled={busy}>
+                정정하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 철회 모달 — 삭제가 아니라 철회. 사유 필수 */}
+      {wdFor && (
+        <div className="cf-signmodal-backdrop" onClick={() => !busy && setWdFor(null)}>
+          <div className="cf-signmodal ledger-edit-modal" onClick={(ev) => ev.stopPropagation()}>
+            <div className="cf-signmodal-head">결정 철회</div>
+            <div className="cf-signmodal-note">
+              <div>{wdFor.decision}</div>
+            </div>
+            <div className="cf-signmodal-desc">
+              원장에서 지워지지 않고 <b>"철회됨 · 사유"</b>로 남아요. 확인·서명 요청은 멈추고, AI 검색에서도 철회된 결정으로 표시돼요.
+            </div>
+            <label className="ledger-edit-label">철회 사유 (필수)</label>
+            <input
+              value={wdReason}
+              onChange={(ev) => setWdReason(ev.target.value)}
+              maxLength={200}
+              placeholder="예: 안전팀 검토 결과 적용 보류 — 재논의 예정"
+              autoFocus
+            />
+            <div className="ledger-edit-actions">
+              <button className="ledger-src-link" onClick={() => setWdFor(null)} disabled={busy}>
+                취소
+              </button>
+              <button className="ledger-ack critical" onClick={() => void submitWithdraw()} disabled={busy}>
+                철회하기
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

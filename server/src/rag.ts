@@ -152,7 +152,7 @@ export function indexAgendaResolution(
 export async function reindexMeeting(meetingId: number): Promise<number> {
   const recaps = db
     .prepare(
-      'SELECT id, summary, decisions, whys, alts, created_at FROM meeting_recaps WHERE meeting_id = ?',
+      'SELECT id, summary, decisions, whys, alts, created_at, decision_state FROM meeting_recaps WHERE meeting_id = ?',
     )
     .all(meetingId) as {
     id: number;
@@ -161,6 +161,7 @@ export async function reindexMeeting(meetingId: number): Promise<number> {
     whys: string | null;
     alts: string | null;
     created_at: string;
+    decision_state: string | null;
   }[];
   for (const r of recaps) {
     let decisions: string[] = [];
@@ -170,6 +171,9 @@ export async function reindexMeeting(meetingId: number): Promise<number> {
       decisions = JSON.parse(r.decisions);
       whys = r.whys ? JSON.parse(r.whys) : [];
       alts = r.alts ? JSON.parse(r.alts) : [];
+      // 철회된 결정은 "철회됨 · 사유"로 색인 — 검색에서 현행 결정으로 오인되지 않게
+      const states = r.decision_state ? (JSON.parse(r.decision_state) as ({ status: string; reason: string } | null)[]) : [];
+      decisions = decisions.map((d, i) => (states[i]?.status === 'withdrawn' ? `(철회됨 — ${states[i]!.reason}) ${d}` : d));
     } catch {
       /* 형식 깨진 행은 요약만 */
     }

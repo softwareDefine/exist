@@ -19,6 +19,58 @@ import { indexRecap } from './rag.js';
 
 const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+/** 결정 추출만 상위 모델 — 원장에 박히는 문장이라 통화당 비용보다 정확도 (다른 AI 기능은 mini 유지) */
+const OPENAI_MODEL_RECAP = process.env.OPENAI_MODEL_RECAP || 'gpt-4o';
+/** 추출 후 근거 자기검증 — 각 결정이 발언 원문에 실제로 있는지 2차 판정 (temp 0). 'off'로 끌 수 있음 */
+const RECAP_VERIFY = (process.env.RECAP_VERIFY ?? 'on') !== 'off';
+
+/* 제조 현장 few-shot — 기준 변경·적용 시점·기각안·유보 발언의 처리 예시.
+ * 현장 발화는 "결정했다"고 말하지 않고 "그렇게 가죠/올리죠"로 끝나는 경우가 많고,
+ * "다음 배치부터"처럼 적용 시점이 결정의 일부라 문장에 남겨야 왜곡이 안 생긴다. */
+const RECAP_FEWSHOT =
+  '\n예시 1 — 기준 변경 + 기각안:\n' +
+  'chat: ["kim: 방열판 검사 온도 60도는 편차가 커요. 65도로 올리죠.", "park: 70도는요?", "kim: 70은 설비 한계라 안 되고요. 65로 가고 다음 배치부터 적용합시다.", "park: 네 그렇게 하죠."]\n' +
+  '→ decisions: [{"text": "방열판 검사 온도 기준을 60도에서 65도로 상향, 다음 배치부터 적용", "why": "기존 60도 기준에서 온도 편차가 컸음", "alternatives": ["70도 상향 — 설비 한계로 기각"]}]\n' +
+  '예시 2 — 유보 발언은 결정이 아니다:\n' +
+  'chat: ["lee: 야간조 인원 한 명 줄이는 건 어때요?", "choi: 아직 결정 안 났어요. 안전팀 확인하고 다시 얘기하죠."]\n' +
+  '→ decisions: [] (검토만 했고 확정되지 않음 — 결정으로 만들지 않는다)\n' +
+  '예시 3 — 완료 보고는 결정이 아니다:\n' +
+  'chat: ["han: 어제 말씀하신 지그 교체 끝냈습니다.", "kim: 수고했어요."]\n' +
+  '→ decisions: [] (이미 한 일의 보고 — 새 결정 없음, actions에도 넣지 않는다)\n';
+
+/** 추출된 결정이 발언 원문에 근거하는지 2차 판정 — 근거 없는 결정은 원장에 박히기 전에 버린다.
+ *  실패·불확실 시 전부 유지 (검증기가 죽었다고 결정을 잃지는 않는다) */
+async function verifyDecisionsGrounded(msgs: ChatMsg[], decisions: string[]): Promise<boolean[]> {
+  const keepAll = decisions.map(() => true);
+  if (!openai || !RECAP_VERIFY || decisions.length === 0) return keepAll;
+  try {
+    const response = await openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: 0,
+      max_tokens: 200,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            '너는 회의 기록 검증기다. 주어진 각 "결정 문장"이 chat 발언 원문에서 실제로 합의·확정된 내용인지 판정한다. ' +
+            '원문에 없는 수치·대상·시점이 들어갔거나, 원문에서는 검토·제안·유보("아직 결정 안 됐다")에 그친 것이면 false. ' +
+            '표현이 다듬어졌더라도 뜻이 원문과 같으면 true. 응답은 JSON {"grounded": boolean[]} — 결정 순서와 길이가 같아야 한다.',
+        },
+        { role: 'user', content: JSON.stringify({ chat: msgs.map((m) => `${m.from}: ${m.text}`), decisions }) },
+      ],
+    });
+    const raw = response.choices[0]?.message?.content ?? '';
+    const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as { grounded?: unknown };
+    if (!Array.isArray(parsed.grounded) || parsed.grounded.length !== decisions.length) return keepAll;
+    const flags = parsed.grounded.map((g) => g !== false);
+    const dropped = decisions.filter((_, i) => !flags[i]);
+    if (dropped.length) console.log(`[recap] 근거 검증에서 제외된 결정 ${dropped.length}건: ${dropped.map((d) => `"${d.slice(0, 40)}"`).join(', ')}`);
+    return flags;
+  } catch {
+    return keepAll;
+  }
+}
 // 회의 후 원음 재전사 (stt.ts) — recap 재료의 품질을 Web Speech 위로 끌어올린다
 /** 방이 비워진 뒤 이만큼 기다렸다 요약 — 새로고침·재입장이면 취소 (데모 땐 env로 줄임) */
 const GRACE_MS = Number(process.env.RECAP_GRACE_MS ?? 30_000);
@@ -148,12 +200,16 @@ async function aiRecap(
     '"다음 회의에서 보시죠"처럼 날짜 없는 언급, 날짜를 특정할 수 없는 표현("조만간", "나중에"), 언급 자체가 없으면 반드시 null — 추측 금지. 시각 언급이 없으면 time만 null.' +
     (docContext
       ? '\ndocs는 이 회의 중 참가자들이 열람한 문서의 발췌다 — 용어의 올바른 표기와 논의 맥락을 파악하는 참고자료로만 쓴다. 결정·할 일·요약은 반드시 chat 로그에서만 추출한다 (문서에만 있는 내용을 결정으로 만들지 않는다).'
-      : '');
+      : '') +
+    '\n제조 현장 발화는 "결정했다"라고 말하지 않고 "그렇게 가죠/올리죠/하죠"로 끝나는 경우가 많다 — 합의로 끝난 것은 결정이다. ' +
+    '적용 시점("다음 배치부터", "내일 주간조부터")과 수치 변경의 전후 값은 결정 문장에 그대로 남긴다 (빠지면 현장이 다르게 해석한다). ' +
+    '"아직 결정 안 됐다", "확인하고 다시 얘기하자"는 결정이 아니고, 이미 끝난 일의 보고도 결정·할 일이 아니다.' +
+    RECAP_FEWSHOT;
 
   const response = await openai!.chat.completions.create({
-    model: OPENAI_MODEL,
+    model: OPENAI_MODEL_RECAP,
     temperature: 0.2,
-    max_tokens: 600,
+    max_tokens: 700,
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -245,7 +301,12 @@ async function aiRecap(
       nextMeeting = { title: String(nm.title ?? '').trim().slice(0, 80) || '다음 회의', date, time };
     }
   }
-  return { summary, decisions, whys, alts, actions, nextMeeting, source: 'ai' };
+  // 근거 자기검증 — 추출기와 다른 호출이 "원문에 있나"만 본다. 프롬프트 한 번으로는 뚫리는 창작을 2차로 거른다
+  const grounded = await verifyDecisionsGrounded(msgs, decisions);
+  const keptDecisions = decisions.filter((_, i) => grounded[i]);
+  const keptWhys = whys.filter((_, i) => grounded[i]);
+  const keptAlts = alts.filter((_, i) => grounded[i]);
+  return { summary, decisions: keptDecisions, whys: keptWhys, alts: keptAlts, actions, nextMeeting, source: 'ai' };
 }
 
 /** 관련성 추론 — ①작업 기준을 직접 바꾸는 🔴 결정(인덱스) ②그 영향을 받는 참가자.
@@ -801,6 +862,149 @@ export interface LedgerEntry {
   todos: { title: string; done: number }[];
   /** 이 결정을 근거로 발행된 문서 개정들 — 결정→문서 다리 (없으면 빈 배열) */
   revisedFiles: { id: number; rev: number; name: string }[];
+  /** 철회된 결정 — 지우지 않고 사유와 함께 남긴다 (규제 산업 감사: 원장 줄은 사라지지 않는다) */
+  withdrawn: { reason: string; by: string; at: number } | null;
+  /** 정정 횟수 — 0이면 AI/규칙이 쓴 원문 그대로 */
+  revisions: number;
+}
+
+/** 결정 idx별 상태 — decision_state 컬럼 JSON (null = 정상) */
+export interface DecisionState {
+  status: 'withdrawn';
+  reason: string;
+  by: string;
+  at: string;
+}
+function parseStates(raw: string | null, count: number): (DecisionState | null)[] {
+  let arr: (DecisionState | null)[] = [];
+  try {
+    arr = raw ? (JSON.parse(raw) as (DecisionState | null)[]) : [];
+  } catch {
+    arr = [];
+  }
+  return Array.from({ length: count }, (_, i) => arr[i] ?? null);
+}
+
+export interface DecisionRevision {
+  id: number;
+  kind: 'edit' | 'withdraw';
+  prevDecision: string | null;
+  prevWhy: string | null;
+  newDecision: string | null;
+  newWhy: string | null;
+  reason: string;
+  /** 정정 전 서명자 — 문장이 바뀌어 "구버전에 서명"으로 남는 사람들 */
+  prevAcks: string[];
+  editor: string;
+  ts: number;
+}
+
+/** 정정·철회 이력 (오래된 순) */
+export function listDecisionRevisions(recapId: number, idx: number): DecisionRevision[] {
+  const rows = db
+    .prepare(
+      `SELECT r.id, r.kind, r.prev_decision, r.prev_why, r.new_decision, r.new_why, r.reason, r.prev_acks, r.created_at, u.username
+       FROM decision_revisions r JOIN users u ON u.id = r.editor_id
+       WHERE r.recap_id = ? AND r.decision_idx = ? ORDER BY r.id`,
+    )
+    .all(recapId, idx) as {
+    id: number; kind: 'edit' | 'withdraw'; prev_decision: string | null; prev_why: string | null;
+    new_decision: string | null; new_why: string | null; reason: string; prev_acks: string | null;
+    created_at: string; username: string;
+  }[];
+  return rows.map((r) => {
+    let prevAcks: string[] = [];
+    try {
+      prevAcks = r.prev_acks ? (JSON.parse(r.prev_acks) as { username: string }[]).map((a) => a.username) : [];
+    } catch {
+      prevAcks = [];
+    }
+    return {
+      id: r.id, kind: r.kind, prevDecision: r.prev_decision, prevWhy: r.prev_why,
+      newDecision: r.new_decision, newWhy: r.new_why, reason: r.reason, prevAcks,
+      editor: r.username, ts: new Date(r.created_at + 'Z').getTime(),
+    };
+  });
+}
+
+/** 결정 정정 — 문장·배경을 고친다. 원본은 revisions에 남고, 문장이 바뀌면 기존 서명은 구버전 서명으로
+ *  보존(스냅샷)한 뒤 지워서 재확인을 받는다. 배경만 바뀌면 서명 유지. 반환: 서명이 초기화됐는지 */
+export function editDecision(
+  recapId: number,
+  idx: number,
+  editorId: number,
+  p: { decision?: string; why?: string; reason: string },
+): { ok: true; acksReset: boolean; prevDecision: string } | { ok: false; error: string } {
+  const recap = db
+    .prepare('SELECT decisions, whys, decision_state FROM meeting_recaps WHERE id = ?')
+    .get(recapId) as { decisions: string; whys: string | null; decision_state: string | null } | undefined;
+  if (!recap) return { ok: false, error: '존재하지 않는 결정입니다' };
+  const decisions = JSON.parse(recap.decisions) as string[];
+  if (idx < 0 || idx >= decisions.length) return { ok: false, error: '존재하지 않는 결정입니다' };
+  if (parseStates(recap.decision_state, decisions.length)[idx]) {
+    return { ok: false, error: '철회된 결정은 정정할 수 없어요' };
+  }
+  const whys = parseWhys(recap.whys, decisions.length);
+  const reason = p.reason.trim();
+  if (!reason) return { ok: false, error: '정정 사유를 적어주세요' };
+  const newDecision = typeof p.decision === 'string' ? p.decision.trim().slice(0, 300) : decisions[idx];
+  const newWhy = typeof p.why === 'string' ? p.why.trim().slice(0, 300) : whys[idx];
+  if (!newDecision) return { ok: false, error: '결정 문장은 비울 수 없어요' };
+  const textChanged = newDecision !== decisions[idx];
+  if (!textChanged && newWhy === whys[idx]) return { ok: false, error: '바뀐 내용이 없어요' };
+
+  const prevAcks = db
+    .prepare('SELECT u.username, a.created_at FROM decision_acks a JOIN users u ON u.id = a.user_id WHERE a.recap_id = ? AND a.decision_idx = ?')
+    .all(recapId, idx) as { username: string; created_at: string }[];
+  const tx = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO decision_revisions (recap_id, decision_idx, kind, prev_decision, prev_why, new_decision, new_why, reason, prev_acks, editor_id)
+       VALUES (?, ?, 'edit', ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(recapId, idx, decisions[idx], whys[idx], newDecision, newWhy, reason, JSON.stringify(prevAcks), editorId);
+    const nd = [...decisions];
+    nd[idx] = newDecision;
+    const nw = [...whys];
+    nw[idx] = newWhy;
+    db.prepare('UPDATE meeting_recaps SET decisions = ?, whys = ? WHERE id = ?').run(JSON.stringify(nd), JSON.stringify(nw), recapId);
+    // 문장이 바뀌면 이전 서명은 다른 문장에 한 것 — 스냅샷으로 남기고 재확인 요구 (문서 rev와 같은 규칙)
+    if (textChanged) {
+      db.prepare('DELETE FROM decision_acks WHERE recap_id = ? AND decision_idx = ?').run(recapId, idx);
+      db.prepare('DELETE FROM decision_remind_sent WHERE recap_id = ?').run(recapId);
+    }
+  });
+  tx();
+  return { ok: true, acksReset: textChanged, prevDecision: decisions[idx] };
+}
+
+/** 결정 철회 — 삭제가 아니라 상태. 원장·검색에 "철회됨 · 사유"로 남는다 */
+export function withdrawDecision(
+  recapId: number,
+  idx: number,
+  editorId: number,
+  reason: string,
+): { ok: true } | { ok: false; error: string } {
+  const recap = db
+    .prepare('SELECT decisions, whys, decision_state FROM meeting_recaps WHERE id = ?')
+    .get(recapId) as { decisions: string; whys: string | null; decision_state: string | null } | undefined;
+  if (!recap) return { ok: false, error: '존재하지 않는 결정입니다' };
+  const decisions = JSON.parse(recap.decisions) as string[];
+  if (idx < 0 || idx >= decisions.length) return { ok: false, error: '존재하지 않는 결정입니다' };
+  const states = parseStates(recap.decision_state, decisions.length);
+  if (states[idx]) return { ok: false, error: '이미 철회된 결정이에요' };
+  const r = reason.trim();
+  if (!r) return { ok: false, error: '철회 사유를 적어주세요' };
+  const editor = db.prepare('SELECT username FROM users WHERE id = ?').get(editorId) as { username: string } | undefined;
+  const whys = parseWhys(recap.whys, decisions.length);
+  states[idx] = { status: 'withdrawn', reason: r.slice(0, 300), by: editor?.username ?? `#${editorId}`, at: new Date().toISOString() };
+  const tx = db.transaction(() => {
+    db.prepare(
+      `INSERT INTO decision_revisions (recap_id, decision_idx, kind, prev_decision, prev_why, reason, editor_id)
+       VALUES (?, ?, 'withdraw', ?, ?, ?, ?)`,
+    ).run(recapId, idx, decisions[idx], whys[idx], r.slice(0, 300), editorId);
+    db.prepare('UPDATE meeting_recaps SET decision_state = ? WHERE id = ?').run(JSON.stringify(states), recapId);
+  });
+  tx();
+  return { ok: true };
 }
 
 /** 결정 원장 — 이 그룹의 모든 recap 결정을 시간순(최신 먼저)으로 편다.
@@ -808,10 +1012,13 @@ export interface LedgerEntry {
 export function listDecisions(meetingId: number, limit = 100): LedgerEntry[] {
   const rows = db
     .prepare(
-      `SELECT id, decisions, whys, alts, criticals, attendees, created_at FROM meeting_recaps
+      `SELECT id, decisions, whys, alts, criticals, attendees, created_at, decision_state FROM meeting_recaps
        WHERE meeting_id = ? ORDER BY id DESC LIMIT 50`,
     )
-    .all(meetingId) as { id: number; decisions: string; whys: string | null; alts: string | null; criticals: string | null; attendees: string; created_at: string }[];
+    .all(meetingId) as { id: number; decisions: string; whys: string | null; alts: string | null; criticals: string | null; attendees: string; created_at: string; decision_state: string | null }[];
+  const revCountStmt = db.prepare(
+    'SELECT COUNT(*) AS n FROM decision_revisions WHERE recap_id = ? AND decision_idx = ? AND kind = ?',
+  );
   const ackStmt = db.prepare(
     `SELECT a.decision_idx, u.username, a.created_at, a.note, a.signature FROM decision_acks a
      JOIN users u ON u.id = a.user_id WHERE a.recap_id = ? ORDER BY a.id`,
@@ -845,8 +1052,12 @@ export function listDecisions(meetingId: number, limit = 100): LedgerEntry[] {
     } catch {
       criticals = [];
     }
+    const states = parseStates(r.decision_state, decisions.length);
     for (let idx = 0; idx < decisions.length; idx++) {
+      const st = states[idx];
       out.push({
+        withdrawn: st ? { reason: st.reason, by: st.by, at: new Date(st.at).getTime() } : null,
+        revisions: (revCountStmt.get(r.id, idx, 'edit') as { n: number }).n,
         recapId: r.id,
         idx,
         decision: decisions[idx],

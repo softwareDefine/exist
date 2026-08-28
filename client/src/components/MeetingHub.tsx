@@ -2515,7 +2515,9 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
         )}
 
         {/* 결정 원장 — 그룹의 모든 통화 결정 타임라인 */}
-        {subtab === 'decisions' && <DecisionLedger code={code} />}
+        {subtab === 'decisions' && (
+          <DecisionLedger code={code} canManage={!!detail?.isHost || !!detail?.canManage} />
+        )}
 
         {/* 공동편집 — 파일시스템 (코드/문서/시트/발표/캔버스 파일 여러 개, 한 번 열면 마운트 유지) */}
         {filesMounted && (

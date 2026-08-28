@@ -22817,3 +22817,101 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   max-width: 420px;
   line-height: 1.55;
 }
+
+/* ── 결정 정정·철회 (인간 감독) — 지우지 않고 이력으로 ── */
+.ledger-item.withdrawn {
+  opacity: 0.72;
+}
+.ledger-item.withdrawn .ledger-decision {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-sub) 70%, transparent);
+}
+.ledger-item.withdrawn .ledger-decision .ledger-withdrawn-badge,
+.ledger-item.withdrawn .ledger-decision .ledger-revised-chip {
+  text-decoration: none;
+}
+.ledger-withdrawn-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-sub);
+  background: color-mix(in srgb, var(--text-sub) 14%, transparent);
+  border-radius: 8px;
+  padding: 2px 8px;
+  vertical-align: 1px;
+}
+.ledger-withdrawn-why {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+.ledger-revised-chip {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--green-dark);
+  background: var(--green-soft);
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 1px 7px;
+  cursor: pointer;
+  vertical-align: 1px;
+}
+.ledger-revisions {
+  margin: 6px 0 2px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--green);
+  background: color-mix(in srgb, var(--green) 6%, transparent);
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  color: var(--text-sub);
+}
+.ledger-revision + .ledger-revision {
+  margin-top: 6px;
+}
+.ledger-revision b {
+  color: var(--text);
+}
+.ledger-revision-diff {
+  margin-top: 2px;
+  color: var(--text);
+}
+.ledger-revision-diff s {
+  color: var(--text-sub);
+}
+.ledger-withdraw-link {
+  color: var(--red, #e5484d);
+}
+.ledger-edit-modal {
+  width: min(520px, 92vw);
+}
+.ledger-edit-label {
+  display: block;
+  margin: 10px 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+.ledger-edit-modal textarea,
+.ledger-edit-modal input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+.ledger-edit-modal textarea {
+  resize: vertical;
+}
+.ledger-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
