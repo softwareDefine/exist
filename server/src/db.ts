@@ -731,7 +731,8 @@ db.exec(`
     attendees     TEXT NOT NULL DEFAULT '[]',
     source        TEXT NOT NULL DEFAULT 'rule',
     call_ended_at TEXT NOT NULL DEFAULT (datetime('now')),
-    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    files         TEXT
   );
   CREATE INDEX IF NOT EXISTS idx_recaps_meeting ON meeting_recaps(meeting_id, id);
 

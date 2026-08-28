@@ -50,14 +50,14 @@ describe('공동편집 파일시스템', () => {
     expect(r.body.find((f: { type: string }) => f.type === 'canvas').room).toBe(`mt-${code}`);
   });
 
-  it('레거시 없는 새 그룹은 기본 빈 폴더 하나로 시작', async () => {
+  it('레거시 없는 새 그룹은 표준 폴더 7개로 시작', async () => {
     const { host, code } = await setup('cf2');
     const r = await request(app)
       .get(`/api/meetings/${code}/files`)
       .set('Authorization', `Bearer ${host.token}`);
-    expect(r.body).toHaveLength(1);
-    expect(r.body[0].type).toBe('folder');
-    expect(r.body[0].name).toBe('새 폴더');
+    expect(r.body).toHaveLength(7);
+    expect(r.body.every((f: { type: string }) => f.type === 'folder')).toBe(true);
+    expect(r.body.map((f: { name: string }) => f.name)).toContain('작업·교대 일지');
   });
 
   it('폴더 + 폴더 안 파일 생성, room은 file-{id}', async () => {
@@ -165,9 +165,9 @@ describe('공동편집 파일시스템', () => {
     const list = await request(app)
       .get(`/api/meetings/${code}/files`)
       .set('Authorization', `Bearer ${host.token}`);
-    // 목록에선 사라지고 기본 "새 폴더"만 남는다
-    expect(list.body).toHaveLength(1);
-    expect(list.body[0].name).toBe('새 폴더');
+    // 목록에선 사라지고 기본 표준 폴더 7개만 남는다
+    expect(list.body).toHaveLength(7);
+    expect(list.body.some((f: { name: string }) => f.name === '자료')).toBe(false);
 
     // 휴지통 목록 — 루트 1건 (하위 2개 포함)
     const trash = await request(app)
@@ -184,7 +184,7 @@ describe('공동편집 파일시스템', () => {
     const list2 = await request(app)
       .get(`/api/meetings/${code}/files`)
       .set('Authorization', `Bearer ${host.token}`);
-    expect(list2.body).toHaveLength(4); // 새 폴더 + 자료/하위/깊은 시트
+    expect(list2.body).toHaveLength(10); // 표준 폴더 7 + 자료/하위/깊은 시트
 
     // 다시 삭제 → 영구 삭제하면 .bin까지 정리
     await request(app)

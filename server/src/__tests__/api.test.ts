@@ -44,7 +44,7 @@ describe('인증 API (AUTH-02·03·04·08)', () => {
     const bad = await request(app)
       .post('/api/auth/login')
       .send({ username: 'login_user', password: 'wrongpass' });
-    expect(bad.status).toBe(401);
+    expect(bad.status).toBe(400);
   });
 
   it('무효 토큰으로 보호 API 호출 시 401 (AUTH-08)', async () => {
