@@ -258,27 +258,6 @@ app.get('/api/presence', (_req, res) => {
   res.json({ users: [...online.values()].map((u) => u.username) });
 });
 
-// ── 시연영상 촬영용 임시 트리거 (제출 후 제거 예정) — 브라우저에서 URL 접속만으로
-// 보류 깨우기 알림을 최성원 화면에 재발사. 시크릿 키로 보호, 알림은 읽으면 사라져 무해.
-app.get('/api/film/fire-wake', (req, res) => {
-  if (req.query.k !== 'film0826') return res.status(404).end();
-  const u = db.prepare("SELECT id FROM users WHERE username = 'cb_choisw'").get() as
-    | { id: number }
-    | undefined;
-  if (u) {
-    notifyUser(u.id, {
-      from: 'exist AI',
-      text: "보류 안건 '라인B 증설 검토'가 기다리던 것과 관련된 내용이 올라왔어요: '내년도 설비 예산이 오늘부로 확정되었다' — 다시 올려볼까요? ('오창공장')",
-      kind: 'recap',
-      meetingCode: '4XZD53',
-    });
-  }
-  res.send(
-    '<meta charset="utf-8"><body style="font-family:sans-serif;padding:40px"><h2>깨우기 알림 발사 완료</h2>' +
-      '<p>2~3초 안에 최성원 화면에 뜹니다.</p><p><a href="/api/film/fire-wake?k=film0826">다시 쏘기</a></p></body>',
-  );
-});
-
 // ── AI agent 푸시 알림: 회의 시작 30분/10분 전 리마인더 ──
 const notified = new Set<string>(); // `${userId}:${meetingTitle}:${threshold}`
 
