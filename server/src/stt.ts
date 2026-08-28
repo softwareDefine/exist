@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import OpenAI from 'openai';
 import db from './db.js';
 import type { AuthedRequest } from './auth.js';
+import { getIo } from './notify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STT_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 'stt-chunks');
@@ -37,7 +38,11 @@ function checkParticipant(
 
 const router = Router({ mergeParams: true });
 
-/** 원음 청크 업로드 — raw audio/webm, ?ts=청크 시작(ms epoch) */
+/** 원음 청크 업로드 — raw audio, ?ts=청크 시작(ms epoch)
+ *  ?ext=webm|mp4|ogg (브라우저별 MediaRecorder 컨테이너 — 사파리는 mp4)
+ *  ?live=1 이면 저장 직후 이 청크를 바로 전사해 자막으로 방송한다 (Web Speech가 없는
+ *  APK·사파리, 또는 Web Speech가 죽었을 때의 자막 경로 — 3~6초 지연). 라이브 전사에
+ *  성공한 청크는 지우므로 통화 후 재전사와 이중 과금되지 않는다. */
 router.post('/audio', (req: AuthedRequest, res) => {
   const r = checkParticipant((req.params as { code?: string }).code, req.userId!);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
@@ -45,6 +50,9 @@ router.post('/audio', (req: AuthedRequest, res) => {
   if (!Number.isFinite(startTs) || startTs <= 0) {
     return res.status(400).json({ error: 'ts(청크 시작 시각)가 필요해요' });
   }
+  const extRaw = String(req.query.ext ?? 'webm');
+  const ext = extRaw === 'mp4' || extRaw === 'ogg' || extRaw === 'm4a' ? extRaw : 'webm';
+  const live = req.query.live === '1';
 
   const chunks: Buffer[] = [];
   let size = 0;
@@ -67,8 +75,10 @@ router.post('/audio', (req: AuthedRequest, res) => {
       const dir = path.join(STT_DIR, String(r.meetingId));
       fs.mkdirSync(dir, { recursive: true });
       // 파일명에 화자·시작시각을 박아 전사 시 타임라인 복원에 쓴다
-      fs.writeFileSync(path.join(dir, `${req.userId}-${startTs}.webm`), buf);
-      res.json({ ok: true });
+      const file = path.join(dir, `${req.userId}-${startTs}.${ext}`);
+      fs.writeFileSync(file, buf);
+      res.json({ ok: true, live: live && !!openai });
+      if (live && openai) void transcribeChunkLive(r.meetingId, req.userId!, file, startTs);
     } catch (e) {
       // 이벤트 콜백 안의 예외는 Express가 못 잡는다 — 직접 응답
       console.error('[stt] chunk save', e);
@@ -151,6 +161,66 @@ function toDbTime(ms: number): string {
   return new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
 }
 
+/** 무음 청크에서 Whisper가 지어내는 상투구 (유튜브 학습데이터 잔재) */
+const JUNK = /시청해\s*주셔서\s*감사|구독과?\s*좋아요|다음\s*영상에서\s*만나요|^\s*(음|어|아)[.…]*\s*$/;
+
+/** 용어집 프롬프트 바이어스 — whisper는 prompt의 어휘를 우선 후보로 쓴다 */
+function biasPrompt(meetingId: number): string {
+  const bias = [...new Set([...loadMeetingGlossary(meetingId), ...BASE_GLOSSARY])].slice(0, 40).join(', ');
+  return `회의 용어: ${bias}`;
+}
+
+/** 프롬프트 에코 방어 — 무음·음악 청크에서 Whisper가 prompt 문장을 그대로 출력하는 현상 실측(8/29).
+ *  "회의 용어:"로 시작하거나, 출력 어절의 절반 이상이 용어집 단어면 지어낸 것으로 본다 */
+function isPromptEcho(text: string, prompt: string): boolean {
+  if (/^회의\s*용어\s*[:：]/.test(text)) return true;
+  const terms = new Set(
+    prompt.replace(/^회의 용어:\s*/, '').split(/,\s*/).map((t) => t.trim()).filter(Boolean),
+  );
+  const words = text.replace(/[,.:：]/g, ' ').split(/\s+/).filter(Boolean);
+  if (words.length < 3) return false;
+  const hit = words.filter((w) => terms.has(w)).length;
+  return hit / words.length >= 0.5;
+}
+
+/** 라이브 자막 — 청크 하나를 바로 전사해 룸에 방송하고 기록에 넣는다.
+ *  Web Speech와 달리 통화용 트랙(선택 장치·에코 제거)에서 온 소리라 화자가 확실하고,
+ *  어느 브라우저·앱이든 같은 경로. 성공하면 청크를 지워 통화 후 재전사와 겹치지 않게 한다. */
+async function transcribeChunkLive(meetingId: number, userId: number, file: string, startTs: number) {
+  if (!openai) return;
+  try {
+    const prompt = biasPrompt(meetingId);
+    const out = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(file),
+      model: STT_MODEL,
+      language: 'ko',
+      prompt,
+    });
+    const text = String(out.text ?? '').trim().slice(0, 1000);
+    if (!text || JUNK.test(text) || isPromptEcho(text, prompt)) {
+      fs.unlinkSync(file);
+      return;
+    }
+    db.prepare(
+      "INSERT INTO call_transcripts (meeting_id, user_id, text, source, created_at) VALUES (?, ?, ?, 'whisper', ?)",
+    ).run(meetingId, userId, text, toDbTime(startTs));
+    const m = db.prepare('SELECT code FROM meetings WHERE id = ?').get(meetingId) as { code: string } | undefined;
+    const u = db.prepare('SELECT username FROM users WHERE id = ?').get(userId) as { username: string } | undefined;
+    if (m && u) {
+      getIo()?.to(`room:${m.code}`).emit('voice:caption', {
+        username: u.username,
+        text,
+        ts: Date.now(),
+        source: 'whisper',
+      });
+    }
+    fs.unlinkSync(file); // 기록됐으니 통화 후 재전사 대상에서 제외
+  } catch (e) {
+    // 실패한 청크는 남겨둔다 — 통화 후 일괄 전사가 한 번 더 시도
+    console.error('[stt] live transcribe 실패:', path.basename(file), (e as Error).message);
+  }
+}
+
 /** 회의의 대기 청크 전부 전사 → call_transcripts(source='whisper') 삽입.
  *  recap 직전에 호출된다. 실패한 청크는 남겨두지 않고 버린다(다음 회의에 섞이지 않게). */
 export async function transcribeMeetingAudio(meetingId: number): Promise<number> {
@@ -158,28 +228,26 @@ export async function transcribeMeetingAudio(meetingId: number): Promise<number>
   const dir = path.join(STT_DIR, String(meetingId));
   let names: string[];
   try {
-    names = fs.readdirSync(dir).filter((n) => n.endsWith('.webm'));
+    names = fs.readdirSync(dir).filter((n) => /\.(webm|mp4|m4a|ogg)$/.test(n));
   } catch {
     return 0; // 청크 없음
   }
+  const stem = (n: string) => n.replace(/\.(webm|mp4|m4a|ogg)$/, '');
   // 시작 시각순 — 타임라인 순서 보존
   names.sort((a, b) => {
-    const ta = Number(a.split('-')[1]?.replace('.webm', ''));
-    const tb = Number(b.split('-')[1]?.replace('.webm', ''));
+    const ta = Number(stem(a).split('-')[1]);
+    const tb = Number(stem(b).split('-')[1]);
     return ta - tb;
   });
 
   const ins = db.prepare(
     "INSERT INTO call_transcripts (meeting_id, user_id, text, source, created_at) VALUES (?, ?, ?, 'whisper', ?)",
   );
-  // 용어집 프롬프트 바이어스 — whisper는 prompt의 어휘를 우선 후보로 쓴다 (우리 회사 말 인식률 ↑)
-  const bias = [...new Set([...loadMeetingGlossary(meetingId), ...BASE_GLOSSARY])]
-    .slice(0, 40)
-    .join(', ');
+  const prompt = biasPrompt(meetingId);
   let saved = 0;
   for (const name of names) {
     const p = path.join(dir, name);
-    const [userIdStr, tsStr] = name.replace('.webm', '').split('-');
+    const [userIdStr, tsStr] = stem(name).split('-');
     const userId = Number(userIdStr);
     const startTs = Number(tsStr);
     try {
@@ -187,12 +255,10 @@ export async function transcribeMeetingAudio(meetingId: number): Promise<number>
         file: fs.createReadStream(p),
         model: STT_MODEL,
         language: 'ko',
-        prompt: `회의 용어: ${bias}`,
+        prompt,
       });
       const text = String(out.text ?? '').trim().slice(0, 2000);
-      // 무음 청크에서 Whisper가 지어내는 상투구 방어 (유튜브 학습데이터 잔재)
-      const junk = /시청해\s*주셔서\s*감사|구독과?\s*좋아요|다음\s*영상에서\s*만나요/;
-      if (text && !junk.test(text) && Number.isInteger(userId) && Number.isFinite(startTs)) {
+      if (text && !JUNK.test(text) && !isPromptEcho(text, prompt) && Number.isInteger(userId) && Number.isFinite(startTs)) {
         ins.run(meetingId, userId, text, toDbTime(startTs));
         saved++;
       }

@@ -362,6 +362,8 @@ export default function MeetingView({
   const [sttLocalAvail, setSttLocalAvail] = useState<'available' | 'downloadable' | 'downloading' | 'unavailable' | 'unknown'>('unknown');
   // 마이크 장치 교체(replaceTrack) 시 인식기도 새 트랙으로 갈아타야 함 — 트랙 세대 카운터
   const [micTrackTick, setMicTrackTick] = useState(0);
+  // Web Speech가 죽었을 때(네트워크·캡처 실패) 서버 Whisper 청크 자막으로 갈아탐 — 세션 동안 유지
+  const [sttLiveFallback, setSttLiveFallback] = useState(false);
   // 인식기가 실제로 어떤 입력·모드로 돌았는지 (설정 메뉴 표시용)
   const [sttMode, setSttMode] = useState<{ track: boolean; local: boolean; phrases: number } | null>(null);
   // 발화자별 자막 — 여러 명이 동시에 말하면 줄로 쌓아서 함께 표시 (최근 발화 순)
@@ -976,18 +978,30 @@ export default function MeetingView({
   // ── 원음 녹음 — 회의 후 분석(recap·결정 추출)용. 자막(Web Speech)과 별개 트랙.
   // sttOn && micOn 동안 30초 청크로 잘라 서버에 올리면, 통화가 끝날 때 서버가
   // OpenAI로 재전사해 Web Speech보다 정확한 기록을 만든다 (stt.ts) ──
+  // 라이브 자막을 서버 Whisper에 맡기는 경우 — Web Speech가 없는 브라우저(APK 웹뷰·사파리·파이어폭스)
+  // 이거나 Web Speech가 죽었을 때. 청크를 6초로 잘라 올리면 서버가 바로 전사해 자막으로 방송한다
+  const liveCaption = !sttSupported || sttLiveFallback;
   useEffect(() => {
     if (phase !== 'live' || !micOn || !sttOn) return;
     const track = producersRef.current.audio?.track;
     if (!track || track.readyState !== 'live' || typeof MediaRecorder === 'undefined') return;
-    const mime = 'audio/webm;codecs=opus';
-    if (!MediaRecorder.isTypeSupported?.(mime)) return;
+    // 브라우저별 컨테이너 — 크롬/파폭 webm·opus, 사파리(iOS 포함) mp4·aac
+    const candidates: [string, string][] = [
+      ['audio/webm;codecs=opus', 'webm'],
+      ['audio/webm', 'webm'],
+      ['audio/mp4', 'mp4'],
+      ['audio/ogg;codecs=opus', 'ogg'],
+    ];
+    const pick = candidates.find(([m]) => MediaRecorder.isTypeSupported?.(m));
+    if (!pick) return;
+    const [mime, ext] = pick;
     const token = useAuthStore.getState().token;
+    const chunkMs = liveCaption ? 6_000 : 30_000;
     let stopped = false;
     let rec: MediaRecorder | null = null;
     let timer: number | undefined;
     const stream = new MediaStream([track]);
-    // 타임슬라이스 대신 30초마다 레코더를 새로 시작 — 청크마다 컨테이너 헤더가 붙어
+    // 타임슬라이스 대신 N초마다 레코더를 새로 시작 — 청크마다 컨테이너 헤더가 붙어
     // 각 파일이 독립적으로 디코딩 가능해야 서버가 청크 단위로 전사할 수 있다
     const startOne = () => {
       if (stopped) return;
@@ -1001,11 +1015,14 @@ export default function MeetingView({
       rec = r;
       r.ondataavailable = (e) => {
         if (e.data && e.data.size > 2000) {
-          void fetch(`/api/meetings/${code}/stt/audio?ts=${startTs}`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'audio/webm' },
-            body: e.data,
-          }).catch(() => {
+          void fetch(
+            `/api/meetings/${code}/stt/audio?ts=${startTs}&ext=${ext}${liveCaption ? '&live=1' : ''}`,
+            {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': mime.split(';')[0] },
+              body: e.data,
+            },
+          ).catch(() => {
             /* 청크 하나 유실은 치명적이지 않음 */
           });
         }
@@ -1024,7 +1041,7 @@ export default function MeetingView({
         } catch {
           /* 이미 종료 */
         }
-      }, 30_000);
+      }, chunkMs);
     };
     startOne();
     return () => {
@@ -1036,11 +1053,11 @@ export default function MeetingView({
         /* 이미 종료 */
       }
     };
-  }, [phase, micOn, sttOn, code]);
+  }, [phase, micOn, sttOn, code, liveCaption, micTrackTick]);
 
   // ── 음성 전사(STT) — 통화 중 + 마이크 켜짐 + 자막 켜짐일 때 내 발화를 전사해 서버로 ──
   useEffect(() => {
-    if (!sttSupported || phase !== 'live' || !micOn || !sttOn) {
+    if (!sttSupported || sttLiveFallback || phase !== 'live' || !micOn || !sttOn) {
       sttWantedRef.current = false;
       try {
         sttRef.current?.stop();
@@ -1179,14 +1196,17 @@ export default function MeetingView({
         return;
       }
       if (code !== 'no-speech' && code !== 'aborted') {
+        // 브라우저 인식기가 죽은 종류면 서버 Whisper 자막으로 갈아탄다 — 자막이 그냥 사라지지 않게
+        if (code === 'network' || code === 'audio-capture' || code === 'service-not-allowed') {
+          sttWantedRef.current = false;
+          setSttLiveFallback(true);
+          setSttError(null);
+          return;
+        }
         const label =
-          code === 'not-allowed' || code === 'service-not-allowed'
+          code === 'not-allowed'
             ? '마이크 권한이 막혀 있어요 — 주소창 자물쇠에서 마이크 허용'
-            : code === 'network'
-              ? '음성인식 서버에 연결할 수 없어요 — 네트워크/방화벽 확인'
-              : code === 'audio-capture'
-                ? '음성인식이 마이크를 열지 못했어요'
-                : `음성인식 오류 (${code})`;
+            : `음성인식 오류 (${code})`;
         setSttError(label);
       }
     };
@@ -1233,7 +1253,7 @@ export default function MeetingView({
       sttRef.current = null;
       setSttMode(null);
     };
-  }, [phase, micOn, sttOn, sttSupported, micTrackTick, sttLocalWanted, sttLocalAvail, code]);
+  }, [phase, micOn, sttOn, sttSupported, sttLiveFallback, micTrackTick, sttLocalWanted, sttLocalAvail, code]);
 
   // 온디바이스 인식 가능 여부 — Chrome 139+ SpeechRecognition.available({langs, processLocally})
   useEffect(() => {
@@ -1960,27 +1980,30 @@ export default function MeetingView({
               <div style={{ position: 'fixed', inset: 0, zIndex: 39 }} onClick={() => setDevMenu(null)} />
               <div className="dev-menu align-right ctl-opts">
                 <div className="dev-menu-title">통화 설정</div>
-                {sttSupported && (
-                  <button
-                    className="dev-menu-item"
-                    onClick={() => setSttOn((v) => !v)}
-                    title="발화를 자막으로 띄우고 AI 총무가 기록·정리해요"
-                  >
-                    <span className="dev-menu-label">
-                      음성 기록·자막 (CC)
-                      {sttOn && sttMode && (
-                        <small className="dev-menu-sub">
-                          {sttMode.track ? '통화 마이크 트랙 입력' : '기본 마이크'}
-                          {sttMode.phrases > 0 ? ` · 용어 ${sttMode.phrases}개 편향` : ''}
-                          {sttMode.local ? ' · 온디바이스' : ''}
-                        </small>
-                      )}
-                    </span>
-                    <span className={`msched-sw${sttOn ? ' on' : ''}`}>
-                      <i />
-                    </span>
-                  </button>
-                )}
+                <button
+                  className="dev-menu-item"
+                  onClick={() => setSttOn((v) => !v)}
+                  title="발화를 자막으로 띄우고 AI 총무가 기록·정리해요"
+                >
+                  <span className="dev-menu-label">
+                    음성 기록·자막 (CC)
+                    {sttOn && liveCaption && (
+                      <small className="dev-menu-sub">
+                        서버 Whisper 자막 · 3~6초 지연{!sttSupported ? ' (이 브라우저는 내장 인식 없음)' : ' (내장 인식 중단됨)'}
+                      </small>
+                    )}
+                    {sttOn && !liveCaption && sttMode && (
+                      <small className="dev-menu-sub">
+                        {sttMode.track ? '통화 마이크 트랙 입력' : '기본 마이크'}
+                        {sttMode.phrases > 0 ? ` · 용어 ${sttMode.phrases}개 편향` : ''}
+                        {sttMode.local ? ' · 온디바이스' : ''}
+                      </small>
+                    )}
+                  </span>
+                  <span className={`msched-sw${sttOn ? ' on' : ''}`}>
+                    <i />
+                  </span>
+                </button>
                 {sttSupported && sttLocalAvail !== 'unavailable' && sttLocalAvail !== 'unknown' && (
                   <button
                     className="dev-menu-item"
