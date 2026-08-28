@@ -16,6 +16,8 @@ services:
       # 온프레미스 STT — 맥미니 호스트의 whisper.cpp 서버(launchd co.sofie.exist.whisper, 8178).
       # 있으면 음성이 외부로 안 나감. 실패 시 OpenAI 폴백. 비우면 OpenAI만.
       WHISPER_URL: ${WHISPER_URL:-}
+      # 둘 다 있을 때 우선: openai(정확도) | local(온프레미스 — 음성 외부 전송 없음)
+      STT_PREFER: ${STT_PREFER:-openai}
       # 결정 추출 전용 상위 모델 (recap.ts) — 나머지 AI는 OPENAI_MODEL(mini)
       OPENAI_MODEL_RECAP: ${OPENAI_MODEL_RECAP:-gpt-4o}
       ANNOUNCED_IP: ${ANNOUNCED_IP}

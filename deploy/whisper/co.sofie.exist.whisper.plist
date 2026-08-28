@@ -9,12 +9,12 @@
   <key>ProgramArguments</key>
   <array>
     <string>/opt/homebrew/bin/whisper-server</string>
-    <string>--model</string><string>/Users/juholee/whisper/models/ggml-large-v3-turbo-q5_0.bin</string>
+    <!-- 8/29 비교: turbo-q5 14s(첫 로드)·"8B", turbo-f16 1.95s·문장부호 정상, large-v3-q5 2.5s. f16 채택 -->
+    <string>--model</string><string>/Users/juholee/whisper/models/ggml-large-v3-turbo.bin</string>
     <string>--host</string><string>0.0.0.0</string>
     <string>--port</string><string>8178</string>
     <string>--language</string><string>ko</string>
     <string>--threads</string><string>6</string>
-    <string>--convert</string>
     <string>--no-timestamps</string>
   </array>
   <key>EnvironmentVariables</key>
