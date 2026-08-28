@@ -8,6 +8,7 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import OpenAI from 'openai';
 import db from './db.js';
@@ -19,6 +20,82 @@ const STT_DIR = path.join(process.env.DATA_DIR || path.join(__dirname, '..'), 's
 const MAX_CHUNK = 5 * 1024 * 1024; // 30초 opus면 수백 KB — 5MB면 넉넉
 const openai = process.env.OPENAI_API_KEY ? new OpenAI() : null;
 const STT_MODEL = process.env.OPENAI_STT_MODEL || 'gpt-4o-mini-transcribe';
+/* ── 온프레미스 STT: whisper.cpp 서버(whisper-server, OpenAI 호환 /inference).
+ * WHISPER_URL이 있으면 음성이 외부로 나가지 않는다 — 제약·바이오 망분리 요건의 실물.
+ * 실패·타임아웃이면 OpenAI로 폴백(키가 있을 때). 둘 다 없으면 전사 스킵. ── */
+const WHISPER_URL = (process.env.WHISPER_URL || '').replace(/\/+$/, '');
+const WHISPER_TIMEOUT_MS = Number(process.env.WHISPER_TIMEOUT_MS ?? 25_000);
+/** 어느 백엔드든 하나라도 있으면 전사 가능 */
+const sttEnabled = !!openai || !!WHISPER_URL;
+
+/** webm/mp4 → 16kHz mono WAV (whisper.cpp 입력 규격). 컨테이너에 ffmpeg 필요 — 없으면 예외 → OpenAI 폴백 */
+function toWav16k(src: string): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const args = ['-loglevel', 'error', '-i', src, '-ac', '1', '-ar', '16000', '-f', 'wav', 'pipe:1'];
+    const p = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const out: Buffer[] = [];
+    let err = '';
+    p.stdout.on('data', (d: Buffer) => out.push(d));
+    p.stderr.on('data', (d: Buffer) => (err += d.toString()));
+    p.on('error', reject);
+    p.on('close', (code) => (code === 0 ? resolve(Buffer.concat(out)) : reject(new Error(`ffmpeg ${code}: ${err.slice(0, 200)}`))));
+  });
+}
+
+/** 로컬 whisper.cpp 전사 — multipart(file=wav, language, prompt, response_format=json) */
+async function transcribeLocal(file: string, prompt: string): Promise<string> {
+  const form = new FormData();
+  const wav = await toWav16k(file);
+  form.append('file', new Blob([new Uint8Array(wav)], { type: 'audio/wav' }), 'chunk.wav');
+  form.append('language', 'ko');
+  form.append('response_format', 'json');
+  form.append('prompt', prompt);
+  form.append('temperature', '0');
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), WHISPER_TIMEOUT_MS);
+  try {
+    const r = await fetch(`${WHISPER_URL}/inference`, { method: 'POST', body: form, signal: ctrl.signal });
+    if (!r.ok) throw new Error(`whisper ${r.status}`);
+    const j = (await r.json()) as { text?: string };
+    return String(j.text ?? '');
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** 둘 다 있을 때 우선순위 — 'local'(온프레미스 모드: 음성 외부 전송 없음) | 'openai'(기본: 8/29 실측에서 한국어 정확도 우위).
+ *  선택되지 않은 쪽은 폴백 */
+const STT_PREFER = process.env.STT_PREFER === 'local' ? 'local' : 'openai';
+
+/** 전사 진입점 — 우선 백엔드 → 실패 시 다른 쪽. 어디서 됐는지 함께 돌려준다(로그·표시용) */
+async function transcribeAudio(file: string, prompt: string): Promise<{ text: string; via: 'local' | 'openai' }> {
+  const localFirst = !!WHISPER_URL && (STT_PREFER === 'local' || !openai);
+  if (localFirst) {
+    try {
+      return { text: await transcribeLocal(file, prompt), via: 'local' };
+    } catch (e) {
+      if (!openai) throw e;
+      console.warn('[stt] 로컬 whisper 실패 → OpenAI 폴백:', (e as Error).message);
+    }
+  }
+  if (!openai) throw new Error('no STT backend');
+  if (WHISPER_URL && !localFirst) {
+    try {
+      const out = await openai.audio.transcriptions.create({ file: fs.createReadStream(file), model: STT_MODEL, language: 'ko', prompt });
+      return { text: String(out.text ?? ''), via: 'openai' };
+    } catch (e) {
+      console.warn('[stt] OpenAI 실패 → 로컬 whisper 폴백:', (e as Error).message);
+      return { text: await transcribeLocal(file, prompt), via: 'local' };
+    }
+  }
+  const out = await openai.audio.transcriptions.create({
+    file: fs.createReadStream(file),
+    model: STT_MODEL,
+    language: 'ko',
+    prompt,
+  });
+  return { text: String(out.text ?? ''), via: 'openai' };
+}
 
 /** 참가자 검증 (files.ts와 동일 패턴 — 순환 import 방지 위해 자체 보유) */
 function checkParticipant(
@@ -77,8 +154,8 @@ router.post('/audio', (req: AuthedRequest, res) => {
       // 파일명에 화자·시작시각을 박아 전사 시 타임라인 복원에 쓴다
       const file = path.join(dir, `${req.userId}-${startTs}.${ext}`);
       fs.writeFileSync(file, buf);
-      res.json({ ok: true, live: live && !!openai });
-      if (live && openai) void transcribeChunkLive(r.meetingId, req.userId!, file, startTs);
+      res.json({ ok: true, live: live && sttEnabled });
+      if (live && sttEnabled) void transcribeChunkLive(r.meetingId, req.userId!, file, startTs);
     } catch (e) {
       // 이벤트 콜백 안의 예외는 Express가 못 잡는다 — 직접 응답
       console.error('[stt] chunk save', e);
@@ -174,6 +251,8 @@ function biasPrompt(meetingId: number): string {
  *  "회의 용어:"로 시작하거나, 출력 어절의 절반 이상이 용어집 단어면 지어낸 것으로 본다 */
 function isPromptEcho(text: string, prompt: string): boolean {
   if (/^회의\s*용어\s*[:：]/.test(text)) return true;
+  // 한국어 회의인데 한글이 하나도 없는 짧은 출력("signal", "you") — 무음·음악 청크의 지어낸 말
+  if (!/[가-힣]/.test(text) && text.split(/\s+/).filter(Boolean).length < 4) return true;
   const terms = new Set(
     prompt.replace(/^회의 용어:\s*/, '').split(/,\s*/).map((t) => t.trim()).filter(Boolean),
   );
@@ -187,16 +266,11 @@ function isPromptEcho(text: string, prompt: string): boolean {
  *  Web Speech와 달리 통화용 트랙(선택 장치·에코 제거)에서 온 소리라 화자가 확실하고,
  *  어느 브라우저·앱이든 같은 경로. 성공하면 청크를 지워 통화 후 재전사와 겹치지 않게 한다. */
 async function transcribeChunkLive(meetingId: number, userId: number, file: string, startTs: number) {
-  if (!openai) return;
+  if (!sttEnabled) return;
   try {
     const prompt = biasPrompt(meetingId);
-    const out = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(file),
-      model: STT_MODEL,
-      language: 'ko',
-      prompt,
-    });
-    const text = String(out.text ?? '').trim().slice(0, 1000);
+    const out = await transcribeAudio(file, prompt);
+    const text = out.text.trim().slice(0, 1000);
     if (!text || JUNK.test(text) || isPromptEcho(text, prompt)) {
       fs.unlinkSync(file);
       return;
@@ -211,7 +285,7 @@ async function transcribeChunkLive(meetingId: number, userId: number, file: stri
         username: u.username,
         text,
         ts: Date.now(),
-        source: 'whisper',
+        source: out.via === 'local' ? 'whisper-local' : 'whisper',
       });
     }
     fs.unlinkSync(file); // 기록됐으니 통화 후 재전사 대상에서 제외
@@ -224,7 +298,7 @@ async function transcribeChunkLive(meetingId: number, userId: number, file: stri
 /** 회의의 대기 청크 전부 전사 → call_transcripts(source='whisper') 삽입.
  *  recap 직전에 호출된다. 실패한 청크는 남겨두지 않고 버린다(다음 회의에 섞이지 않게). */
 export async function transcribeMeetingAudio(meetingId: number): Promise<number> {
-  if (!openai) return 0;
+  if (!sttEnabled) return 0;
   const dir = path.join(STT_DIR, String(meetingId));
   let names: string[];
   try {
@@ -251,13 +325,8 @@ export async function transcribeMeetingAudio(meetingId: number): Promise<number>
     const userId = Number(userIdStr);
     const startTs = Number(tsStr);
     try {
-      const out = await openai.audio.transcriptions.create({
-        file: fs.createReadStream(p),
-        model: STT_MODEL,
-        language: 'ko',
-        prompt,
-      });
-      const text = String(out.text ?? '').trim().slice(0, 2000);
+      const out = await transcribeAudio(p, prompt);
+      const text = out.text.trim().slice(0, 2000);
       if (text && !JUNK.test(text) && !isPromptEcho(text, prompt) && Number.isInteger(userId) && Number.isFinite(startTs)) {
         ins.run(meetingId, userId, text, toDbTime(startTs));
         saved++;

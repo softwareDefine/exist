@@ -13,6 +13,11 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       # 회의 후 원음 재전사 모델 (stt.ts) — 기록·결정 추출 품질용
       OPENAI_STT_MODEL: ${OPENAI_STT_MODEL:-gpt-4o-mini-transcribe}
+      # 온프레미스 STT — 맥미니 호스트의 whisper.cpp 서버(launchd co.sofie.exist.whisper, 8178).
+      # 있으면 음성이 외부로 안 나감. 실패 시 OpenAI 폴백. 비우면 OpenAI만.
+      WHISPER_URL: ${WHISPER_URL:-}
+      # 결정 추출 전용 상위 모델 (recap.ts) — 나머지 AI는 OPENAI_MODEL(mini)
+      OPENAI_MODEL_RECAP: ${OPENAI_MODEL_RECAP:-gpt-4o}
       ANNOUNCED_IP: ${ANNOUNCED_IP}
       # 같은 공유기(LAN) 안 통화용 사설 IP — 헤어핀 NAT 회피. 맥미니 LAN IP.
       LOCAL_IP: ${LOCAL_IP:-192.168.0.82}

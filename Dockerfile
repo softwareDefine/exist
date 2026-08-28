@@ -32,7 +32,7 @@ RUN mkdir -p /data
 # 코드 실행(/exec)은 격리된 runner 컨테이너로 분리됐으므로 본체엔 컴파일러·파이썬을
 # 두지 않는다(공격면 축소). git push(/git)용 git 과 TLS 인증서만 둔다.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git ca-certificates \
+      git ca-certificates ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # 서버 런타임(빌드된 node_modules엔 mediasoup 워커 바이너리 포함) + dist + 클라 정적

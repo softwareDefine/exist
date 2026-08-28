@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- exist 온프레미스 STT — whisper.cpp 서버를 맥미니 호스트(Metal)에 상주.
+     설치: cp deploy/whisper/co.sofie.exist.whisper.plist ~/Library/LaunchAgents/ && launchctl load -w ~/Library/LaunchAgents/co.sofie.exist.whisper.plist
+     컨테이너는 WHISPER_URL=http://host.docker.internal:8178 로 호출. 0.0.0.0 바인딩이지만 공유기 밖으로는 안 열림. -->
+<dict>
+  <key>Label</key><string>co.sofie.exist.whisper</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/whisper-server</string>
+    <string>--model</string><string>/Users/juholee/whisper/models/ggml-large-v3-turbo-q5_0.bin</string>
+    <string>--host</string><string>0.0.0.0</string>
+    <string>--port</string><string>8178</string>
+    <string>--language</string><string>ko</string>
+    <string>--threads</string><string>6</string>
+    <string>--convert</string>
+    <string>--no-timestamps</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>/Users/juholee/whisper/server.log</string>
+  <key>StandardErrorPath</key><string>/Users/juholee/whisper/server.err.log</string>
+</dict>
+</plist>
