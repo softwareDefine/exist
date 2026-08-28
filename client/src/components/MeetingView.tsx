@@ -351,6 +351,19 @@ export default function MeetingView({
   const [sttOn, setSttOn] = useState(true);
   /** 자막 인식 오류 — 조용한 실패 대신 화면에 (null=정상) */
   const [sttError, setSttError] = useState<string | null>(null);
+  // 온디바이스 인식(Chrome 139+ processLocally) — "음성이 브라우저 밖으로 안 나간다". 사용자가 켜면 기억
+  const [sttLocalWanted, setSttLocalWanted] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('exist.stt.local') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [sttLocalAvail, setSttLocalAvail] = useState<'available' | 'downloadable' | 'downloading' | 'unavailable' | 'unknown'>('unknown');
+  // 마이크 장치 교체(replaceTrack) 시 인식기도 새 트랙으로 갈아타야 함 — 트랙 세대 카운터
+  const [micTrackTick, setMicTrackTick] = useState(0);
+  // 인식기가 실제로 어떤 입력·모드로 돌았는지 (설정 메뉴 표시용)
+  const [sttMode, setSttMode] = useState<{ track: boolean; local: boolean; phrases: number } | null>(null);
   // 발화자별 자막 — 여러 명이 동시에 말하면 줄로 쌓아서 함께 표시 (최근 발화 순)
   const [captions, setCaptions] = useState<
     Record<string, { text: string; interim?: boolean; ts: number }>
@@ -1040,24 +1053,73 @@ export default function MeetingView({
     sttWantedRef.current = true;
     interface SttEvent {
       resultIndex: number;
-      results: { length: number; [i: number]: { isFinal: boolean; 0: { transcript: string } } };
+      results: {
+        length: number;
+        [i: number]: { isFinal: boolean; 0: { transcript: string; confidence?: number } };
+      };
     }
     interface Stt {
       lang: string;
       continuous: boolean;
       interimResults: boolean;
+      /** Chrome 139+: 온디바이스 처리 강제 (음성이 서버로 안 나감) */
+      processLocally?: boolean;
+      /** 스펙: 자동 문장부호 */
+      unspokenPunctuation?: boolean;
+      /** 스펙: 문맥 편향 — 용어집을 인식기에 직접 주입 */
+      phrases?: { push(...p: unknown[]): unknown; length: number };
       onresult: ((e: SttEvent) => void) | null;
       onend: (() => void) | null;
       onerror: ((e: { error?: string }) => void) | null;
-      start(): void;
+      /** Chrome 135+: 마이크 대신 오디오 트랙 입력 (선택 장치·에코 제거 적용된 통화 트랙) */
+      start(track?: MediaStreamTrack): void;
       stop(): void;
     }
-    const W = window as unknown as { webkitSpeechRecognition: new () => Stt };
+    const W = window as unknown as {
+      webkitSpeechRecognition: new () => Stt;
+      SpeechRecognitionPhrase?: new (phrase: string, boost?: number) => unknown;
+    };
     const rec = new W.webkitSpeechRecognition();
     rec.lang = 'ko-KR';
     rec.continuous = true;
     // 중간 결과도 받아서 말하는 도중에 자막이 따라오게 (확정 대기 딜레이 제거)
     rec.interimResults = true;
+    if ('unspokenPunctuation' in rec) rec.unspokenPunctuation = true;
+    // 온디바이스 — 사용자가 켰고 브라우저가 한국어 로컬 모델을 갖고 있을 때만
+    const useLocal = sttLocalWanted && sttLocalAvail === 'available' && 'processLocally' in rec;
+    if (useLocal) rec.processLocally = true;
+
+    // ── 입력 트랙: 통화에 쓰는 마이크 트랙 그대로 (Chrome 135+).
+    // 구글 데모와 우리 자막의 품질 차이 원인이 엔진이 아니라 입력이었다 —
+    // 기본 start()는 시스템 기본 마이크를 따로 열어 (1) 선택한 장치와 다를 수 있고
+    // (2) 에코 제거가 없어 스피커로 나오는 상대 목소리를 다시 받아썼다. ──
+    const callTrack = producersRef.current.audio?.track;
+    const trackInput = !!callTrack && callTrack.readyState === 'live';
+    const startRec = () => {
+      if (trackInput) {
+        try {
+          rec.start(callTrack);
+          return true;
+        } catch {
+          /* 구버전 크롬 — 인자 무시하거나 예외 → 기본 마이크로 */
+        }
+      }
+      rec.start();
+      return false;
+    };
+
+    // ── 용어집 → phrases (문맥 편향). 미지원 브라우저는 phrases-not-supported로 알려주므로 비우고 재시작 ──
+    let phrasesUsed = 0;
+    let phrasesDisabled = false;
+    const applyPhrases = (terms: string[]) => {
+      if (phrasesDisabled || !rec.phrases || !W.SpeechRecognitionPhrase) return;
+      try {
+        for (const t of terms.slice(0, 100)) rec.phrases.push(new W.SpeechRecognitionPhrase(t, 4));
+        phrasesUsed = terms.length;
+      } catch {
+        phrasesUsed = 0;
+      }
+    };
     let lastInterim = 0;
     rec.onresult = (e) => {
       setSttError(null); // 인식이 실제로 돌고 있음 — 경고 내림
@@ -1066,7 +1128,11 @@ export default function MeetingView({
         const r = e.results[i];
         if (r.isFinal) {
           const text = r[0].transcript.trim();
-          if (text) getSocket().emit('voice:transcript', { text }); // 확정본만 저장·기록
+          // 확정본만 저장·기록. confidence가 오는 브라우저에선 아주 낮은 확정(<0.3)은 기록에서 제외 —
+          // 원장 재료에 잡음이 섞이는 것보다 자막에만 잠깐 보이고 사라지는 편이 낫다
+          const conf = typeof r[0].confidence === 'number' ? r[0].confidence : 1;
+          if (text && conf >= 0.3) getSocket().emit('voice:transcript', { text });
+          else if (text) getSocket().emit('voice:interim', { text });
         } else {
           interim += r[0].transcript;
         }
@@ -1079,11 +1145,11 @@ export default function MeetingView({
         getSocket().emit('voice:interim', { text: interim });
       }
     };
-    // 침묵·일시 오류로 자주 끊기므로 원할 때까지 자동 재시작
+    // 침묵·일시 오류로 자주 끊기므로 원할 때까지 자동 재시작 (같은 트랙으로)
     rec.onend = () => {
       if (sttWantedRef.current) {
         try {
-          rec.start();
+          startRec();
         } catch {
           /* 연속 start 예외 무시 */
         }
@@ -1093,6 +1159,25 @@ export default function MeetingView({
       // no-speech·aborted는 정상 흐름 (침묵·재시작) — 그 외는 사용자에게 보인다.
       // 조용히 삼키면 "자막이 그냥 안 뜨는" 미스터리가 된다 (8/24 실사용 디버깅)
       const code = e?.error ?? 'unknown';
+      if (code === 'phrases-not-supported') {
+        // 이 브라우저는 문맥 편향 미지원 — 용어집 없이 재시작 (onend가 이어서 startRec)
+        phrasesDisabled = true;
+        phrasesUsed = 0;
+        try {
+          if (rec.phrases) while (rec.phrases.length) (rec.phrases as unknown as unknown[]).pop();
+        } catch {
+          /* ignore */
+        }
+        setSttMode((m) => (m ? { ...m, phrases: 0 } : m));
+        return;
+      }
+      if (code === 'language-not-supported' && useLocal) {
+        // 로컬 모델에 한국어가 없음 — 원격으로 되돌리고 사용자에게 알림
+        rec.processLocally = false;
+        setSttLocalAvail('unavailable');
+        setSttError('이 브라우저의 온디바이스 인식은 한국어를 지원하지 않아요 — 일반 인식으로 전환');
+        return;
+      }
       if (code !== 'no-speech' && code !== 'aborted') {
         const label =
           code === 'not-allowed' || code === 'service-not-allowed'
@@ -1105,13 +1190,40 @@ export default function MeetingView({
         setSttError(label);
       }
     };
-    try {
-      rec.start();
-    } catch {
-      /* 미지원/권한 문제 — 조용히 포기 */
+    // 용어집을 먼저 받아 phrases에 넣고 시작 — 실패해도 자막은 떠야 하므로 짧게 기다리고 그냥 시작
+    let cancelled = false;
+    const token = useAuthStore.getState().token;
+    const begin = () => {
+      if (cancelled) return;
+      let usedTrack = false;
+      try {
+        usedTrack = startRec();
+      } catch {
+        /* 미지원/권한 문제 — 조용히 포기 */
+      }
+      setSttMode({ track: usedTrack, local: !!useLocal, phrases: phrasesUsed });
+    };
+    if (rec.phrases && W.SpeechRecognitionPhrase) {
+      const t = window.setTimeout(begin, 1500); // 용어집 응답이 늦어도 자막은 시작
+      fetch(`/api/meetings/${code}/glossary`, { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { terms?: { term: string }[] } | null) => {
+          if (cancelled) return;
+          window.clearTimeout(t);
+          applyPhrases((j?.terms ?? []).map((x) => x.term).filter(Boolean));
+          begin();
+        })
+        .catch(() => {
+          if (cancelled) return;
+          window.clearTimeout(t);
+          begin();
+        });
+    } else {
+      begin();
     }
     sttRef.current = rec;
     return () => {
+      cancelled = true;
       sttWantedRef.current = false;
       try {
         rec.stop();
@@ -1119,8 +1231,48 @@ export default function MeetingView({
         /* 이미 종료 */
       }
       sttRef.current = null;
+      setSttMode(null);
     };
-  }, [phase, micOn, sttOn, sttSupported]);
+  }, [phase, micOn, sttOn, sttSupported, micTrackTick, sttLocalWanted, sttLocalAvail, code]);
+
+  // 온디바이스 인식 가능 여부 — Chrome 139+ SpeechRecognition.available({langs, processLocally})
+  useEffect(() => {
+    if (!sttSupported) return;
+    const SR = (window as unknown as {
+      SpeechRecognition?: { available?: (o: { langs: string[]; processLocally: boolean }) => Promise<string> };
+      webkitSpeechRecognition?: { available?: (o: { langs: string[]; processLocally: boolean }) => Promise<string> };
+    }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: { available?: (o: { langs: string[]; processLocally: boolean }) => Promise<string> } }).webkitSpeechRecognition;
+    if (!SR?.available) {
+      setSttLocalAvail('unavailable');
+      return;
+    }
+    SR.available({ langs: ['ko-KR'], processLocally: true })
+      .then((s) => setSttLocalAvail((['available', 'downloadable', 'downloading', 'unavailable'] as const).includes(s as 'available') ? (s as 'available') : 'unavailable'))
+      .catch(() => setSttLocalAvail('unavailable'));
+  }, [sttSupported]);
+
+  /** 온디바이스 토글 — downloadable이면 install() 후 켜기 */
+  async function toggleSttLocal() {
+    const next = !sttLocalWanted;
+    if (next && sttLocalAvail === 'downloadable') {
+      const SR = (window as unknown as { SpeechRecognition?: { install?: (o: { langs: string[]; processLocally: boolean }) => Promise<boolean> } }).SpeechRecognition;
+      setSttLocalAvail('downloading');
+      try {
+        const ok = await SR?.install?.({ langs: ['ko-KR'], processLocally: true });
+        setSttLocalAvail(ok ? 'available' : 'unavailable');
+        if (!ok) return;
+      } catch {
+        setSttLocalAvail('unavailable');
+        return;
+      }
+    }
+    setSttLocalWanted(next);
+    try {
+      localStorage.setItem('exist.stt.local', next ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  }
 
   function toggleMic() {
     const p = producersRef.current.audio;
@@ -1191,6 +1343,7 @@ export default function MeetingView({
       await p.replaceTrack({ track });
       old?.stop();
       if (kind === 'cam') setLocalTrack(track);
+      if (kind === 'mic') setMicTrackTick((t) => t + 1); // 자막 인식기도 새 마이크 트랙으로
     } catch {
       window.dispatchEvent(
         new CustomEvent('app:error', { detail: '장치를 바꾸지 못했어요 — 연결 상태를 확인해주세요' }),
@@ -1813,8 +1966,39 @@ export default function MeetingView({
                     onClick={() => setSttOn((v) => !v)}
                     title="발화를 자막으로 띄우고 AI 총무가 기록·정리해요"
                   >
-                    <span className="dev-menu-label">음성 기록·자막 (CC)</span>
+                    <span className="dev-menu-label">
+                      음성 기록·자막 (CC)
+                      {sttOn && sttMode && (
+                        <small className="dev-menu-sub">
+                          {sttMode.track ? '통화 마이크 트랙 입력' : '기본 마이크'}
+                          {sttMode.phrases > 0 ? ` · 용어 ${sttMode.phrases}개 편향` : ''}
+                          {sttMode.local ? ' · 온디바이스' : ''}
+                        </small>
+                      )}
+                    </span>
                     <span className={`msched-sw${sttOn ? ' on' : ''}`}>
+                      <i />
+                    </span>
+                  </button>
+                )}
+                {sttSupported && sttLocalAvail !== 'unavailable' && sttLocalAvail !== 'unknown' && (
+                  <button
+                    className="dev-menu-item"
+                    onClick={() => void toggleSttLocal()}
+                    disabled={sttLocalAvail === 'downloading'}
+                    title="인식을 이 기기 안에서만 처리 — 음성이 브라우저 밖으로 나가지 않아요 (Chrome 139+)"
+                  >
+                    <span className="dev-menu-label">
+                      온디바이스 인식
+                      <small className="dev-menu-sub">
+                        {sttLocalAvail === 'downloading'
+                          ? '한국어 모델 내려받는 중…'
+                          : sttLocalAvail === 'downloadable'
+                            ? '켜면 한국어 모델을 내려받아요'
+                            : '음성 외부 전송 없음'}
+                      </small>
+                    </span>
+                    <span className={`msched-sw${sttLocalWanted && sttLocalAvail === 'available' ? ' on' : ''}`}>
                       <i />
                     </span>
                   </button>

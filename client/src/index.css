@@ -22915,3 +22915,13 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   gap: 8px;
   margin-top: 14px;
 }
+
+/* 통화 설정 — 항목 아래 작은 상태 설명 (자막 입력 모드·온디바이스) */
+.dev-menu-label .dev-menu-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-sub);
+  white-space: nowrap;
+}
