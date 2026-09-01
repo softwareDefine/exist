@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { displayNameOf } from '../names'; // 미확인자 목록도 아이디 대신 표시명 (9/1 클라 테스트에서 발견)
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAuthStore } from '../store';
@@ -520,7 +521,7 @@ export default function ProfileDashboard() {
                 {!done && e.missing.length > 0 && (
                   <span className="pd-sent-missing" title={e.missing.join(', ')}>
                     {' '}
-                    — 미확인: {e.missing.slice(0, 3).join(', ')}
+                    — 미확인: {e.missing.slice(0, 3).map(displayNameOf).join(', ')}
                     {e.missing.length > 3 ? ` 외 ${e.missing.length - 3}명` : ''}
                   </span>
                 )}
@@ -749,7 +750,7 @@ export default function ProfileDashboard() {
                   {e.meetingTitle} · 확인 {e.acked}/{e.total}
                   <span className="pd-sent-missing" title={e.missing.join(', ')}>
                     {' '}
-                    — 미확인: {e.missing.slice(0, 3).join(', ')}
+                    — 미확인: {e.missing.slice(0, 3).map(displayNameOf).join(', ')}
                     {e.missing.length > 3 ? ` 외 ${e.missing.length - 3}명` : ''}
                   </span>
                 </span>
