@@ -28,3 +28,7 @@ server/stryker.log
 # Stryker 리포트(35MB) — SUMMARY.md만 커밋
 server/reports/mutation/*
 !server/reports/mutation/SUMMARY.md
+
+coverage-e2e/
+e2e/.results/
+test-results/
