@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import OpenAI from 'openai';
 import db from './db.js';
-import { samplingFor } from './llm.js';
+import { samplingFor, parseLlmJson } from './llm.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { isMember } from './orgs.js';
 
@@ -338,7 +338,7 @@ async function aiInsights(m: OrgMetrics): Promise<Insights> {
 
   const raw = response.choices[0]?.message?.content?.trim() ?? '';
   if (!raw) throw new Error('empty AI response');
-  const parsed = JSON.parse(raw) as Partial<Insights>;
+  const parsed = parseLlmJson<Partial<Insights>>(raw); // 뒤에 붙은 잡설·코드펜스 방어 (다른 호출부와 동일)
   const fallback = ruleBasedInsights(m);
   const risk = (r: unknown, fb: { level: string; reason: string }) => {
     const o = (r ?? {}) as { level?: unknown; reason?: unknown };

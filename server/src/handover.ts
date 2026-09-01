@@ -56,7 +56,7 @@ const emptySections = (): HandoverSections => ({ issues: [], changes: [], pendin
 function sanitizeSections(raw: unknown): HandoverSections {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const arr = (v: unknown) =>
-    (Array.isArray(v) ? v : [])
+    (Array.isArray(v) ? v.filter((x) => x != null) : []) // 모델이 배열에 null을 섞어도 "null" 문자열이 되지 않게
       .map((x) => String(x).trim().slice(0, 160))
       .filter(Boolean)
       .slice(0, 6);
@@ -559,9 +559,7 @@ async function echoCheck(handoverId: number, meetingId: number, userId: number, 
         ],
       });
       const vr = v.choices[0]?.message?.content ?? '';
-      const parsedV = JSON.parse(vr.slice(vr.indexOf('{'), vr.lastIndexOf('}') + 1)) as {
-        compatible?: unknown;
-      };
+      const parsedV = parseLlmJson(vr) as { compatible?: unknown }; // 1차 판정과 같은 파서 (찌꺼기 괄호 방어)
       if (parsedV.compatible === false) confirmed.push(c);
     } catch (err) {
       console.error('[handover] 복명복창 2차 검증 실패 — 쌍 폐기:', err);

@@ -212,8 +212,10 @@ export function attachSfu(io: Server) {
       live = null;
     };
 
-    socket.on('room:join', async ({ code }: { code: string }, ack) => {
+    socket.on('room:join', async ({ code: rawCode }: { code: string }, ack) => {
       try {
+        // chat:*·presence·recap은 전부 대문자 코드 기준 — 소문자로 오면 별개 room이 생기고 호스트 판정도 빗나간다
+        const code = String(rawCode ?? '').toUpperCase();
         room = await getOrCreateRoom(code);
         const userId = socket.data.userId as number;
         // 유령 피어 청소 — disconnect 신호가 유실된(탭 강제종료 등) 죽은 소켓의 피어가
@@ -545,6 +547,8 @@ export function attachSfu(io: Server) {
             size: Number(file.size) || 0,
           });
         }
+        // 외부 URL 파일이 걸러져 본문도 파일도 없으면 빈 메시지를 남기지 않는다
+        if (!trimmed.trim() && !fileJson) return;
         db.prepare(
           'INSERT INTO messages (meeting_id, user_id, text, file, channel_id) VALUES (?, ?, ?, ?, ?)',
         ).run(meeting.id, socket.data.userId, trimmed, fileJson, channel);

@@ -665,7 +665,10 @@ async function aiGroupHistory(entries: HistoryEntry[]): Promise<HistoryTopic[]> 
   for (const t of parsed.topics as { title?: unknown; indexes?: unknown }[]) {
     const idxs = (Array.isArray(t.indexes) ? t.indexes : [])
       .map(Number)
-      .filter((n) => Number.isInteger(n) && n >= 0 && n < entries.length && !used.has(n));
+      .filter(
+        (n, i, arr) =>
+          Number.isInteger(n) && n >= 0 && n < entries.length && !used.has(n) && arr.indexOf(n) === i, // 토픽 안 중복도 제거
+      );
     if (idxs.length === 0) continue;
     idxs.forEach((n) => used.add(n));
     const es = idxs.map((n) => entries[n]).sort((a, b) => a.ts - b.ts);

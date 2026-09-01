@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage --coverage.provider=v8 --coverage.reporter=text-summary --coverage.reporter=text --coverage.include='src/**/*.ts' --coverage.exclude='src/__tests__/**'"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",
@@ -34,6 +35,8 @@
     "@types/supertest": "^7.2.0",
     "@types/web-push": "^3.6.4",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.1.11",
+    "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
