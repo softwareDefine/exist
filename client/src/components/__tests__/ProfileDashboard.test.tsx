@@ -83,7 +83,7 @@ describe('ProfileDashboard', () => {
     expect(screen.getByText('필터 교체')).toBeInTheDocument();
     expect(screen.getByText('안 읽은 메시지 2건')).toBeInTheDocument();
     expect(screen.getByText('내가 보낸 결정')).toBeInTheDocument();
-    // NOTE: 미확인자 명단은 dn()을 안 거쳐 아이디 그대로 노출 (다른 카드는 표시 이름) — 리포트 대상
+    // 미확인자 명단도 표시 이름(displayNameOf) — 9/1 수정, 아이디 노출 회귀 방지
     expect(document.querySelector('.pd-sent-missing')?.textContent).toContain('미확인: 김대리, lee');
 
     // 결정 확인 → POST ack + 행 제거

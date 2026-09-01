@@ -207,11 +207,17 @@ describe('MentionInput', () => {
     fireEvent.mouseEnter(opt);
     fireEvent.mouseDown(opt);
     expect(input.value).toBe('@lee ');
-    await userEvent.type(input, '@A');
+    // pick()은 requestAnimationFrame 뒤에 캐럿을 멘션 뒤로 옮긴다 — 그 전에 타이핑하면 캐럿 위치가 환경마다
+    // 달라 "@lee A@"처럼 꼬인다(CI 실패). 캐럿이 정착한 뒤 끝 위치를 명시하고 입력
+    const caretSettled = async () => {
+      await waitFor(() => expect(input.selectionStart).toBe(input.value.length));
+      return { initialSelectionStart: input.value.length, initialSelectionEnd: input.value.length };
+    };
+    await userEvent.type(input, '@A', await caretSettled());
     await screen.findByRole('option', { name: /AI/ });
     await userEvent.keyboard('{Tab}');
     expect(input.value).toBe('@lee @AI ');
-    await userEvent.type(input, '@k');
+    await userEvent.type(input, '@k', await caretSettled());
     await screen.findByRole('listbox');
     fireEvent.blur(input);
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
