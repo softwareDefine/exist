@@ -872,6 +872,8 @@ router.post('/upload', (req: AuthedRequest, res) => {
     name = `${base} (${n})${ext}`;
   }
 
+  // JSON 으로 들어오면 express.json 이 이미 스트림을 비운 뒤라 'end' 가 다시 안 온다 — 행 대신 400
+  if (req.readableEnded) return res.status(400).json({ error: '파일 본문을 바이너리로 보내주세요' });
   const mime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0];
   // 본문 버퍼링 (임포트 판단에 전체 필요)
   const chunks: Buffer[] = [];
@@ -1234,6 +1236,10 @@ router.delete('/trash', (req: AuthedRequest, res) => {
     db.prepare(
       'DELETE FROM file_ack_autoremind WHERE file_id IN (SELECT id FROM collab_files WHERE deleted_root = ?)',
     ).run(f.id);
+    // 서명·서명 이력·활동 로그도 FK 참조 — 먼저 지워야 collab_files 삭제가 FK 에러로 500 나지 않는다
+    for (const t of ['file_acks', 'file_acks_history', 'file_activity']) {
+      db.prepare(`DELETE FROM ${t} WHERE file_id IN (SELECT id FROM collab_files WHERE deleted_root = ?)`).run(f.id);
+    }
     purged += db.prepare('DELETE FROM collab_files WHERE deleted_root = ?').run(f.id).changes;
   }
   // 되돌릴 수 없는 삭제 — 조직 감사 로그에 기록 (실제로 지운 게 있을 때만)
@@ -1600,6 +1606,8 @@ router.post('/:fileId/upload-version', (req: AuthedRequest, res) => {
     | undefined;
   if (!f || f.type !== 'file' || !f.blob_path)
     return res.status(400).json({ error: '업로드 파일에만 새 버전을 올릴 수 있어요' });
+  // JSON 으로 들어오면 express.json 이 이미 스트림을 비운 뒤라 'end' 가 다시 안 온다 — 행 대신 400
+  if (req.readableEnded) return res.status(400).json({ error: '파일 본문을 바이너리로 보내주세요' });
 
   const mime = String(req.headers['content-type'] || 'application/octet-stream').split(';')[0];
   const chunks: Buffer[] = [];
@@ -1832,6 +1840,10 @@ router.delete('/trash/:fileId', (req: AuthedRequest, res) => {
   db.prepare(
     'DELETE FROM file_ack_autoremind WHERE file_id IN (SELECT id FROM collab_files WHERE deleted_root = ?)',
   ).run(f.id);
+  // 서명·서명 이력·활동 로그도 FK 참조 — 먼저 지워야 collab_files 삭제가 FK 에러로 500 나지 않는다
+  for (const t of ['file_acks', 'file_acks_history', 'file_activity']) {
+    db.prepare(`DELETE FROM ${t} WHERE file_id IN (SELECT id FROM collab_files WHERE deleted_root = ?)`).run(f.id);
+  }
   const info = db.prepare('DELETE FROM collab_files WHERE deleted_root = ?').run(f.id);
   // 되돌릴 수 없는 삭제 — 조직 감사 로그에 기록
   const sub = info.changes - 1; // 루트 제외 하위 개수

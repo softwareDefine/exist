@@ -76,6 +76,8 @@ router.post('/', (req: AuthedRequest, res) => {
 const MAX_UPLOAD = 20 * 1024 * 1024;
 
 router.post('/uploads', (req: AuthedRequest, res) => {
+  // JSON 으로 들어오면 express.json 이 이미 스트림을 비운 뒤라 'end' 가 다시 안 온다 — 행 대신 400
+  if (req.readableEnded) return res.status(400).json({ error: '파일 본문을 바이너리로 보내주세요' });
   const id = crypto.randomUUID();
   const qname = typeof req.query.name === 'string' ? req.query.name : '';
   const ext = qname.split('.').pop()?.replace(/[^\w]/g, '') || 'bin';

@@ -131,6 +131,8 @@ router.post('/audio', (req: AuthedRequest, res) => {
   const extRaw = String(req.query.ext ?? 'webm');
   const ext = extRaw === 'mp4' || extRaw === 'ogg' || extRaw === 'm4a' ? extRaw : 'webm';
   const live = req.query.live === '1';
+  // JSON 으로 들어오면 express.json 이 이미 스트림을 비운 뒤라 'end' 가 다시 안 온다 — 행 대신 400
+  if (req.readableEnded) return res.status(400).json({ error: '오디오 본문을 바이너리로 보내주세요' });
 
   const chunks: Buffer[] = [];
   let size = 0;
