@@ -52,6 +52,10 @@ interface AgentContext {
   todos: { title: string; done: number; author: string }[];
   events: { title: string; date: string; time: string | null }[];
   chat: { from: string; text: string }[];
+  /** 미해결 안건 — 상태(대기 조건)까지. "보류 안건 뭐 있어?" 류 (9/1 추가) */
+  agenda: { title: string; status: string | null; note: string | null; why: string | null }[];
+  /** 최근 인수인계 — 교대 라벨·작성자·이슈/변경/미결 요약 (9/1 추가) */
+  handovers: { label: string; author: string; at: string; lines: string[] }[];
 }
 
 function gatherContext(meetingId: number, channelId: number): AgentContext {
@@ -105,7 +109,36 @@ function gatherContext(meetingId: number, channelId: number): AgentContext {
        ORDER BY date, COALESCE(time, '99') LIMIT 5`,
     )
     .all(meetingId) as { title: string; date: string; time: string | null }[];
-  return { meetingTitle: meeting.title, decisions, recaps, todos, events, chat: mergedChat };
+  // 미해결 안건 — 대기 조건(status_note)이 있으면 "무엇을 기다리는지"가 답의 핵심
+  const agenda = db
+    .prepare(
+      `SELECT title, status, status_note AS note, why FROM agenda_items
+       WHERE meeting_id = ? AND resolved = 0 ORDER BY id DESC LIMIT 10`,
+    )
+    .all(meetingId) as { title: string; status: string | null; note: string | null; why: string | null }[];
+  // 최근 인수인계 2건 — sections JSON을 줄로 펼친다 (교대 조직에서 "지난 조 뭐 남겼어?" 근거)
+  const handovers = (
+    db
+      .prepare(
+        `SELECT h.shift_label AS label, h.sections, h.created_at AS at, u.username AS author
+         FROM handovers h JOIN users u ON u.id = h.author_id
+         WHERE h.meeting_id = ? ORDER BY h.id DESC LIMIT 2`,
+      )
+      .all(meetingId) as { label: string | null; sections: string; at: string; author: string }[]
+  ).map((h) => {
+    let sec: Record<string, unknown> = {};
+    try {
+      sec = JSON.parse(h.sections) as Record<string, unknown>;
+    } catch {
+      /* 손상된 행은 빈 인수인계로 */
+    }
+    const names: Record<string, string> = { issues: '이슈', changes: '변경', pending: '미결', notes: '메모' };
+    const lines = Object.entries(names).flatMap(([k, ko]) =>
+      (Array.isArray(sec[k]) ? (sec[k] as unknown[]) : []).slice(0, 6).map((x) => `${ko}: ${String(x)}`),
+    );
+    return { label: h.label || '', author: h.author, at: h.at, lines };
+  });
+  return { meetingTitle: meeting.title, decisions, recaps, todos, events, chat: mergedChat, agenda, handovers };
 }
 
 /** 규칙 폴백 — 질문 키워드에 따라 기록을 그대로 보여준다.
@@ -128,6 +161,14 @@ export function ruleBasedAnswer(question: string, ctx: AgentContext): string {
   }
   if (/(정리|요약|무슨 ?일|상황)/.test(q) && ctx.recaps.length > 0) {
     return `가장 최근 통화 정리예요: ${ctx.recaps[0].summary}`;
+  }
+  if (/(안건|보류|대기 ?중)/.test(q) && ctx.agenda.length > 0) {
+    const lines = ctx.agenda.slice(0, 5).map((a) => `· ${a.title}${a.note ? ` — ${a.note}` : ''}`);
+    return `미해결 안건이에요:\n${lines.join('\n')}`;
+  }
+  if (/(인수인계|지난 ?조|전 ?조|교대)/.test(q) && ctx.handovers.length > 0) {
+    const h = ctx.handovers[0];
+    return `가장 최근 인수인계(${h.author}${h.label ? `, ${h.label}` : ''})예요:\n${h.lines.slice(0, 6).map((l) => `· ${l}`).join('\n') || '(내용 없음)'}`;
   }
   // 어느 키워드에도 안 걸림 — 질문을 무시한 것처럼 보이지 않게 한계를 밝힌다
   const known: string[] = [];
@@ -180,6 +221,21 @@ async function aiAnswer(
             todos: ctx.todos.map((t) => `${t.title} (${t.author}${t.done ? ', 완료' : ''})`),
             upcoming_events: ctx.events.map((e) => `${e.date}${e.time ? ` ${e.time}` : ''} ${e.title}`),
             recent_chat: ctx.chat.map((c) => `${c.from}: ${c.text}`),
+            ...(ctx.agenda.length
+              ? {
+                  open_agenda: ctx.agenda.map(
+                    (a) =>
+                      `${a.title}${a.status ? ` [${{ waiting_dept: '타부서 대기', waiting_approval: '승인 대기', hold: '보류' }[a.status] ?? a.status}${a.note ? `: ${a.note}` : ''}]` : ''}${a.why ? ` (${a.why})` : ''}`,
+                  ),
+                }
+              : {}),
+            ...(ctx.handovers.length
+              ? {
+                  recent_handovers: ctx.handovers.map(
+                    (h) => `${h.at.slice(0, 16)} ${h.label ? `${h.label} ` : ''}${h.author}: ${h.lines.join(' / ') || '(내용 없음)'}`,
+                  ),
+                }
+              : {}),
             // RAG — 질문 의미로 찾아온 과거 기록 (최근 창 밖 원장·문서까지)
             ...(related && related.length > 0 ? { related_history: related } : {}),
           },
@@ -256,7 +312,9 @@ export async function answerDmQuery(
     recaps: recaps.slice(0, 8),
     todos,
     events,
-    chat: [], // 1:1 질의는 그룹 대화를 근거로 안 씀 — 스코프 전체 기록만
+    chat: [],
+    agenda: [],
+    handovers: [], // 1:1 질의는 그룹 대화를 근거로 안 씀 — 스코프 전체 기록만
   };
 
   if (openai) {

@@ -775,6 +775,10 @@ export default function MeetingView({
           ap.pause();
           void request(socket, 'producer:pause', { producerId: ap.id }).catch(() => {});
         }
+        // 자막 엔진(스트리밍·Web Speech·녹음)은 phase='live' 순간 한 번 돌고 트랙이 없으면 접는다 —
+        // producer는 그 뒤 비동기로 생기므로 여기서 세대를 올려 다시 돌게 한다. 없으면 첫 입장에서
+        // 자막·발화자 표시가 마이크를 껐다 켤 때까지 안 나온다(9/1 주호 제보)
+        setMicTrackTick((t) => t + 1);
       }
 
       // 6. 기존 참가자 + producer consume — 한 명의 실패가 나머지 전체를 막지 않게 개별 격리
