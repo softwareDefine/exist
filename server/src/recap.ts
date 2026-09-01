@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import db from './db.js';
-import { samplingFor } from './llm.js';
+import { samplingFor, parseLlmJson } from './llm.js';
 import { notifyUser, emitToUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
 import { invalidateAgenda, ensureAgentUser, settleAgendaAfterRecap } from './steward.js';
@@ -63,7 +63,7 @@ async function verifyDecisionsGrounded(msgs: ChatMsg[], decisions: string[]): Pr
       ],
     });
     const raw = response.choices[0]?.message?.content ?? '';
-    const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as { grounded?: unknown };
+    const parsed = parseLlmJson(raw) as { grounded?: unknown };
     if (!Array.isArray(parsed.grounded) || parsed.grounded.length !== decisions.length) return keepAll;
     const flags = parsed.grounded.map((g) => g !== false);
     const dropped = decisions.filter((_, i) => !flags[i]);
@@ -210,7 +210,7 @@ async function aiRecap(
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL_RECAP,
-    ...samplingFor(OPENAI_MODEL_RECAP, 0.2, 700),
+    ...samplingFor(OPENAI_MODEL_RECAP, 0.2, 700, 'low'),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -233,10 +233,7 @@ async function aiRecap(
 
   const raw = response.choices[0]?.message?.content?.trim() ?? '';
   if (!raw) throw new Error('empty AI response');
-  const s = raw.indexOf('{');
-  const e = raw.lastIndexOf('}');
-  if (s === -1 || e < s) throw new Error('no json');
-  const parsed = JSON.parse(raw.slice(s, e + 1)) as {
+  const parsed = parseLlmJson(raw) as {
     summary?: unknown;
     decisions?: unknown;
     actions?: unknown;
@@ -346,7 +343,7 @@ async function inferCritical(
       ],
     });
     const raw = response.choices[0]?.message?.content ?? '';
-    const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+    const parsed = parseLlmJson(raw) as {
       critical_decisions?: unknown;
       critical_users?: unknown;
     };

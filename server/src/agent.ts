@@ -1,7 +1,7 @@
 import { Router, type Response } from 'express';
 import OpenAI from 'openai';
 import db from './db.js';
-import { samplingFor } from './llm.js';
+import { samplingFor, parseLlmJson } from './llm.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { getRoomSize } from './sfu.js';
 import { isOrgMember } from './perm.js';
@@ -174,10 +174,7 @@ function hasOngoing(ctx: UserContext): boolean {
 
 /** 응답에서 첫 JSON 객체만 추출 (코드펜스·잡설 방어) */
 function extractJson(raw: string): unknown {
-  const s = raw.indexOf('{');
-  const e = raw.lastIndexOf('}');
-  if (s === -1 || e === -1 || e < s) throw new Error('no json');
-  return JSON.parse(raw.slice(s, e + 1));
+  return parseLlmJson(raw);
 }
 
 interface Decision {
@@ -474,7 +471,7 @@ export async function getCatchup(userId: number, scope?: AgentScope): Promise<Ca
         ],
       });
       const raw = response.choices[0]?.message?.content ?? '';
-      const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+      const parsed = parseLlmJson(raw) as {
         headline?: unknown;
       };
       const h = String(parsed.headline ?? '').trim();
@@ -616,7 +613,7 @@ export async function getDailyBrief(userId: number, scope?: AgentScope): Promise
         ],
       });
       const raw = response.choices[0]?.message?.content ?? '';
-      const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+      const parsed = parseLlmJson(raw) as {
         text?: unknown;
       };
       const text = String(parsed.text ?? '').trim();

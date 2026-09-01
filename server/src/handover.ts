@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import db from './db.js';
-import { samplingFor } from './llm.js';
+import { samplingFor, parseLlmJson } from './llm.js';
 import { notifyUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
 import { ensureAgentUser } from './steward.js';
@@ -163,7 +163,7 @@ export async function draftHandover(
     });
     const raw = response.choices[0]?.message?.content ?? '';
     const sections = sanitizeSections(
-      JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)),
+      parseLlmJson(raw),
     );
     return { sections, source: 'ai' };
   } catch (err) {
@@ -251,7 +251,7 @@ export async function reviewHandover(
       ],
     });
     const raw = response.choices[0]?.message?.content ?? '';
-    const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+    const parsed = parseLlmJson(raw) as {
       suggestions?: unknown;
     };
     const valid: (keyof HandoverSections)[] = ['issues', 'changes', 'pending', 'notes'];
@@ -521,7 +521,7 @@ async function echoCheck(handoverId: number, meetingId: number, userId: number, 
     ],
   });
   const raw = response.choices[0]?.message?.content ?? '';
-  const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+  const parsed = parseLlmJson(raw) as {
     contradictions?: unknown;
   };
   // 서버 검증 — 인용이 실제 노트에 있어야 하고(모델이 "누락"을 모순으로 둔갑 못 하게),

@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import db from './db.js';
-import { samplingFor } from './llm.js';
+import { samplingFor, parseLlmJson, cleanAnswer } from './llm.js';
 import { listDecisions, listRecaps } from './recap.js';
 
 /*
@@ -188,10 +188,10 @@ async function aiAnswer(
     ],
   });
   const raw = response.choices[0]?.message?.content ?? '';
-  const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+  const parsed = parseLlmJson(raw) as {
     answer?: unknown;
   };
-  const answer = String(parsed.answer ?? '').trim();
+  const answer = cleanAnswer(String(parsed.answer ?? ''));
   if (!answer) throw new Error('empty answer');
   return answer.slice(0, 1000);
 }
@@ -416,7 +416,7 @@ export async function settleAgendaAfterRecap(
         ],
       });
       const raw = response.choices[0]?.message?.content ?? '';
-      const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+      const parsed = parseLlmJson(raw) as {
         resolved?: unknown;
         resolved_ids?: unknown; // 구형 응답 호환
       };
@@ -516,7 +516,7 @@ async function aiAgenda(ctx: AgentContext, carryTitles: string[] = []): Promise<
     ],
   });
   const raw = response.choices[0]?.message?.content ?? '';
-  const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+  const parsed = parseLlmJson(raw) as {
     items?: unknown;
   };
   if (!Array.isArray(parsed.items)) throw new Error('no items');
@@ -596,7 +596,7 @@ async function aiGroupHistory(entries: HistoryEntry[]): Promise<HistoryTopic[]> 
     ],
   });
   const raw = response.choices[0]?.message?.content ?? '';
-  const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+  const parsed = parseLlmJson(raw) as {
     topics?: unknown;
   };
   if (!Array.isArray(parsed.topics)) throw new Error('no topics');
@@ -952,7 +952,7 @@ async function judgeDecisionCandidate(
     ],
   });
   const raw = response.choices[0]?.message?.content ?? '';
-  const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as Partial<DecisionVerdict>;
+  const parsed = parseLlmJson(raw) as Partial<DecisionVerdict>;
   const verdict = parsed.verdict === 'record' || parsed.verdict === 'ignore' ? parsed.verdict : 'suggest';
   return {
     verdict,
@@ -1060,7 +1060,7 @@ export async function verifyIncompatible(a: string, b: string): Promise<boolean>
     ],
   });
   const raw = v.choices[0]?.message?.content ?? '';
-  const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+  const parsed = parseLlmJson(raw) as {
     compatible?: unknown;
   };
   return parsed.compatible === false;
@@ -1096,7 +1096,7 @@ async function flagStaleCheck(
     ],
   });
   const raw = response.choices[0]?.message?.content ?? '';
-  const parsed = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)) as {
+  const parsed = parseLlmJson(raw) as {
     found?: unknown;
     message_part?: unknown;
     decision?: unknown;
