@@ -366,6 +366,10 @@ export default function MeetingView({
   const [sttLiveFallback, setSttLiveFallback] = useState(false);
   // 인식기가 실제로 어떤 입력·모드로 돌았는지 (설정 메뉴 표시용)
   const [sttMode, setSttMode] = useState<{ track: boolean; local: boolean; phrases: number } | null>(null);
+  // 스트리밍 자막(서버 gpt-live-transcribe) — 세션 중 한 번이라도 거절·끊기면 이 통화에선 내장/청크 경로로 내려간다
+  const [sttLiveFailed, setSttLiveFailed] = useState(false);
+  // 스트리밍 세션이 실제로 열려 자막을 내고 있는지 (설정 메뉴 표시·녹음 경로 판단)
+  const [sttLiveOn, setSttLiveOn] = useState(false);
   // 발화자별 자막 — 여러 명이 동시에 말하면 줄로 쌓아서 함께 표시 (최근 발화 순)
   const [captions, setCaptions] = useState<
     Record<string, { text: string; interim?: boolean; ts: number }>
@@ -980,9 +984,177 @@ export default function MeetingView({
   // OpenAI로 재전사해 Web Speech보다 정확한 기록을 만든다 (stt.ts) ──
   // 라이브 자막을 서버 Whisper에 맡기는 경우 — Web Speech가 없는 브라우저(APK 웹뷰·사파리·파이어폭스)
   // 이거나 Web Speech가 죽었을 때. 청크를 6초로 잘라 올리면 서버가 바로 전사해 자막으로 방송한다
-  const liveCaption = !sttSupported || sttLiveFallback;
+  // ── 자막 엔진 우선순위 (9/1): ① 서버 스트리밍(gpt-live-transcribe, ~1초, 브라우저 무관)
+  //   ② 브라우저 Web Speech(온디바이스를 켰거나 서버에 키가 없을 때) ③ 서버 Whisper 6초 청크(둘 다 없을 때).
+  //   온디바이스를 켠 사용자는 "음성이 기기 밖으로 안 나간다"가 목적이므로 스트리밍을 쓰지 않는다 ──
+  const useLiveStream = sttOn && !sttLiveFailed && !(sttLocalWanted && sttLocalAvail === 'available');
+  const liveCaption = !useLiveStream && (!sttSupported || sttLiveFallback);
+
+  // 스트리밍 자막 — 통화 마이크 트랙을 24kHz PCM으로 잘라 소켓으로 흘리고, 무음(≈0.7초)마다
+  // commit을 보내 문장을 끊는다. 서버(stt-live.ts)가 델타를 interim 자막으로, 확정본을 기록으로.
   useEffect(() => {
-    if (phase !== 'live' || !micOn || !sttOn) return;
+    if (!useLiveStream || phase !== 'live' || !micOn) {
+      setSttLiveOn(false);
+      return;
+    }
+    const track = producersRef.current.audio?.track;
+    if (!track || track.readyState !== 'live' || typeof AudioContext === 'undefined') return;
+    const socket = getSocket();
+    let stopped = false;
+    let ctx: AudioContext | null = null;
+    let node: AudioNode | null = null;
+    let src: MediaStreamAudioSourceNode | null = null;
+    // 무음 감지 상태 — 말한 뒤 0.7초 조용하면 문장 끝으로 본다
+    let voiced = false;
+    let lastVoiceAt = 0;
+    let silenceTimer: number | undefined;
+    const TARGET = 24_000;
+
+    const onStatus = (st: { state: 'ready' | 'error'; reason?: string }) => {
+      if (stopped) return;
+      if (st.state === 'ready') {
+        setSttLiveOn(true);
+        setSttError(null);
+      } else {
+        // 서버 세션이 죽음 — 이 통화에선 내장 인식/청크 경로로. 사용자에게 한 줄 알림
+        setSttLiveOn(false);
+        setSttLiveFailed(true);
+        setSttError(
+          sttSupported
+            ? '스트리밍 자막이 끊겨 브라우저 내장 인식으로 전환했어요'
+            : '스트리밍 자막이 끊겨 서버 청크 자막(3~6초 지연)으로 전환했어요',
+        );
+      }
+    };
+    socket.on('stt:live-status', onStatus);
+
+    /** Float32 → 24k Int16 (컨텍스트가 24k를 못 받는 브라우저는 선형 리샘플) */
+    const toPcm = (f: Float32Array, rate: number): ArrayBuffer => {
+      let samples = f;
+      if (rate !== TARGET) {
+        const n = Math.round((f.length * TARGET) / rate);
+        const out = new Float32Array(n);
+        const step = rate / TARGET;
+        for (let i = 0; i < n; i++) {
+          const pos = i * step;
+          const j = Math.floor(pos);
+          const t = pos - j;
+          out[i] = f[j] * (1 - t) + (f[Math.min(j + 1, f.length - 1)] ?? f[j]) * t;
+        }
+        samples = out;
+      }
+      const pcm = new Int16Array(samples.length);
+      for (let i = 0; i < samples.length; i++) {
+        const v = Math.max(-1, Math.min(1, samples[i]));
+        pcm[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+      }
+      return pcm.buffer;
+    };
+
+    const handleChunk = (f: Float32Array, rate: number) => {
+      if (stopped) return;
+      let sum = 0;
+      for (let i = 0; i < f.length; i++) sum += f[i] * f[i];
+      const rms = Math.sqrt(sum / f.length);
+      socket.emit('stt:live-audio', toPcm(f, rate));
+      const now = performance.now();
+      if (rms > 0.012) {
+        voiced = true;
+        lastVoiceAt = now;
+        if (silenceTimer) {
+          window.clearTimeout(silenceTimer);
+          silenceTimer = undefined;
+        }
+      } else if (voiced && !silenceTimer) {
+        silenceTimer = window.setTimeout(() => {
+          silenceTimer = undefined;
+          if (stopped || !voiced) return;
+          if (performance.now() - lastVoiceAt >= 650) {
+            voiced = false;
+            socket.emit('stt:live-commit');
+          }
+        }, 700);
+      }
+    };
+
+    const cleanupAudio = () => {
+      try {
+        src?.disconnect();
+        node?.disconnect();
+        void ctx?.close();
+      } catch {
+        /* ignore */
+      }
+      src = null;
+      node = null;
+      ctx = null;
+    };
+
+    const start = async () => {
+      try {
+        await new Promise<void>((resolve, reject) =>
+          socket.emit('stt:live-start', {}, (r: { ok?: boolean; error?: string }) =>
+            r?.ok ? resolve() : reject(new Error(r?.error || 'unavailable')),
+          ),
+        );
+      } catch (e) {
+        if (stopped) return;
+        // 서버에 키가 없거나 거절 — 조용히 다음 엔진으로 (알림 없음: 정상 구성일 수 있음)
+        if ((e as Error).message !== 'unavailable') console.warn('[stt-live]', (e as Error).message);
+        setSttLiveFailed(true);
+        return;
+      }
+      if (stopped) return;
+      try {
+        ctx = new AudioContext({ sampleRate: TARGET });
+      } catch {
+        ctx = new AudioContext();
+      }
+      const rate = ctx.sampleRate;
+      const frames = Math.round(rate / 10); // 100ms
+      src = ctx.createMediaStreamSource(new MediaStream([track]));
+      let ok = false;
+      if (ctx.audioWorklet) {
+        try {
+          const code = `class P extends AudioWorkletProcessor{constructor(){super();this.buf=new Float32Array(${frames});this.n=0}
+process(inputs){const ch=inputs[0]&&inputs[0][0];if(!ch)return true;for(let i=0;i<ch.length;i++){this.buf[this.n++]=ch[i];if(this.n===this.buf.length){this.port.postMessage(this.buf.slice(0));this.n=0}}return true}}
+registerProcessor('exist-pcm',P)`;
+          const url = URL.createObjectURL(new Blob([code], { type: 'application/javascript' }));
+          await ctx.audioWorklet.addModule(url);
+          URL.revokeObjectURL(url);
+          const w = new AudioWorkletNode(ctx, 'exist-pcm', { numberOfInputs: 1, numberOfOutputs: 0 });
+          w.port.onmessage = (ev: MessageEvent<Float32Array>) => handleChunk(ev.data, rate);
+          src.connect(w);
+          node = w;
+          ok = true;
+        } catch {
+          ok = false;
+        }
+      }
+      if (!ok) {
+        // 구형 브라우저 — ScriptProcessor (deprecated지만 광범위)
+        const sp = ctx.createScriptProcessor(2048, 1, 1);
+        sp.onaudioprocess = (ev) => handleChunk(ev.inputBuffer.getChannelData(0).slice(0), rate);
+        src.connect(sp);
+        sp.connect(ctx.destination); // 크롬은 destination에 물려야 콜백이 돈다(출력은 없음)
+        node = sp;
+      }
+      if (stopped) cleanupAudio();
+    };
+    void start();
+    return () => {
+      stopped = true;
+      if (silenceTimer) window.clearTimeout(silenceTimer);
+      socket.off('stt:live-status', onStatus);
+      socket.emit('stt:live-stop');
+      cleanupAudio();
+      setSttLiveOn(false);
+    };
+  }, [useLiveStream, phase, micOn, micTrackTick, code, sttSupported]);
+
+  useEffect(() => {
+    // 스트리밍 자막이 살아 있으면 서버가 이미 정확한 기록을 남기므로 원음 청크는 올리지 않는다
+    if (phase !== 'live' || !micOn || !sttOn || sttLiveOn) return;
     const track = producersRef.current.audio?.track;
     if (!track || track.readyState !== 'live' || typeof MediaRecorder === 'undefined') return;
     // 브라우저별 컨테이너 — 크롬/파폭 webm·opus, 사파리(iOS 포함) mp4·aac
@@ -1053,11 +1225,11 @@ export default function MeetingView({
         /* 이미 종료 */
       }
     };
-  }, [phase, micOn, sttOn, code, liveCaption, micTrackTick]);
+  }, [phase, micOn, sttOn, code, liveCaption, micTrackTick, sttLiveOn]);
 
   // ── 음성 전사(STT) — 통화 중 + 마이크 켜짐 + 자막 켜짐일 때 내 발화를 전사해 서버로 ──
   useEffect(() => {
-    if (!sttSupported || sttLiveFallback || phase !== 'live' || !micOn || !sttOn) {
+    if (!sttSupported || sttLiveFallback || useLiveStream || phase !== 'live' || !micOn || !sttOn) {
       sttWantedRef.current = false;
       try {
         sttRef.current?.stop();
@@ -1253,7 +1425,7 @@ export default function MeetingView({
       sttRef.current = null;
       setSttMode(null);
     };
-  }, [phase, micOn, sttOn, sttSupported, sttLiveFallback, micTrackTick, sttLocalWanted, sttLocalAvail, code]);
+  }, [phase, micOn, sttOn, sttSupported, sttLiveFallback, useLiveStream, micTrackTick, sttLocalWanted, sttLocalAvail, code]);
 
   // 온디바이스 인식 가능 여부 — Chrome 139+ SpeechRecognition.available({langs, processLocally})
   useEffect(() => {
@@ -1987,12 +2159,15 @@ export default function MeetingView({
                 >
                   <span className="dev-menu-label">
                     음성 기록·자막 (CC)
-                    {sttOn && liveCaption && (
+                    {sttOn && sttLiveOn && (
+                      <small className="dev-menu-sub">스트리밍 자막 · 서버 실시간 전사 · 약 1초 지연</small>
+                    )}
+                    {sttOn && !sttLiveOn && liveCaption && (
                       <small className="dev-menu-sub">
                         서버 Whisper 자막 · 3~6초 지연{!sttSupported ? ' (이 브라우저는 내장 인식 없음)' : ' (내장 인식 중단됨)'}
                       </small>
                     )}
-                    {sttOn && !liveCaption && sttMode && (
+                    {sttOn && !sttLiveOn && !liveCaption && sttMode && (
                       <small className="dev-menu-sub">
                         {sttMode.track ? '통화 마이크 트랙 입력' : '기본 마이크'}
                         {sttMode.phrases > 0 ? ` · 용어 ${sttMode.phrases}개 편향` : ''}

@@ -234,22 +234,22 @@ export async function correctCaption(
 }
 
 /** epoch ms → call_transcripts.created_at 형식(UTC 'YYYY-MM-DD HH:MM:SS') */
-function toDbTime(ms: number): string {
+export function toDbTime(ms: number): string {
   return new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
 }
 
 /** 무음 청크에서 Whisper가 지어내는 상투구 (유튜브 학습데이터 잔재) */
-const JUNK = /시청해\s*주셔서\s*감사|구독과?\s*좋아요|다음\s*영상에서\s*만나요|^\s*(음|어|아)[.…]*\s*$/;
+export const JUNK = /시청해\s*주셔서\s*감사|구독과?\s*좋아요|다음\s*영상에서\s*만나요|^\s*(음|어|아)[.…]*\s*$/;
 
 /** 용어집 프롬프트 바이어스 — whisper는 prompt의 어휘를 우선 후보로 쓴다 */
-function biasPrompt(meetingId: number): string {
+export function biasPrompt(meetingId: number): string {
   const bias = [...new Set([...loadMeetingGlossary(meetingId), ...BASE_GLOSSARY])].slice(0, 40).join(', ');
   return `회의 용어: ${bias}`;
 }
 
 /** 프롬프트 에코 방어 — 무음·음악 청크에서 Whisper가 prompt 문장을 그대로 출력하는 현상 실측(8/29).
  *  "회의 용어:"로 시작하거나, 출력 어절의 절반 이상이 용어집 단어면 지어낸 것으로 본다 */
-function isPromptEcho(text: string, prompt: string): boolean {
+export function isPromptEcho(text: string, prompt: string): boolean {
   if (/^회의\s*용어\s*[:：]/.test(text)) return true;
   // 한국어 회의인데 한글이 하나도 없는 짧은 출력("signal", "you") — 무음·음악 청크의 지어낸 말
   if (!/[가-힣]/.test(text) && text.split(/\s+/).filter(Boolean).length < 4) return true;

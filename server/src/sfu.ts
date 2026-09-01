@@ -21,6 +21,7 @@ import { audit as orgAudit } from './orgs.js';
 import { resolveChannel, notifyModeOf } from './channels.js';
 import { notifyUser, emitToUser } from './notify.js';
 import { correctCaption } from './stt.js';
+import { openLiveStt, liveSttEnabled, type LiveSttSession } from './stt-live.js';
 import { AGENT_MENTION, handleAgentQuery, maybeSuggestDecision } from './steward.js';
 
 /*
@@ -204,6 +205,12 @@ export function attachSfu(io: Server) {
   io.on('connection', (socket: Socket) => {
     let room: Room | null = null;
     let peer: Peer | null = null;
+    /** 스트리밍 자막 세션(stt-live) — 마이크 하나당 하나. 퇴장·끊김 시 반드시 닫는다 */
+    let live: LiveSttSession | null = null;
+    const closeLive = () => {
+      live?.close();
+      live = null;
+    };
 
     socket.on('room:join', async ({ code }: { code: string }, ack) => {
       try {
@@ -469,6 +476,32 @@ export function attachSfu(io: Server) {
       });
     });
 
+    /** ── 스트리밍 자막(gpt-live-transcribe) — 클라가 통화 마이크 PCM(24k mono s16)을 100ms씩 보내고,
+     *  무음을 감지하면 commit으로 문장을 끊는다. 서버는 델타를 interim 자막으로 흘리고 확정본을 기록.
+     *  키가 없으면 start가 거절되고 클라는 Web Speech/청크 경로로 내려간다 ── */
+    socket.on('stt:live-start', (_p, ack) => {
+      if (!room || !peer) return ack?.({ error: '방에 입장하지 않았습니다' });
+      if (!liveSttEnabled) return ack?.({ error: 'unavailable' });
+      const meeting = db.prepare('SELECT id FROM meetings WHERE code = ?').get(room.code) as { id: number } | undefined;
+      if (!meeting) return ack?.({ error: '존재하지 않는 회의입니다' });
+      closeLive();
+      live = openLiveStt({
+        meetingId: meeting.id,
+        meetingCode: room.code,
+        userId: peer.userId,
+        username: peer.username,
+        peerId: socket.id,
+        onStatus: (s) => socket.emit('stt:live-status', s),
+      });
+      ack?.(live ? { ok: true } : { error: 'unavailable' });
+    });
+    socket.on('stt:live-audio', (buf: ArrayBuffer | Buffer) => {
+      if (!live) return;
+      live.push(Buffer.isBuffer(buf) ? buf : Buffer.from(buf));
+    });
+    socket.on('stt:live-commit', () => live?.commit());
+    socket.on('stt:live-stop', () => closeLive());
+
     /** 채팅 구독 — 통화 없이도 허브에서 채팅 가능 (chat:CODE 룸) */
     socket.on('chat:join', ({ code }: { code: string }, ack) => {
       const meeting = db
@@ -653,6 +686,7 @@ export function attachSfu(io: Server) {
     /** 명시적 퇴장 — 대면 기록 모드처럼 소켓은 유지한 채 방만 나갈 때
      *  (마지막 사람이 나가면 disconnect와 동일하게 recap 스케줄) */
     socket.on('room:leave', () => {
+      closeLive();
       if (!room || !peer) return;
       for (const t of peer.transports.values()) t.close();
       room.peers.delete(socket.id);
@@ -665,6 +699,7 @@ export function attachSfu(io: Server) {
     });
 
     socket.on('disconnect', () => {
+      closeLive();
       if (!room || !peer) return;
       for (const t of peer.transports.values()) t.close();
       room.peers.delete(socket.id);
