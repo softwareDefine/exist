@@ -80,9 +80,21 @@ export function createApp() {
   // 반드시 마지막에 마운트해야 모든 라우터의 예외를 받는다.
   app.use(
     (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-      console.error('[unhandled]', err);
+      // body-parser류 클라이언트 오류(JSON 문법 400·1MB 초과 413)는 그 상태 그대로 — 500으로 뭉개면
+      // 모니터링에 서버 장애로 잡히고 클라는 "다시 시도"만 안내받는다 (9/1 스윕에서 발견)
+      const status = typeof (err as { status?: unknown })?.status === 'number' ? (err as { status: number }).status : 500;
+      if (status >= 500) console.error('[unhandled]', err);
       if (res.headersSent) return;
-      res.status(500).json({ error: '서버 오류가 났어요 — 잠시 후 다시 시도해주세요' });
+      res.status(status).json({
+        error:
+          status === 400
+            ? '요청 본문이 올바른 JSON이 아니에요'
+            : status === 413
+              ? '요청 본문이 너무 커요 (최대 1MB)'
+              : status >= 500
+                ? '서버 오류가 났어요 — 잠시 후 다시 시도해주세요'
+                : '잘못된 요청이에요',
+      });
     },
   );
 

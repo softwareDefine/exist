@@ -78,7 +78,7 @@ export async function parseXlsx(buf: Buffer): Promise<{ name: string; grid: stri
   const sstXml = (await zip.file('xl/sharedStrings.xml')?.async('string')) ?? '';
   const shared: string[] = [];
   for (const m of sstXml.matchAll(/<(?:\w+:)?si(?: [^>]*)?>([\s\S]*?)<\/(?:\w+:)?si>/g)) {
-    const texts = [...m[1].matchAll(/<(?:\w+:)?t(?:[ >][^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/g)].map((t) => decodeEntities(t[1]));
+    const texts = [...m[1].matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/g)].map((t) => decodeEntities(t[1]));
     shared.push(texts.join(''));
   }
   const out: { name: string; grid: string[][] }[] = [];
@@ -107,7 +107,7 @@ export async function parseXlsx(buf: Buffer): Promise<{ name: string; grid: stri
       const v = /<(?:\w+:)?v>([\s\S]*?)<\/(?:\w+:)?v>/.exec(inner)?.[1];
       if (type === 's') val = shared[Number(v)] ?? '';
       else if (type === 'inlineStr')
-        val = [...inner.matchAll(/<(?:\w+:)?t(?:[ >][^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/g)].map((t) => decodeEntities(t[1])).join('');
+        val = [...inner.matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/g)].map((t) => decodeEntities(t[1])).join('');
       else val = v != null ? decodeEntities(v) : '';
       if (val === '') continue;
       while (grid.length <= row) grid.push([]);

@@ -14,66 +14,17 @@ import { runDecisionReminders, sweepDecisionAckAutoReminders } from './recap.js'
 import { createApp } from './app.js';
 import { attachRealtime } from './realtime.js';
 
-const app = createApp();
-const server = http.createServer(app);
-
-// AI 유저 확보 + 아바타 마이그레이션(🤖→✦)이 부팅 시 바로 적용되게
-ensureAgentUser();
-
-// Socket.IO(SFU 시그널링 + presence + nowbar 알림 push) — realtime.ts 로 분리 (통합 테스트에서 재사용)
-attachRealtime(app, server);
-attachYjs(server); // tldraw /sync 제거 — 캔버스는 Excalidraw가 /yjs 사용
-
-// 인수인계 미확인 에스컬레이션 — 10분마다 스윕 (기동 30초 뒤 1회 선실행)
-setTimeout(() => {
-  try {
-    sweepHandoverEscalations();
-  } catch (err) {
-    console.error('[handover] 에스컬레이션 스윕 실패:', err);
-  }
-}, 30_000);
-setInterval(() => {
-  try {
-    sweepHandoverEscalations();
-  } catch (err) {
-    console.error('[handover] 에스컬레이션 스윕 실패:', err);
-  }
-}, 10 * 60_000);
-
-// 회람(열람 서명) 미확인 자동 에스컬레이션 — 기본 시간당 1회 스윕 (기동 45초 뒤 1회 선실행).
-// ACK_AUTOREMIND_HOURS가 1 미만(데모, 예: 0.02 ≈ 1분)이면 1분 간격으로 촘촘히 — 시연에서 바로 보이게
-const ackSweepMs = ackAutoRemindHours() < 1 ? 60_000 : 60 * 60_000;
-setTimeout(() => {
-  try {
-    sweepFileAckAutoReminders();
-  } catch (err) {
-    console.error('[fileai] 회람 자동 리마인드 스윕 실패:', err);
-  }
-  // 결정 미확인도 같은 리듬으로 — 문서 서명과 대칭 (박형우: "마지막 한 단계"를 시스템이 챙긴다)
-  try {
-    sweepDecisionAckAutoReminders();
-  } catch (err) {
-    console.error('[recap] 결정 자동 리마인드 스윕 실패:', err);
-  }
-}, 45_000);
-setInterval(() => {
-  try {
-    sweepFileAckAutoReminders();
-  } catch (err) {
-    console.error('[fileai] 회람 자동 리마인드 스윕 실패:', err);
-  }
-  try {
-    sweepDecisionAckAutoReminders();
-  } catch (err) {
-    console.error('[recap] 결정 자동 리마인드 스윕 실패:', err);
-  }
-}, ackSweepMs);
+/*
+ * 부팅 절차는 startServer() 하나로 묶여 있다 — 테스트가 실제 포트·장주기 타이머 없이
+ * 부팅 코드(리마인더 본체 포함)를 검증할 수 있게. NODE_ENV=test 가 아니면 모듈 로드 즉시
+ * startServer() 가 호출되므로 프로덕션(node dist/index.js · tsx watch) 동작은 종전과 동일하다.
+ */
 
 // ── AI agent 푸시 알림: 회의 시작 30분/10분 전 리마인더 ──
 const notified = new Set<string>(); // `${userId}:${meetingTitle}:${threshold}`
 
-setInterval(() => {
-  const now = new Date();
+/** 1분 인터벌 본체 — 회의 시작 30/10분 전 · 일정 이벤트(remind 존중) · 하루 종일 일정(9시 이후 1회) */
+export function runMeetingReminders(now = new Date()) {
   // 접속 여부와 무관하게 회의 참가자 전원 검사 — 오프라인이면 notifyUser가 웹푸시로 배달
   const userIds = (
     db.prepare('SELECT DISTINCT user_id FROM meeting_participants').all() as { user_id: number }[]
@@ -189,36 +140,77 @@ setInterval(() => {
       }
     }
   }
-}, 60_000);
+}
 
-// 할 일 마감 리마인드 — AI 총무가 임박(내일·오늘)·지남을 알아서 조름. 부팅 직후 1회 + 10분 간격
-setTimeout(() => {
+/** 주기 작업 공통 — 스윕 하나가 던져도 타이머(프로세스)는 살아 있어야 한다 */
+function safe(label: string, fn: () => void) {
   try {
-    runTodoReminders();
+    fn();
   } catch (err) {
-    console.error('[todos] 마감 리마인드 실패:', err);
+    console.error(label, err);
   }
-}, 20_000);
-setInterval(() => {
-  try {
-    runTodoReminders();
-  } catch (err) {
-    console.error('[todos] 마감 리마인드 실패:', err);
-  }
-}, 10 * 60_000);
+}
 
-// 미확인자 리마인드 — 원장에 서명이 없는 참가자를 recap당 1회 보챈다 (현장 요구: "미확인자 알림")
-setInterval(() => {
-  try {
-    runDecisionReminders();
-  } catch (err) {
-    console.error('[recap] 리마인드 실패:', err);
-  }
-}, 10 * 60_000);
+/** 서버 부팅 — app·소켓·Yjs·주기 스윕 타이머를 세우고 mediasoup 준비 뒤 listen 한다 */
+export function startServer(port = Number(process.env.PORT ?? 4000)) {
+  const app = createApp();
+  const server = http.createServer(app);
 
-const PORT = Number(process.env.PORT ?? 4000);
-startMediasoup().then(() => {
-  server.listen(PORT, () => {
-    console.log(`exist server listening on http://localhost:${PORT}`);
-  });
-});
+  // AI 유저 확보 + 아바타 마이그레이션(🤖→✦)이 부팅 시 바로 적용되게
+  ensureAgentUser();
+
+  // Socket.IO(SFU 시그널링 + presence + nowbar 알림 push) — realtime.ts 로 분리 (통합 테스트에서 재사용)
+  const io = attachRealtime(app, server);
+  attachYjs(server); // tldraw /sync 제거 — 캔버스는 Excalidraw가 /yjs 사용
+
+  const timers: NodeJS.Timeout[] = [];
+
+  // 인수인계 미확인 에스컬레이션 — 10분마다 스윕 (기동 30초 뒤 1회 선실행)
+  const handoverSweep = () => safe('[handover] 에스컬레이션 스윕 실패:', sweepHandoverEscalations);
+  timers.push(setTimeout(handoverSweep, 30_000), setInterval(handoverSweep, 10 * 60_000));
+
+  // 회람(열람 서명) 미확인 자동 에스컬레이션 — 기본 시간당 1회 스윕 (기동 45초 뒤 1회 선실행).
+  // ACK_AUTOREMIND_HOURS가 1 미만(데모, 예: 0.02 ≈ 1분)이면 1분 간격으로 촘촘히 — 시연에서 바로 보이게
+  const ackSweepMs = ackAutoRemindHours() < 1 ? 60_000 : 60 * 60_000;
+  const ackSweep = () => {
+    safe('[fileai] 회람 자동 리마인드 스윕 실패:', sweepFileAckAutoReminders);
+    // 결정 미확인도 같은 리듬으로 — 문서 서명과 대칭 (박형우: "마지막 한 단계"를 시스템이 챙긴다)
+    safe('[recap] 결정 자동 리마인드 스윕 실패:', sweepDecisionAckAutoReminders);
+  };
+  timers.push(setTimeout(ackSweep, 45_000), setInterval(ackSweep, ackSweepMs));
+
+  // 회의·일정 리마인더 — 1분마다
+  timers.push(setInterval(() => runMeetingReminders(), 60_000));
+
+  // 할 일 마감 리마인드 — AI 총무가 임박(내일·오늘)·지남을 알아서 조름. 부팅 직후 1회 + 10분 간격
+  const todoSweep = () => safe('[todos] 마감 리마인드 실패:', runTodoReminders);
+  timers.push(setTimeout(todoSweep, 20_000), setInterval(todoSweep, 10 * 60_000));
+
+  // 미확인자 리마인드 — 원장에 서명이 없는 참가자를 recap당 1회 보챈다 (현장 요구: "미확인자 알림")
+  timers.push(setInterval(() => safe('[recap] 리마인드 실패:', runDecisionReminders), 10 * 60_000));
+
+  const ready = startMediasoup().then(
+    () =>
+      new Promise<void>((resolve) => {
+        server.listen(port, () => {
+          console.log(`exist server listening on http://localhost:${port}`);
+          resolve();
+        });
+      }),
+  );
+
+  return {
+    app,
+    server,
+    io,
+    ready,
+    /** 테스트용 정리 — 타이머 해제 + 소켓/HTTP 서버 종료 */
+    close: () =>
+      new Promise<void>((resolve) => {
+        for (const t of timers) clearTimeout(t);
+        io.close(() => resolve());
+      }),
+  };
+}
+
+if (process.env.NODE_ENV !== 'test') startServer();

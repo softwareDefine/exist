@@ -211,7 +211,7 @@ describe('AI recap — 추출 · 파싱 · 샘플링', () => {
     expect(nm.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     const todayKst = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).slice(0, 10);
     expect(nm.date >= todayKst).toBe(true);
-    expect(new Date(nm.date + 'T00:00:00+09:00').getDay()).toBe(3);
+    expect(new Date(nm.date + 'T00:00:00Z').getUTCDay()).toBe(3); // 달력 날짜의 요일 — 머신 TZ(CI=UTC)와 무관하게
     // 알림 통계에 "다음 회의 제안"
     expect(notiTexts(s.memberId).some((t) => t.includes('다음 회의 제안'))).toBe(true);
   });
