@@ -5,6 +5,7 @@
  * 막지 않는다. 이 파일만 바꾸면 로컬 LLM으로 교체 가능. */
 import OpenAI from 'openai';
 import db from './db.js';
+import { samplingFor } from './llm.js';
 import { readYdocSnapshot } from './ydoc.js';
 import { notifyUser } from './notify.js';
 
@@ -82,8 +83,7 @@ async function summarizeDiff(prev: string, next: string, fileName: string): Prom
     const res = await openai.chat.completions.create(
       {
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        temperature: 0,
-        max_tokens: 200,
+        ...samplingFor(process.env.OPENAI_MODEL || 'gpt-4o-mini', 0, 200),
         messages: [
           {
             role: 'system',

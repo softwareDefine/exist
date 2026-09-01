@@ -12,6 +12,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import OpenAI from 'openai';
 import db from './db.js';
+import { samplingFor } from './llm.js';
 import type { AuthedRequest } from './auth.js';
 import { getIo } from './notify.js';
 
@@ -208,8 +209,7 @@ export async function correctCaption(
     const res = await openai.chat.completions.create(
       {
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        temperature: 0,
-        max_tokens: 300,
+        ...samplingFor(process.env.OPENAI_MODEL || 'gpt-4o-mini', 0, 300),
         messages: [
           {
             role: 'system',

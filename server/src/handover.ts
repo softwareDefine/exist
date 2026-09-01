@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import db from './db.js';
+import { samplingFor } from './llm.js';
 import { notifyUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
 import { ensureAgentUser } from './steward.js';
@@ -145,8 +146,7 @@ export async function draftHandover(
       'past_records는 과거 관련 기록이다 — 이번 조 이슈와 직접 관련된 것이 있을 때만 notes에 "(과거 기록) ..." 형태로 최대 2개 덧붙인다 (관련 없으면 무시).';
     const response = await openai.chat.completions.create({
       model: OPENAI_MODEL,
-      temperature: 0.2,
-      max_tokens: 500,
+      ...samplingFor(OPENAI_MODEL, 0.2, 500),
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },
@@ -235,8 +235,7 @@ export async function reviewHandover(
       '- 특히 놓치기 쉬운 것: 설비·품질 이상 언급, 미완료 조치, 긴급 부품·자재 얘기, 다음 조에 걸리는 시간 약속';
     const response = await openai.chat.completions.create({
       model: OPENAI_MODEL,
-      temperature: 0.2,
-      max_tokens: 400,
+      ...samplingFor(OPENAI_MODEL, 0.2, 400),
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },
@@ -514,8 +513,7 @@ async function echoCheck(handoverId: number, meetingId: number, userId: number, 
   const response = await openai.chat.completions.create({
     // 모순 판정은 mini가 오탐이 잦아 상위 모델 고정 (호출 빈도 낮음 — 복명복창 제출 시 1회)
     model: process.env.OPENAI_MODEL_JUDGE || 'gpt-4o',
-    temperature: 0,
-    max_tokens: 300,
+    ...samplingFor(process.env.OPENAI_MODEL_JUDGE || 'gpt-4o', 0, 300),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -549,8 +547,7 @@ async function echoCheck(handoverId: number, meetingId: number, userId: number, 
     try {
       const v = await openai.chat.completions.create({
         model: process.env.OPENAI_MODEL_JUDGE || 'gpt-4o',
-        temperature: 0,
-        max_tokens: 60,
+        ...samplingFor(process.env.OPENAI_MODEL_JUDGE || 'gpt-4o', 0, 60),
         response_format: { type: 'json_object' },
         messages: [
           {

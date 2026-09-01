@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import OpenAI from 'openai';
 import db from './db.js';
+import { samplingFor } from './llm.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { getRoomSize } from './sfu.js';
 import { isOrgMember } from './perm.js';
@@ -239,8 +240,7 @@ async function aiDecision(ctx: UserContext): Promise<Decision> {
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0.3,
-    max_tokens: 300,
+    ...samplingFor(OPENAI_MODEL, 0.3, 300),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -459,8 +459,7 @@ export async function getCatchup(userId: number, scope?: AgentScope): Promise<Ca
     try {
       const response = await openai.chat.completions.create({
         model: OPENAI_MODEL,
-        temperature: 0.3,
-        max_tokens: 120,
+        ...samplingFor(OPENAI_MODEL, 0.3, 120),
         response_format: { type: 'json_object' },
         messages: [
           {
@@ -598,8 +597,7 @@ export async function getDailyBrief(userId: number, scope?: AgentScope): Promise
       const facts = buildDailyFacts(ctx, catchup, fileAckTotal);
       const response = await openai.chat.completions.create({
         model: OPENAI_MODEL,
-        temperature: 0.3,
-        max_tokens: 300,
+        ...samplingFor(OPENAI_MODEL, 0.3, 300),
         response_format: { type: 'json_object' },
         messages: [
           {

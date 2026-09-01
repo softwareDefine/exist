@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import db from './db.js';
+import { samplingFor } from './llm.js';
 import { listDecisions, listRecaps } from './recap.js';
 
 /*
@@ -164,8 +165,7 @@ async function aiAnswer(
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0.2,
-    max_tokens: 400,
+    ...samplingFor(OPENAI_MODEL, 0.2, 400),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -401,8 +401,7 @@ export async function settleAgendaAfterRecap(
         '응답은 오직 JSON: {"resolved": [{"id": 안건id, "decision_idx": 그 안건을 종결시킨 결정의 배열 인덱스}]} (없으면 빈 배열)';
       const response = await openai.chat.completions.create({
         model: OPENAI_MODEL,
-        temperature: 0,
-        max_tokens: 300,
+        ...samplingFor(OPENAI_MODEL, 0, 300),
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: system },
@@ -500,8 +499,7 @@ async function aiAgenda(ctx: AgentContext, carryTitles: string[] = []): Promise<
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0.3,
-    max_tokens: 400,
+    ...samplingFor(OPENAI_MODEL, 0.3, 400),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -581,8 +579,7 @@ async function aiGroupHistory(entries: HistoryEntry[]): Promise<HistoryTopic[]> 
     'indexes는 입력의 i 값만 사용한다.';
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0.1,
-    max_tokens: 600,
+    ...samplingFor(OPENAI_MODEL, 0.1, 600),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -941,8 +938,7 @@ async function judgeDecisionCandidate(
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0,
-    max_tokens: 300,
+    ...samplingFor(OPENAI_MODEL, 0, 300),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
@@ -1052,8 +1048,7 @@ function maybeFlagStale(
 export async function verifyIncompatible(a: string, b: string): Promise<boolean> {
   const v = await openai!.chat.completions.create({
     model: process.env.OPENAI_MODEL_JUDGE || 'gpt-4o',
-    temperature: 0,
-    max_tokens: 60,
+    ...samplingFor(process.env.OPENAI_MODEL_JUDGE || 'gpt-4o', 0, 60),
     response_format: { type: 'json_object' },
     messages: [
       {
@@ -1081,8 +1076,7 @@ async function flagStaleCheck(
   if (!recent.length) return;
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0,
-    max_tokens: 200,
+    ...samplingFor(OPENAI_MODEL, 0, 200),
     response_format: { type: 'json_object' },
     messages: [
       {

@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import db from './db.js';
+import { samplingFor } from './llm.js';
 import { notifyUser, emitToUser } from './notify.js';
 import { invalidateBrief } from './agent.js';
 import { invalidateAgenda, ensureAgentUser, settleAgendaAfterRecap } from './steward.js';
@@ -23,15 +24,6 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
  *  9/1 실측(회의 2건): gpt-4o는 결정 1개씩 놓침·배경 미기재, gpt-5.4-mini는 2~3개 + 배경, 지연 동급 */
 const OPENAI_MODEL_RECAP = process.env.OPENAI_MODEL_RECAP || 'gpt-4o';
 
-/** 모델 세대별 샘플링 파라미터 — gpt-5·o 계열(추론 모델)은 temperature·max_tokens를 거부하고
- *  max_completion_tokens(추론 토큰 포함)를 요구한다. env로 모델만 바꿔도 깨지지 않게 여기서 흡수 */
-function samplingFor(model: string, temperature: number, maxOut: number): Record<string, unknown> {
-  if (/^(gpt-5|o\d)/.test(model)) {
-    // 추론 토큰이 출력 예산을 잡아먹으면 빈 응답이 온다(gpt-5-mini 실측) — 넉넉히 + 추론 최소
-    return { max_completion_tokens: Math.max(maxOut * 4, 1500), reasoning_effort: 'low' };
-  }
-  return { temperature, max_tokens: maxOut };
-}
 /** 추출 후 근거 자기검증 — 각 결정이 발언 원문에 실제로 있는지 2차 판정 (temp 0). 'off'로 끌 수 있음 */
 const RECAP_VERIFY = (process.env.RECAP_VERIFY ?? 'on') !== 'off';
 

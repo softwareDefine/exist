@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import OpenAI from 'openai';
 import db from './db.js';
+import { samplingFor } from './llm.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { isMember } from './orgs.js';
 
@@ -327,8 +328,7 @@ async function aiInsights(m: OrgMetrics): Promise<Insights> {
 
   const response = await openai!.chat.completions.create({
     model: OPENAI_MODEL,
-    temperature: 0.3,
-    max_tokens: 700,
+    ...samplingFor(OPENAI_MODEL, 0.3, 700),
     response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
