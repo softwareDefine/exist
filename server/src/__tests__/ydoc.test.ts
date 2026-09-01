@@ -41,9 +41,9 @@ class Client {
   errors: Error[] = [];
   awarenessMsgs = 0;
 
-  constructor(url: string) {
+  constructor(url: string, opts?: WebSocket.ClientOptions) {
     this.awareness.setLocalState(null);
-    this.ws = new WebSocket(url);
+    this.ws = new WebSocket(url, opts);
     this.ws.binaryType = 'arraybuffer';
     this.ws.on('error', (e) => this.errors.push(e));
     this.ws.on('close', () => (this.closed = true));
@@ -277,6 +277,43 @@ describe('동기화 · 룸 격리 · 프레즌스', () => {
     cbs[0](); // alive → false, ping 전송
     cbs[0](); // pong 이 아직 안 왔으니 끊김
     await until(() => p.closed);
+  });
+
+  it('ping 이 실제로 나가고 pong 이 돌아오면 살려 둔다 — autoPong 을 끈 클라만 다음 틱에 끊기고 다른 접속은 무사', async () => {
+    const realSetInterval = globalThis.setInterval;
+    const cbs: (() => void)[] = [];
+    const spy = vi.spyOn(globalThis, 'setInterval').mockImplementation(((fn: () => void, ms?: number, ...rest: unknown[]) => {
+      if (ms === 25000) {
+        cbs.push(fn);
+        return { ref() {}, unref() {}, hasRef: () => true, refresh() {} } as unknown as NodeJS.Timeout;
+      }
+      return realSetInterval(fn, ms, ...rest);
+    }) as typeof setInterval);
+    const live = connect('pingroom2'); // ws 기본값 autoPong: true
+    await until(() => live.synced && cbs.length === 1);
+    const dead = new Client(`${base}/yjs/pingroom2?token=${encodeURIComponent(token)}`, { autoPong: false });
+    clients.push(dead);
+    await until(() => dead.synced && cbs.length === 2);
+    spy.mockRestore();
+    let pings = 0;
+    live.ws.on('ping', () => pings++);
+    cbs[0](); // live: alive → false + ping
+    await until(() => pings === 1);
+    await sleep(120); // pong 이 서버에 닿을 시간
+    cbs[0](); // pong 을 받았으니 끊지 않고 다시 ping
+    await until(() => pings === 2);
+    await sleep(120);
+    expect(live.closed).toBe(false);
+    cbs[1](); // dead: alive → false + ping (pong 안 옴)
+    await sleep(120);
+    expect(dead.closed).toBe(false); // 첫 틱은 아직 기회
+    cbs[1](); // 두 번째 틱 — 끊김
+    await until(() => dead.closed);
+    expect(live.closed).toBe(false);
+    cbs[0](); // live 는 계속 살아 있다
+    await until(() => pings === 3);
+    await sleep(120);
+    expect(live.closed).toBe(false);
   });
 });
 

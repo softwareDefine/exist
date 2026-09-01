@@ -215,6 +215,18 @@ describe('/api/run/exec — 직접 실행', () => {
     ]);
   });
 
+  it('stdout 정확히 100,000자는 살려 두고, 그보다 크면 죽인다 (경계)', async () => {
+    scripts.push({ match: /node/, s: { chunks: ['x'.repeat(100_000)], code: 0 } });
+    const r1 = await exec({ lang: 'js', entry: 'edge.js', files: [] });
+    expect(spawned[0].child.kill).not.toHaveBeenCalled();
+    expect(texts(r1)).toEqual(['x'.repeat(100_000), '✓ 종료 코드 0']);
+    scripts.length = 0;
+    scripts.push({ match: /node/, s: { chunks: ['x'.repeat(100_000), 'y'], hang: true } });
+    const r2 = await exec({ lang: 'js', entry: 'edge2.js', files: [] });
+    expect(spawned[1].child.kill).toHaveBeenCalledWith('SIGKILL');
+    expect(texts(r2)[0].length).toBe(100_001);
+  });
+
   it('stdout 100KB 초과 시 프로세스를 죽인다', async () => {
     scripts.push({ match: /node/, s: { chunks: ['x'.repeat(60_000), 'y'.repeat(50_000)], hang: true } });
     const r = await exec({ lang: 'js', entry: 'spam.js', files: [] });

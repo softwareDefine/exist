@@ -273,7 +273,8 @@ router.post('/avatar', requireAuth, (req: AuthedRequest, res) => {
   if (!ct.startsWith('image/')) {
     return res.status(400).json({ error: '이미지 파일만 올릴 수 있어요' });
   }
-  const ext = ct.split('/')[1]?.replace(/[^\w]/g, '').slice(0, 5) || 'png';
+  // 'image/jpeg; charset=binary' 같은 파라미터를 먼저 떼야 확장자가 .jpegc가 되지 않는다 (9/2 변이 감사)
+  const ext = ct.split(';')[0].split('/')[1]?.replace(/[^\w]/g, '').slice(0, 5) || 'png';
   const filename = `avatar-${crypto.randomUUID()}.${ext}`;
   const chunks: Buffer[] = [];
   let size = 0;
