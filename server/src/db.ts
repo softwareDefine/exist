@@ -124,8 +124,13 @@ db.exec(`
 `);
 
 // 마이그레이션: 복구 코드 컬럼 (기존 DB에 없으면 추가)
+// ※ ALTER는 반드시 한 try에 하나 — 두 개를 묶으면 첫 컬럼만 있는 DB에서 둘째가 영영 안 생긴다 (9/1 커버리지 감사)
 try {
   db.exec(`ALTER TABLE users ADD COLUMN recovery_hash TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+try {
   db.exec(`ALTER TABLE users ADD COLUMN recovery_salt TEXT`);
 } catch {
   /* 이미 존재 */
@@ -323,6 +328,10 @@ try {
 // 마이그레이션: 프로젝트 기간(선택) — 시작일/종료일 (날짜만, null이면 기간 없음)
 try {
   db.exec(`ALTER TABLE meetings ADD COLUMN period_start TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+try {
   db.exec(`ALTER TABLE meetings ADD COLUMN period_end TEXT`);
 } catch {
   /* 이미 존재 */
@@ -424,6 +433,10 @@ try {
 // 마이그레이션: 개별 일정 반복 — daily/weekly/biweekly/monthly (null=없음) + 종료일
 try {
   db.exec(`ALTER TABLE meeting_events ADD COLUMN recur TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+try {
   db.exec(`ALTER TABLE meeting_events ADD COLUMN recur_until TEXT`);
 } catch {
   /* 이미 존재 */
@@ -550,6 +563,10 @@ db.exec(`
 // 마이그레이션: 공동편집 휴지통 — 소프트 삭제 (deleted_root = 삭제 묶음의 루트 id)
 try {
   db.exec(`ALTER TABLE collab_files ADD COLUMN deleted_at TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+try {
   db.exec(`ALTER TABLE collab_files ADD COLUMN deleted_root INTEGER`);
 } catch {
   /* 이미 존재 */
@@ -925,6 +942,10 @@ db.exec(`
 // "지금 뭘 기다리는지가 흐려진다". 종결 사유는 RAG 색인되어 몇 년 뒤 재검토 때 소환된다)
 try {
   db.exec(`ALTER TABLE agenda_items ADD COLUMN resolved_note TEXT`);
+} catch {
+  /* 이미 존재 */
+}
+try {
   db.exec(`ALTER TABLE agenda_items ADD COLUMN status TEXT`);
 } catch {
   /* 이미 존재 */
@@ -934,6 +955,10 @@ try {
 // (텍스트 유사도 추정이 아니라 확정 링크 — 타임라인의 "이런 이유로 결정했고"가 근거를 가짐)
 try {
   db.exec(`ALTER TABLE agenda_items ADD COLUMN resolved_recap_id INTEGER`);
+} catch {
+  /* 이미 존재 */
+}
+try {
   db.exec(`ALTER TABLE agenda_items ADD COLUMN resolved_decision_idx INTEGER`);
 } catch {
   /* 이미 존재 */

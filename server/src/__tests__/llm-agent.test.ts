@@ -54,7 +54,7 @@ describe('generateBrief — nowbar 한 줄 + 카드', () => {
 
   it('카드 값이 이상하면 0, brief가 비면 규칙 폴백, 빈 응답도 폴백', async () => {
     const s = await setupUser('la2');
-    queueJson({ brief: '오늘은 정리된 하루예요', card: 9 });
+    queueJson({ brief: '예정된 회의가 없어요', card: 9 }); // facts에 근거한 문장이어야 ai 경로 유지(근거 게이트)
     const r = await generateBrief(s.uid);
     expect(r).toMatchObject({ source: 'ai', card: 0, reason: '다가오는 일정을 보여드려요' }); // reason 비면 규칙 이유
     invalidateBrief(s.uid);

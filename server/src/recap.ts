@@ -169,6 +169,10 @@ export function sameDecision(a: string, b: string): boolean {
   const nb = normalizeDecision(b);
   if (!na || !nb) return false;
   if (na === nb || na.includes(nb) || nb.includes(na)) return true;
+  // 수치가 다르면 다른 결정 — "방열판 3mm"와 "방열판 5mm"는 바이그램이 거의 같아 병합되던 것 (9/1)
+  const numsA = na.match(/\d+(?:\.\d+)?/g) ?? [];
+  const numsB = nb.match(/\d+(?:\.\d+)?/g) ?? [];
+  if (numsA.length && numsB.length && (numsA.join(',') !== numsB.join(','))) return false;
   const grams = (s: string) => {
     const g = new Set<string>();
     for (let i = 0; i < s.length - 1; i++) g.add(s.slice(i, i + 2));
@@ -179,7 +183,9 @@ export function sameDecision(a: string, b: string): boolean {
   let inter = 0;
   for (const x of ga) if (gb.has(x)) inter++;
   const union = ga.size + gb.size - inter;
-  return union > 0 && inter / union >= 0.6;
+  // 짧은 한국어 문장은 바이그램 몇 개 겹쳐도 비율이 쉽게 오른다 — 8자 미만이면 더 엄격하게
+  const thr = Math.min(na.length, nb.length) < 8 ? 0.75 : 0.6;
+  return union > 0 && inter / union >= thr;
 }
 
 /** OpenAI 기반 추출 — 결정·할 일·요약을 JSON으로 */

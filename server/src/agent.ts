@@ -220,6 +220,35 @@ function buildBriefFacts(ctx: UserContext): string[] {
 /** OpenAI API 기반 — 브리핑 + 지금 보여줄 nowbar 카드를 함께 결정.
  *  자유 작문 금지: 서버가 만든 사실 문장에서 고르고 다듬기만 한다
  *  (원본 데이터를 주면 없는 일정을 "곧 시작"이라 지어내는 사고가 실제로 났음) */
+/** brief가 facts에 근거했는지 — 따옴표 제목·숫자 토큰이 facts에 있거나, 어떤 fact와 바이그램 겹침이 충분해야 한다 */
+export function briefGrounded(brief: string, facts: string[]): boolean {
+  if (facts.length === 0) return true; // 근거가 없을 땐 "오늘 처리할 게 없어요" 류 일반 문장 허용
+  const norm = (t: string) => t.replace(/[\s"'“”‘’.,!?~…()]/g, '');
+  const nb = norm(brief);
+  // 1) 숫자·수량이 있으면 그 숫자가 facts 어딘가에 있어야 한다 (지어낸 시각·개수 차단)
+  const nums = nb.match(/\d+/g) ?? [];
+  const factText = facts.map(norm).join('|');
+  for (const d of nums) if (!factText.includes(d)) return false;
+  // 2) 따옴표로 인용한 제목은 facts에 있어야 한다
+  for (const q of brief.match(/"([^"]{2,})"/g) ?? []) {
+    if (!facts.some((f) => f.includes(q.slice(1, -1)))) return false;
+  }
+  // 3) 어떤 fact 하나와는 내용이 겹쳐야 한다 (바이그램 포함률 — brief 기준)
+  const grams = (t: string) => {
+    const g = new Set<string>();
+    for (let i = 0; i < t.length - 1; i++) g.add(t.slice(i, i + 2));
+    return g;
+  };
+  const gb = grams(nb);
+  if (gb.size === 0) return false;
+  return facts.some((f) => {
+    const gf = grams(norm(f));
+    let hit = 0;
+    for (const x of gb) if (gf.has(x)) hit++;
+    return hit / gb.size >= 0.35;
+  });
+}
+
 async function aiDecision(ctx: UserContext): Promise<Decision> {
   const facts = buildBriefFacts(ctx);
 
@@ -250,6 +279,9 @@ async function aiDecision(ctx: UserContext): Promise<Decision> {
 
   const parsed = extractJson(raw) as { brief?: unknown; card?: unknown; reason?: unknown };
   const brief = String(parsed.brief ?? '').trim();
+  // 근거 게이트 — brief가 facts 중 하나에서 나온 문장인지. 추론 모델이 facts에 없는 일정·수치를 지어내면
+  // (5.4-mini 실측 우려) 카드만 검증하던 기존 로직으론 그대로 상단바에 떴다 → 규칙 폴백으로
+  if (brief && !briefGrounded(brief, facts)) throw new Error('ungrounded brief');
   let card = Number(parsed.card) as CardId;
   if (![0, 1, 2].includes(card)) card = 0;
   // 진행 중 회의 없는데 2를 골랐으면 룰 기반으로 보정

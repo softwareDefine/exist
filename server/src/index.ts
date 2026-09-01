@@ -34,7 +34,7 @@ export function runMeetingReminders(now = new Date()) {
     for (const m of ctx.meetings) {
       if (!m.starts_at) continue;
       const min = Math.round((new Date(m.starts_at).getTime() - now.getTime()) / 60_000);
-      // 걸린 임계값(30/10분)을 모두 소진 처리하되 알림은 한 번만 (중복 토스트 방지)
+      // 30분 전·10분 전 2단계 알림. 한 틱에 두 임계값이 같이 걸리면(첫 검사가 10분 이내) 둘 다 소진하고 한 번만 알림
       const due = [30, 10].filter(
         (t) => min <= t && min > 0 && !notified.has(`${userId}:${m.title}:${t}`),
       );
