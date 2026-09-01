@@ -2094,7 +2094,9 @@ registerProcessor('exist-pcm',P)`;
                                   setDevMenu(null);
                                   window.dispatchEvent(
                                     new CustomEvent('exist:call-dm', {
-                                      detail: { username: p.username },
+                                      // code 필수 — window 전역 이벤트라 뒤에 열린 다른 그룹 탭 허브도 받는다.
+                                      // 없으면 같은 사람이 있는 조직 허브가 자기 스코프로 창을 하나 더 띄움(9/1 주호 제보)
+                                      detail: { username: p.username, code },
                                     }),
                                   );
                                 }}

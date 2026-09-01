@@ -400,8 +400,11 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
   // 통화 참가자 패널의 "1:1 채팅" — 통화 UI엔 참가자 원본이 없어 이름으로 넘어온 걸 여기서 해석
   useEffect(() => {
     function onCallDm(e: Event) {
-      const uname = (e as CustomEvent<{ username: string }>).detail?.username;
+      const d = (e as CustomEvent<{ username: string; code?: string }>).detail;
+      const uname = d?.username;
       if (!uname) return;
+      // 내 회의의 통화에서 온 것만 — 다른 그룹 탭의 허브도 이 전역 이벤트를 받는다 (창 두 개 뜨던 버그)
+      if (d?.code && d.code.toUpperCase() !== code.toUpperCase()) return;
       const p = detail?.participants.find((x) => x.username === uname);
       if (p) openDm(p);
     }
