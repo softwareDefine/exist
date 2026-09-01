@@ -5,6 +5,7 @@ import { samplingFor, parseLlmJson } from './llm.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { getRoomSize } from './sfu.js';
 import { isOrgMember } from './perm.js';
+import { listDecisions } from './recap.js';
 
 /*
  * exist AI agent — 사용자의 일정·투두 상태(목표 vs 현재)를 분석해
@@ -700,6 +701,108 @@ router.get('/catchup', async (req: AuthedRequest, res) => {
   const scope = parseScope(req, res);
   if (scope === null) return;
   res.json(await getCatchup(req.userId!, scope));
+});
+
+/** 최근 결정 — 홈 "최근 결정" 카드 (오늘 일정 카드 자리, 9/2). 내 그룹 원장의 최신 결정 N건(철회 제외),
+ *  확인 N/M(수신확인 수/참가자 수)·배경 한 줄·중요 표시. 결정이 0건이면 클라가 카드를 숨긴다 (?org= 스코프) */
+router.get('/recent-decisions', (req: AuthedRequest, res) => {
+  const scope = parseScope(req, res);
+  if (scope === null) return;
+  const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 5));
+  const sc = scopeSql(scope);
+  const meetings = db
+    .prepare(
+      `SELECT m.id, m.code, m.title FROM meetings m
+       JOIN meeting_participants mp ON mp.meeting_id = m.id AND mp.user_id = ?${sc.sql}`,
+    )
+    .all(req.userId, ...sc.args) as { id: number; code: string; title: string }[];
+  const me = (db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as { username: string } | undefined)?.username;
+  const countStmt = db.prepare('SELECT COUNT(*) AS n FROM meeting_participants WHERE meeting_id = ?');
+  const items: {
+    recapId: number; idx: number; decision: string; why: string; critical: boolean;
+    code: string; title: string; ts: number; acked: number; total: number; mine: boolean;
+  }[] = [];
+  for (const m of meetings) {
+    const total = (countStmt.get(m.id) as { n: number }).n;
+    for (const d of listDecisions(m.id)) { // limit을 여기 넘기면 최신 recap이 철회본일 때 빈 결과 — 전체에서 거른 뒤 자른다
+      if (d.withdrawn) continue;
+      items.push({
+        recapId: d.recapId, idx: d.idx, decision: d.decision, why: d.why, critical: d.critical,
+        code: m.code, title: m.title, ts: d.ts, acked: d.acks.length, total,
+        mine: !!me && d.acks.some((x) => x.username === me),
+      });
+    }
+  }
+  items.sort((x, y) => y.ts - x.ts);
+  res.json({ items: items.slice(0, limit) });
+});
+
+/** 최근 결정 — 홈 "최근 결정" 카드 (오늘 일정 카드 자리, 9/2). 내 그룹 원장의 최신 결정 N건(철회 제외),
+ *  확인 N/M(수신확인 수/참가자 수)·배경 한 줄·중요 표시. 결정이 0건이면 클라가 카드를 숨긴다 (?org= 스코프) */
+router.get('/recent-decisions', (req: AuthedRequest, res) => {
+  const scope = parseScope(req, res);
+  if (scope === null) return;
+  const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 5));
+  const sc = scopeSql(scope);
+  const meetings = db
+    .prepare(
+      `SELECT m.id, m.code, m.title FROM meetings m
+       JOIN meeting_participants mp ON mp.meeting_id = m.id AND mp.user_id = ?${sc.sql}`,
+    )
+    .all(req.userId, ...sc.args) as { id: number; code: string; title: string }[];
+  const me = (db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as { username: string } | undefined)?.username;
+  const countStmt = db.prepare('SELECT COUNT(*) AS n FROM meeting_participants WHERE meeting_id = ?');
+  const items: {
+    recapId: number; idx: number; decision: string; why: string; critical: boolean;
+    code: string; title: string; ts: number; acked: number; total: number; mine: boolean;
+  }[] = [];
+  for (const m of meetings) {
+    const total = (countStmt.get(m.id) as { n: number }).n;
+    for (const d of listDecisions(m.id)) { // limit을 여기 넘기면 최신 recap이 철회본일 때 빈 결과 — 전체에서 거른 뒤 자른다
+      if (d.withdrawn) continue;
+      items.push({
+        recapId: d.recapId, idx: d.idx, decision: d.decision, why: d.why, critical: d.critical,
+        code: m.code, title: m.title, ts: d.ts, acked: d.acks.length, total,
+        mine: !!me && d.acks.some((x) => x.username === me),
+      });
+    }
+  }
+  items.sort((x, y) => y.ts - x.ts);
+  res.json({ items: items.slice(0, limit) });
+});
+
+/** 최근 결정 — 홈 "최근 결정" 카드 (오늘 일정 카드 자리, 9/2). 내 그룹 원장의 최신 결정 N건(철회 제외),
+ *  확인 N/M(수신확인 수/참가자 수)·배경 한 줄·중요 표시. 결정이 0건이면 클라가 카드를 숨긴다 (?org= 스코프) */
+router.get('/recent-decisions', (req: AuthedRequest, res) => {
+  const scope = parseScope(req, res);
+  if (scope === null) return;
+  const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 5));
+  const sc = scopeSql(scope);
+  const meetings = db
+    .prepare(
+      `SELECT m.id, m.code, m.title FROM meetings m
+       JOIN meeting_participants mp ON mp.meeting_id = m.id AND mp.user_id = ?${sc.sql}`,
+    )
+    .all(req.userId, ...sc.args) as { id: number; code: string; title: string }[];
+  const me = (db.prepare('SELECT username FROM users WHERE id = ?').get(req.userId) as { username: string } | undefined)?.username;
+  const countStmt = db.prepare('SELECT COUNT(*) AS n FROM meeting_participants WHERE meeting_id = ?');
+  const items: {
+    recapId: number; idx: number; decision: string; why: string; critical: boolean;
+    code: string; title: string; ts: number; acked: number; total: number; mine: boolean;
+  }[] = [];
+  for (const m of meetings) {
+    const total = (countStmt.get(m.id) as { n: number }).n;
+    for (const d of listDecisions(m.id)) { // limit을 여기 넘기면 최신 recap이 철회본일 때 빈 결과 — 전체에서 거른 뒤 자른다
+      if (d.withdrawn) continue;
+      items.push({
+        recapId: d.recapId, idx: d.idx, decision: d.decision, why: d.why, critical: d.critical,
+        code: m.code, title: m.title, ts: d.ts, acked: d.acks.length, total,
+        mine: !!me && d.acks.some((x) => x.username === me),
+      });
+    }
+  }
+  items.sort((x, y) => y.ts - x.ts);
+  res.json({ items: items.slice(0, limit) });
 });
 
 /** 확인 대기 결정 리스트 — 홈 "확인할 결정" 카드용.

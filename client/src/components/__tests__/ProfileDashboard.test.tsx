@@ -45,6 +45,11 @@ function routes(m: ReturnType<typeof mockApi>, org: string) {
   m.get(q('agent/daily'), { text: '오늘은 결정 1건 확인이 남았어요' });
   m.get(q('agent/catchup'), { headline: '못 본 사이', items: [{ type: 'recap', text: '냉각수 결정', meeting: { code: 'ABCD', title: '생산1팀' } }] });
   m.get(q('agent/pending-decisions'), { items: [{ recapId: 10, idx: 0, decision: '냉각수 63도', code: 'ABCD', title: '생산1팀', ts: NOW }] });
+  m.get(q('agent/recent-decisions'), { items: [
+    { recapId: 11, idx: 0, decision: '방열판 두께 3mm 확정', why: '발열 테스트 통과', critical: true, code: 'ABCD', title: '생산1팀', ts: NOW, acked: 1, total: 3, mine: true },
+    { recapId: 12, idx: 0, decision: '아직 내가 확인 안 한 결정', why: '', critical: false, code: 'ABCD', title: '생산1팀', ts: NOW, acked: 0, total: 3, mine: false },
+    { recapId: 9, idx: 0, decision: '야간조 점검 2회', why: '', critical: false, code: 'ABCD', title: '생산1팀', ts: NOW - 1000, acked: 3, total: 3, mine: true },
+  ] });
   m.get(q('agent/actions'), {
     decisions: [{ recapId: 10, idx: 0, decision: '냉각수 63도', code: 'ABCD', title: '생산1팀', ts: NOW }],
     todos: [{ id: 3, title: '필터 교체', due_at: '2026-01-02', code: 'ABCD', mtitle: '생산1팀' }],
@@ -189,5 +194,29 @@ describe('ProfileDashboard', () => {
     expect(document.querySelector('.pd-teamacks .pd-sent-missing')?.textContent).toContain('미확인: 김대리, lee, park 외 1명');
     fireEvent.click(screen.getByText(/팀 인사이트/, { selector: 'button' }));
     expect(await screen.findByText('협업이 활발해요')).toBeInTheDocument();
+  });
+
+  it('최근 결정 카드 — 내가 확인한 결정의 팀 진행률·배경, 중요 배지, 미확인은 제외, 클릭하면 그룹 열기 (오늘 일정 자리)', async () => {
+    routes(m, 'personal');
+    const ev = captureEvents('exist:open-meeting');
+    renderWithRouter(<ProfileDashboard />);
+    expect(await screen.findByText('최근 결정')).toBeInTheDocument();
+    expect(screen.getByText('중요')).toBeInTheDocument();
+    expect(screen.getByText(/생산1팀 · 팀 확인 1\/3 · 발열 테스트 통과/)).toBeInTheDocument();
+    expect(screen.getByText(/팀 확인 3\/3/)).toBeInTheDocument();
+    expect(screen.queryByText('아직 내가 확인 안 한 결정')).not.toBeInTheDocument(); // 미확인은 '지금 처리할 것' 담당
+    expect(screen.queryByText('오늘 일정')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTitle('발열 테스트 통과'));
+    expect(ev.of('exist:open-meeting')).toEqual([{ code: 'ABCD', title: '생산1팀' }]);
+    ev.stop();
+  });
+
+  it('최근 결정 0건이면 카드 자체를 숨긴다', async () => {
+    routes(m, 'personal');
+    m.get(/\/api\/agent\/recent-decisions\?org=personal$/, { items: [] }); // 마지막 등록이 이김
+    renderWithRouter(<ProfileDashboard />);
+    await waitFor(() => expect(m.calls('GET', /agent\/recent-decisions/)).toHaveLength(1));
+    expect(await screen.findByText('전체 할 일')).toBeInTheDocument();
+    expect(screen.queryByText('최근 결정')).not.toBeInTheDocument();
   });
 });

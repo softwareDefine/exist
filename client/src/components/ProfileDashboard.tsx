@@ -24,6 +24,20 @@ interface PendingDecision {
   title: string;
   ts: number;
 }
+/** 홈 "최근 결정" 카드 행 — 내 그룹 원장 최신 결정 + 확인 N/M */
+interface RecentDecision {
+  recapId: number;
+  idx: number;
+  decision: string;
+  why: string;
+  critical: boolean;
+  code: string;
+  title: string;
+  ts: number;
+  acked: number;
+  total: number;
+  mine: boolean;
+}
 
 /*
  * 개인 프로필 대시보드 — '홈' 탭(회의 미선택)에서 작업공간을 꽉 채워 표시.
@@ -126,6 +140,7 @@ export default function ProfileDashboard() {
   const [daily, setDaily] = useState('');
   const [catchup, setCatchup] = useState<Catchup | null>(null);
   const [pending, setPending] = useState<PendingDecision[] | null>(null);
+  const [recent, setRecent] = useState<RecentDecision[]>([]);
   const [actions, setActions] = useState<Actions | null>(null);
   // 발신자 카드 — 행동 기반 노출: 보낸 결정이 있을 때만 뜬다 (역할 설정 없이 대시보드가 역할을 따라감)
   const [sent, setSent] = useState<{ entries: SentEntry[]; totalSent: number } | null>(null);
@@ -193,6 +208,12 @@ export default function ProfileDashboard() {
     function onLedgerChanged() {
       api<{ items: PendingDecision[] }>(`/api/agent/pending-decisions?${orgQ}`)
         .then((d) => setPending(d.items))
+        .catch(() => {});
+
+      api<{ items: RecentDecision[] }>(`/api/agent/recent-decisions?${orgQ}`)
+
+        .then((d) => setRecent(Array.isArray(d?.items) ? d.items : []))
+
         .catch(() => {});
       api<{ entries: SentEntry[]; totalSent: number }>(`/api/agent/sent?${orgQ}`)
         .then((d) => setSent(d))
@@ -271,6 +292,12 @@ export default function ProfileDashboard() {
     setPending(null);
     api<{ items: PendingDecision[] }>(`/api/agent/pending-decisions?${orgQ}`)
       .then((d) => alive && setPending(d.items))
+      .catch(() => {});
+
+    api<{ items: RecentDecision[] }>(`/api/agent/recent-decisions?${orgQ}`)
+
+      .then((d) => alive && setRecent(Array.isArray(d?.items) ? d.items : []))
+
       .catch(() => {});
     // 지금 처리할 것 — 결정·기한 할 일·안읽은 DM 집계
     setActions(null);
@@ -679,32 +706,32 @@ export default function ProfileDashboard() {
     </div>
   );
 
-  const todayCard = (
-    <div style={cellCard}>
-      <div style={sectionHead}><span style={headIcon}><CalendarIcon size={16} /></span> 오늘 일정</div>
-      {todayEvents.length === 0 ? (
-        <div style={emptyRow}>오늘 일정이 없어요</div>
-      ) : (
-        todayEvents.map((s, i) => (
-          <div
-            key={`${s.code}-${i}`}
-            className="pd-today-row"
-            onClick={() => openMeeting(s.code, s.title)}
-          >
-            <b className="pd-today-time">
-              {s.allDay
-                ? '종일'
-                : new Date(s.starts_at!).toLocaleTimeString('ko-KR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-            </b>
-            <span className="pd-today-title">{s.title}</span>
+  // 최근 결정 카드 — "오늘 일정"이 히어로 문장·전체 일정 타임라인과 3중으로 겹쳐 교체(9/2 주호 결정).
+  // 홈에서 유일하게 "확인 끝난 결정까지 포함해 결정이 흐르는 모습"이 보이는 자리. 0건이면 카드 자체를 숨긴다
+  // 내가 아직 확인 안 한 결정은 "지금 처리할 것"에 이미 있으니 여기선 뺀다 — 카드끼리 역할이 안 겹치게
+  // (여기 = 내가 확인한 결정이 팀에서 어디까지 퍼졌나)
+  const recentMine = (recent ?? []).filter((d) => d.mine);
+  const recentCard =
+    recentMine.length === 0 ? null : (
+      <div style={cellCard} className="pd-recent">
+        <div style={sectionHead}>
+          <span style={headIcon}><CheckMarkIcon size={16} /></span> 최근 결정
+          <span className="pd-inbox-hint">내가 확인한 {recentMine.length}건</span>
+        </div>
+        {recentMine.map((d) => (
+          <div key={`${d.recapId}-${d.idx}`} className="pd-act-row">
+            <span className={`pd-act-badge${d.critical ? ' critical' : ''}`}>{d.critical ? '중요' : '결정'}</span>
+            <div role="button" tabIndex={0} className="pd-act-main" onClick={() => openMeeting(d.code, d.title)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMeeting(d.code, d.title); } }} title={d.why || d.decision}>
+              <Marquee className="pd-act-title">{d.decision}</Marquee>
+              <span className="pd-act-sub">
+                {d.title} · 팀 확인 {d.acked}/{d.total}
+                {d.why ? ` · ${d.why}` : ''}
+              </span>
+            </div>
           </div>
-        ))
-      )}
-    </div>
-  );
+        ))}
+      </div>
+    );
 
   const dmScope: DmScope = org === 'personal' ? 'personal' : org;
   const dmWin = dmPeer ? (
@@ -810,7 +837,7 @@ export default function ProfileDashboard() {
 
         <div className="pd-quad">
           <div className="pd-quad-col">
-            {todayCard}
+            {recentCard}
             <div style={cellCard}>
               <div style={sectionHead}><span style={headIcon}><CalendarIcon size={16} /></span> 전체 일정</div>
               <ScheduleWidget schedule={schedule} onOpen={openMeeting} />
@@ -916,7 +943,7 @@ export default function ProfileDashboard() {
       <div className="pd-quad">
         {/* 좌 = 오늘·못 본 사이·달력, 우 = 할 일·메시지 */}
         <div className="pd-quad-col">
-        {todayCard}
+        {recentCard}
         {catchup && catchup.items.length > 0 && (
           <div style={cellCard}>
             <div style={sectionHead}><span style={headIcon}><SparklesIcon size={16} /></span> 못 본 사이</div>

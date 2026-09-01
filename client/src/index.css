@@ -23025,3 +23025,13 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   padding: 0;
   justify-content: center;
 }
+
+/* ── 홈 "최근 결정" 카드 (9/2, 오늘 일정 자리) ── */
+.pd-act-badge.critical {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+:root:not([data-theme="light"]) .pd-act-badge.critical {
+  background: rgba(185, 28, 28, 0.25);
+  color: #fca5a5;
+}
