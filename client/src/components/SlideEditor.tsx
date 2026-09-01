@@ -315,7 +315,8 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
         headers: { Authorization: `Bearer ${token}` },
         body: file,
       });
-      const { url } = (await res.json()) as { url: string };
+      const { url } = (await res.json()) as { url?: string };
+      if (!res.ok || !url) return; // 업로드 실패(413·500) — src 없는 이미지 요소를 만들지 않는다
       const id = crypto.randomUUID();
       els.set(id, { type: 'image', src: url, x: 25, y: 25, w: 40, h: 40 });
       setSelIds([id]);

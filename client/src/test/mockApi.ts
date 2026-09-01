@@ -61,13 +61,22 @@ export class ApiMock {
   });
 
   response(status: number, data: unknown) {
+    // 바이너리 응답(hwpx zip·이미지 등) — respond에 ArrayBuffer/Uint8Array/Blob을 주면 그대로 돌려준다
+    const bin: ArrayBuffer | null =
+      data instanceof ArrayBuffer
+        ? data
+        : data instanceof Uint8Array
+          ? (data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer)
+          : null;
+    const asText = () => (typeof data === 'string' ? data : JSON.stringify(data));
     return {
       ok: status >= 200 && status < 300,
       status,
       json: async () => data,
-      text: async () => (typeof data === 'string' ? data : JSON.stringify(data)),
-      blob: async () => new Blob([typeof data === 'string' ? data : JSON.stringify(data)]),
-      arrayBuffer: async () => new ArrayBuffer(0),
+      text: async () => (bin ? new TextDecoder().decode(bin) : asText()),
+      blob: async () => (data instanceof Blob ? data : new Blob([bin ?? asText()])),
+      arrayBuffer: async () =>
+        bin ? bin : data instanceof Blob ? data.arrayBuffer() : new ArrayBuffer(0),
       headers: new Map<string, string>(),
     } as unknown as Response;
   }

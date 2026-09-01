@@ -13,6 +13,7 @@ import TextAlign from '@tiptap/extension-text-align';
 import Mention, { type MentionNodeAttrs } from '@tiptap/extension-mention';
 import type { SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
 import { FontFamily, LineHeight } from '@tiptap/extension-text-style';
+import { NodeSelection } from '@tiptap/pm/state';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { api } from '../api';
@@ -472,6 +473,8 @@ export default function DocEditor({
 
   const editor = useEditor(
     {
+      // tiptap v3 기본값은 false — 툴바 활성 상태(굵게·제목…)·글자 수가 타이핑/선택에 따라 갱신되려면 필요
+      shouldRerenderOnTransaction: true,
       extensions:
         conn && activeId
           ? [
@@ -706,7 +709,14 @@ export default function DocEditor({
       cv.getContext('2d')!.drawImage(img, 0, 0, w, h);
       const keepAlpha = file.type === 'image/png' || file.type === 'image/gif';
       const src = keepAlpha ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.85);
-      editorRef.current?.chain().focus().setImage({ src }).run();
+      const ed = editorRef.current;
+      if (ed) {
+        ed.chain().focus().setImage({ src }).run();
+        // 삽입된 이미지가 노드 선택(NodeSelection)으로 남는다 — 이 상태로 다음 이미지를 넣으면
+        // (연속 드롭·붙여넣기·툴바 삽입) 방금 넣은 이미지를 덮어쓴다. 커서를 이미지 뒤로 옮긴다
+        const sel = ed.state.selection;
+        if (sel instanceof NodeSelection) ed.commands.setTextSelection(sel.to);
+      }
       URL.revokeObjectURL(objUrl);
     };
     img.src = objUrl;
