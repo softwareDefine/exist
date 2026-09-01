@@ -137,6 +137,9 @@ export function deleteMeetingFiles(meetingId: number, meetingCode: string) {
   db.prepare(
     'DELETE FROM file_ack_autoremind WHERE file_id IN (SELECT id FROM collab_files WHERE meeting_id = ?)',
   ).run(meetingId);
+  for (const t of ['file_acks', 'file_acks_history', 'file_activity']) {
+    db.prepare(`DELETE FROM ${t} WHERE file_id IN (SELECT id FROM collab_files WHERE meeting_id = ?)`).run(meetingId);
+  }
   // 레거시 룸도 정리 (파일로 흡수 안 된 상태로 남았을 수 있음)
   for (const l of LEGACY) deleteYdoc(`${l.prefix}${meetingCode.toUpperCase()}`);
   deleteYdoc(`mt-${meetingCode.toUpperCase()}`); // 캔버스

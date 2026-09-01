@@ -825,39 +825,55 @@ router.delete('/:code', (req: AuthedRequest, res) => {
       user_id: number;
     }[]
   ).map((r) => r.user_id);
-  db.prepare('DELETE FROM messages WHERE meeting_id = ?').run(meeting.id);
-  db.prepare('DELETE FROM meeting_participants WHERE meeting_id = ?').run(meeting.id);
-  db.prepare('DELETE FROM meeting_events WHERE meeting_id = ?').run(meeting.id);
-  // todos.recap_id(SET NULL)보다 먼저 지워도 되지만, 순서를 todos 뒤로 두면 FK 정책과 무관하게 안전
-  try {
-    db.prepare(
-      'DELETE FROM todo_assignees WHERE todo_id IN (SELECT id FROM todos WHERE meeting_id = ?)',
-    ).run(meeting.id);
-    db.prepare('DELETE FROM todos WHERE meeting_id = ?').run(meeting.id);
-  } catch {
-    /* todos에 meeting_id 컬럼이 없으면 무시 */
-  }
-  // 수신확인·리마인드 기록은 recap을 FK로 물고 있음 — 먼저 안 지우면 recap 삭제가 FK로 막힘
-  db.prepare(
-    'DELETE FROM decision_acks WHERE recap_id IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)',
-  ).run(meeting.id);
-  db.prepare(
-    'DELETE FROM decision_remind_sent WHERE recap_id IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)',
-  ).run(meeting.id);
-  db.prepare(
-    'DELETE FROM decision_ack_autoremind WHERE recap_id IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)',
-  ).run(meeting.id);
-  db.prepare('DELETE FROM meeting_recaps WHERE meeting_id = ?').run(meeting.id);
-  db.prepare('DELETE FROM chat_reads WHERE meeting_id = ?').run(meeting.id);
-  // 채널 알림 설정이 채널을 FK로 물고 있음 — 채널보다 먼저
-  db.prepare(
-    'DELETE FROM channel_notify_prefs WHERE channel_id IN (SELECT id FROM chat_channels WHERE meeting_id = ?)',
-  ).run(meeting.id);
-  db.prepare('DELETE FROM chat_channels WHERE meeting_id = ?').run(meeting.id);
-  db.prepare('DELETE FROM call_transcripts WHERE meeting_id = ?').run(meeting.id);
-  deleteMeetingFiles(meeting.id, String(req.params.code).toUpperCase());
-  db.prepare('DELETE FROM meetings WHERE id = ?').run(meeting.id);
   const upper = String(req.params.code).toUpperCase();
+  // 한 트랜잭션 — 중간에 FK로 막히면 반쯤 지워진 회의가 남는다(9/1 라이브에서 실제 발생:
+  // rag_chunks·agenda_events 등 나중에 생긴 테이블을 안 지워 FK 실패 → 참가자·채팅만 사라진 유령 회의).
+  // 새 테이블이 meetings/meeting_recaps를 참조하면 여기에도 추가할 것 (db.ts REFERENCES 대조)
+  const wipe = db.transaction((meetingId: number) => {
+    const run = (sql: string) => db.prepare(sql).run(meetingId);
+    run('DELETE FROM messages WHERE meeting_id = ?');
+    run('DELETE FROM meeting_participants WHERE meeting_id = ?');
+    run('DELETE FROM meeting_events WHERE meeting_id = ?');
+    try {
+      run('DELETE FROM todo_assignees WHERE todo_id IN (SELECT id FROM todos WHERE meeting_id = ?)');
+      run('DELETE FROM todos WHERE meeting_id = ?');
+      // 다른 회의의 할 일이 이 회의 recap을 출처로 물고 있을 수 있음 — 끊기만 한다
+      run('UPDATE todos SET recap_id = NULL WHERE recap_id IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)');
+    } catch {
+      /* todos에 meeting_id/recap_id 컬럼이 없으면 무시 */
+    }
+    // ── recap을 참조하는 것들 (recap보다 먼저) ──
+    const byRecap = (t: string, col = 'recap_id') =>
+      run(`DELETE FROM ${t} WHERE ${col} IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)`);
+    byRecap('decision_acks');
+    byRecap('decision_remind_sent');
+    byRecap('decision_ack_autoremind');
+    byRecap('decision_revisions');
+    // 다른 회의 안건이 이 회의 recap으로 깨어난 이력(recap_id)도 함께
+    db.prepare('DELETE FROM agenda_events WHERE meeting_id = ? OR recap_id IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)').run(meetingId, meetingId);
+    run('DELETE FROM agenda_items WHERE meeting_id = ?');
+    try {
+      run('UPDATE file_rev_snapshots SET basis_recap_id = NULL WHERE basis_recap_id IN (SELECT id FROM meeting_recaps WHERE meeting_id = ?)');
+    } catch {
+      /* 컬럼 없는 구 DB */
+    }
+    run('DELETE FROM meeting_recaps WHERE meeting_id = ?');
+    // ── 회의 직속 ──
+    run('DELETE FROM handover_acks WHERE handover_id IN (SELECT id FROM handovers WHERE meeting_id = ?)');
+    run('DELETE FROM handovers WHERE meeting_id = ?');
+    run('DELETE FROM handover_checklist WHERE meeting_id = ?');
+    run('DELETE FROM rag_chunks WHERE meeting_id = ?');
+    run('DELETE FROM meeting_glossary WHERE meeting_id = ?');
+    run('DELETE FROM chat_reads WHERE meeting_id = ?');
+    // 채널 알림 설정이 채널을 FK로 물고 있음 — 채널보다 먼저
+    run('DELETE FROM channel_notify_prefs WHERE channel_id IN (SELECT id FROM chat_channels WHERE meeting_id = ?)');
+    run('DELETE FROM chat_channels WHERE meeting_id = ?');
+    run('DELETE FROM call_transcripts WHERE meeting_id = ?');
+    run('DELETE FROM file_activity WHERE meeting_id = ?');
+    deleteMeetingFiles(meetingId, upper);
+    run('DELETE FROM meetings WHERE id = ?');
+  });
+  wipe(meeting.id);
   for (const uid of participantIds) emitToUser(uid, 'meeting:deleted', { code: upper });
   res.json({ ok: true });
 });
