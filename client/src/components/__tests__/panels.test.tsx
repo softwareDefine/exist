@@ -223,7 +223,7 @@ describe('NotificationCenter', () => {
     const ev = captureEvents('exist:open-meeting');
     render(<NotificationCenter />);
     await waitFor(() => expect(m.calls('GET', '/api/notifications')).toHaveLength(1));
-    expect(document.querySelector('.notif-bell')?.textContent).toContain('2');
+    await waitFor(() => expect(document.querySelector('.notif-bell')?.textContent).toContain('2')); // 응답 반영(setState)까지 대기 — CI에서 fetch 직후 동기 단언이 빗나감
     fireEvent.click(screen.getByTitle('알림'));
     expect(await screen.findByText('통화가 시작됐어요')).toBeInTheDocument();
     await waitFor(() => expect(m.calls('POST', '/api/notifications/read')).toHaveLength(1));

@@ -1170,7 +1170,8 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
   if (t && tEnd && !endDate && tEnd <= t) {
     return res.status(400).json({ error: '종료 시간이 시작보다 빨라요' });
   }
-  const isCall = is_call ? 1 : 0;
+  // 통화 일정은 시각이 있어야 한다 — PATCH와 동일 규칙 (시각 없는 통화는 리마인더·인사이트 통화 집계에서 의미 없음)
+  const isCall = is_call && t ? 1 : 0;
   const cleanTitle = String(title).trim().slice(0, 80);
   const ppl = cleanPeople(meeting.id, people);
   const memoVal = cleanMemo(memo);
