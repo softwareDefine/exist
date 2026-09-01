@@ -1,0 +1,61 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing for the exist server. Run: npm run test:mutation (incremental; add -- --force to redo everything). Reports land in reports/mutation/.",
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.stryker.config.ts",
+    "related": true
+  },
+  "mutate": [
+    "src/**/*.ts",
+    "!src/__tests__/**",
+    "!src/**/*.test.ts",
+    "!src/index.ts",
+    "!src/db.ts"
+  ],
+  "coverageAnalysis": "perTest",
+  "concurrency": 4,
+  "timeoutMS": 15000,
+  "timeoutFactor": 2,
+  "dryRunTimeoutMinutes": 20,
+  "disableTypeChecks": true,
+  "incremental": true,
+  "incrementalFile": "reports/mutation/stryker-incremental.json",
+  "reporters": [
+    "html",
+    "clear-text",
+    "progress",
+    "json"
+  ],
+  "htmlReporter": {
+    "fileName": "reports/mutation/mutation.html"
+  },
+  "jsonReporter": {
+    "fileName": "reports/mutation/mutation.json"
+  },
+  "clearTextReporter": {
+    "allowColor": false,
+    "reportTests": false,
+    "reportMutants": false,
+    "reportScoreTable": true
+  },
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": true,
+  "ignorePatterns": [
+    "dist",
+    "stt-chunks",
+    "reports",
+    "uploads",
+    "uploads-files",
+    "rooms",
+    "ydocs",
+    "*.sqlite",
+    "*.sqlite-shm",
+    "*.sqlite-wal",
+    "*.db",
+    "*.log"
+  ],
+  "logLevel": "info",
+  "fileLogLevel": "info",
+  "ignoreStatic": true
+}

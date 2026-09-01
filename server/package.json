@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage --coverage.provider=v8 --coverage.reporter=text-summary --coverage.reporter=text --coverage.include='src/**/*.ts' --coverage.exclude='src/__tests__/**'",
-    "test:density": "node scripts/test-density.mjs"
+    "test:density": "node scripts/test-density.mjs",
+    "test:mutation": "stryker run"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.102.0",
@@ -29,6 +30,8 @@
     "yjs": "^13.6.31"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

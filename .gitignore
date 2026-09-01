@@ -20,3 +20,11 @@ docs/outreach-hkinnoen.md
 
 server/uploads-files/
 server/*.db
+
+# Stryker mutation-testing sandbox/log
+server/.stryker-tmp/
+server/stryker.log
+
+# Stryker 리포트(35MB) — SUMMARY.md만 커밋
+server/reports/mutation/*
+!server/reports/mutation/SUMMARY.md
