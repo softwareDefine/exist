@@ -22925,3 +22925,102 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   color: var(--text-sub);
   white-space: nowrap;
 }
+
+/* ── 채팅 이미지: 클릭=확대, ⬇=다운로드 (9/1) ── */
+.chat-file-image {
+  position: relative;
+  display: inline-block;
+}
+.chat-file-image .chat-file-img {
+  cursor: zoom-in;
+}
+.chat-img-dl {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 24, 39, 0.72);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.15s;
+  text-decoration: none;
+}
+.chat-file-image:hover .chat-img-dl,
+.chat-img-dl:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .chat-img-dl {
+    opacity: 1; /* 터치 기기는 hover가 없으니 항상 */
+  }
+}
+
+.img-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  padding: max(56px, env(safe-area-inset-top) + 48px) 12px max(12px, env(safe-area-inset-bottom));
+}
+.img-viewer-img {
+  max-width: min(96vw, 1400px);
+  max-height: calc(100dvh - 80px);
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: default;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.img-viewer-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  color: #fff;
+  cursor: default;
+}
+.img-viewer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  opacity: 0.9;
+}
+.img-viewer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.img-viewer-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.img-viewer-close {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
+}

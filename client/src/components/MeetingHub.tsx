@@ -273,6 +273,16 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
   useEffect(() => () => clearCall(code), [code]);
   // 참가자 명함에서 연 1:1 DM 창 (홈의 통합 메시지는 회의 탭에서 언마운트라 여기서 직접 띄움)
   const [dm, setDm] = useState<{ scope: DmScope; peer: Thread } | null>(null);
+  // 채팅 이미지 확대 보기 — 클릭=확대(다운로드는 별도 ⬇ 버튼). Esc·배경 클릭으로 닫힘
+  const [imgView, setImgView] = useState<{ url: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!imgView) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setImgView(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [imgView]);
   const navigate = useNavigate();
 
   // 채팅 프로필 hover 카드 — 정보(조직도)·채팅(DM) 선택
@@ -2703,7 +2713,30 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                         <div className="chat-line">
                           {mine && <span className="chat-time">{chatTime(m.ts)}</span>}
                           <div className={`chat-bubble${m.file ? ' has-file' : ''}`}>
-                            {m.file ? (
+                            {m.file && m.file.url && /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(m.file.name) ? (
+                              /* 이미지 — 클릭하면 확대 보기, 다운로드는 우하단 ⬇ (앵커 중첩 없이) */
+                              <span className="chat-file chat-file-image">
+                                <img
+                                  className="chat-file-img"
+                                  src={chatFileHref(m.file.url)}
+                                  alt={m.file.name}
+                                  loading="lazy"
+                                  onClick={() => setImgView({ url: chatFileHref(m.file!.url!), name: m.file!.name })}
+                                />
+                                <a
+                                  className="chat-img-dl"
+                                  href={chatFileHref(m.file.url)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  download={m.file.name}
+                                  title="다운로드"
+                                  aria-label="이미지 다운로드"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <DownloadIcon size={13} />
+                                </a>
+                              </span>
+                            ) : m.file ? (
                               <a
                                 className="chat-file"
                                 href={m.file.url ? chatFileHref(m.file.url) : '#'}
@@ -2722,9 +2755,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                   }
                                 }}
                               >
-                                {m.file.url && /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(m.file.name) ? (
-                                  <img className="chat-file-img" src={chatFileHref(m.file.url)} alt={m.file.name} />
-                                ) : (
+                                {(
                                   <span className="chat-file-card">
                                     <span className="chat-file-ic">
                                       {m.file.folder ? (
@@ -2919,6 +2950,26 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
           </div>
         </div>
       )}
+
+      {/* 채팅 이미지 확대 보기 — body 포털, 배경 클릭·Esc로 닫힘 */}
+      {imgView &&
+        createPortal(
+          <div className="img-viewer" role="dialog" aria-label="이미지 보기" onClick={() => setImgView(null)}>
+            <div className="img-viewer-bar" onClick={(e) => e.stopPropagation()}>
+              <span className="img-viewer-name" title={imgView.name}>
+                {imgView.name}
+              </span>
+              <a className="img-viewer-btn" href={imgView.url} target="_blank" rel="noreferrer" download={imgView.name}>
+                <DownloadIcon size={15} /> 다운로드
+              </a>
+              <button type="button" className="img-viewer-btn img-viewer-close" onClick={() => setImgView(null)} aria-label="닫기">
+                <CloseIcon size={15} />
+              </button>
+            </div>
+            <img className="img-viewer-img" src={imgView.url} alt={imgView.name} onClick={(e) => e.stopPropagation()} />
+          </div>,
+          document.body,
+        )}
 
       {/* 참가자 명함에서 연 1:1 DM — 우하단 플로팅 (홈과 같은 창) */}
       {dm && (
