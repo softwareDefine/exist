@@ -38,6 +38,7 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
       - run: npm ci
+      - run: npx playwright install --with-deps chromium # 브라우저 모드 테스트용
       - run: npm run build
       - run: npm test
 
