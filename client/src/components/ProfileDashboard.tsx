@@ -494,7 +494,7 @@ export default function ProfileDashboard() {
 
   // 발신자 카드 — 보낸 결정이 있을 때만 (행동 기반 노출)
   const sentCard = sent && sent.entries.length > 0 && (
-    <div style={cellCard} className="pd-sent">
+    <div style={section} className="pd-sent">
       <div style={sectionHead}>
         <span style={headIcon}><ChartIcon size={16} /></span> 보낸 결정 도달 현황
         {sent.entries.some((e) => e.acked < e.total) && (
@@ -551,7 +551,7 @@ export default function ProfileDashboard() {
   );
 
   const inboxCard = (
-    <div style={cellCard} className="pd-inbox">
+    <div style={section} className="pd-inbox">
       <div style={sectionHead}>
         <span style={headIcon}><CheckIcon size={16} /></span> 지금 처리할 것
         {inboxTotal > 0 && <span className="pd-ack-count">{inboxTotal}</span>}
@@ -728,7 +728,7 @@ export default function ProfileDashboard() {
     const myTier = orgInfo?.myTier ?? null;
     // 우리 조 확인 현황 — 마디의 존재 이유(막힌 전달 뚫기)를 카드 하나로
     const teamAcksCard = teamAcks && teamAcks.items.length > 0 && (
-      <div style={cellCard} className="pd-sent pd-teamacks">
+      <div style={section} className="pd-sent pd-teamacks">
         <div style={sectionHead}>
           <span style={headIcon}><UsersIcon size={16} /></span> 우리 조 확인 현황
           <span className="pd-ack-count">{teamAcks.items.length}</span>
