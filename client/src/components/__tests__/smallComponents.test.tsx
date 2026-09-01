@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { useNameStore } from '../../names';
 import Avatar from '../Avatar';
 import MeetingThumb from '../MeetingThumb';
@@ -171,12 +170,19 @@ describe('MentionInput', () => {
     { username: 'kim', avatar: null, sub: '대리 · 생산' },
     { username: 'lee', avatar: null },
   ];
-  /** pick()은 requestAnimationFrame 뒤에 캐럿을 멘션 뒤로 옮긴다 — 그 전에 타이핑하면 캐럿 위치가 환경마다
-   *  달라 "@lee A@"처럼 꼬인다(CI 실패, 로컬은 통과). 캐럿이 정착한 뒤 끝 위치를 명시하고 입력 */
-  async function caretSettled(input: HTMLInputElement) {
-    await waitFor(() => expect(input.selectionStart).toBe(input.value.length));
-    return { initialSelectionStart: input.value.length, initialSelectionEnd: input.value.length };
+  // user-event는 React 리렌더와 캐럿 추적이 환경(CI Linux)에 따라 어긋나 "@lee A@"처럼 꼬였다.
+  // 값·캐럿을 직접 놓고 input/select 이벤트를 쏘면 어디서든 결정적이다.
+  const setNative = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  function typeAtEnd(input: HTMLInputElement, text: string) {
+    const next = input.value + text;
+    setNative.call(input, next);
+    input.setSelectionRange(next.length, next.length);
+    fireEvent.input(input); // React onChange → syncToken
+    fireEvent.select(input); // onSelect → syncToken
   }
+  const key = (input: HTMLInputElement, k: string) => fireEvent.keyDown(input, { key: k });
+  /** pick()이 requestAnimationFrame 뒤에 캐럿을 옮긴다 — 다음 입력 전에 흘려보낸다 */
+  const flushRaf = () => act(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
 
   function Harness({ initial = '' }: { initial?: string }) {
     const [v, setV] = useState(initial);
@@ -188,38 +194,42 @@ describe('MentionInput', () => {
     render(<Harness />);
     const input = screen.getByPlaceholderText('입력') as HTMLInputElement;
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
-    await userEvent.type(input, '안녕 @김');
-    await waitFor(() => expect(screen.getByRole('listbox')).toBeInTheDocument());
+    typeAtEnd(input, '안녕 @김');
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /김대리/ })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByText('대리 · 생산')).toBeInTheDocument();
-    await userEvent.keyboard('{Enter}');
+    key(input, 'Enter');
     expect(input.value).toBe('안녕 @kim ');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    await flushRaf();
 
-    await userEvent.type(input, '@', await caretSettled(input));
+    typeAtEnd(input, '@');
     await waitFor(() => expect(screen.getAllByRole('option')).toHaveLength(3));
-    await userEvent.keyboard('{ArrowDown}');
+    key(input, 'ArrowDown');
     expect(screen.getAllByRole('option')[1]).toHaveAttribute('aria-selected', 'true');
-    await userEvent.keyboard('{ArrowUp}{ArrowUp}');
+    key(input, 'ArrowUp');
+    key(input, 'ArrowUp');
     expect(screen.getAllByRole('option')[2]).toHaveAttribute('aria-selected', 'true');
-    await userEvent.keyboard('{Escape}');
+    key(input, 'Escape');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 
   it('클릭(mousedown)으로 선택, Tab으로도 확정, blur로 닫힘', async () => {
     render(<Harness />);
     const input = screen.getByPlaceholderText('입력') as HTMLInputElement;
-    await userEvent.type(input, '@l');
+    typeAtEnd(input, '@l');
     const opt = await screen.findByRole('option', { name: /lee/ });
     fireEvent.mouseEnter(opt);
     fireEvent.mouseDown(opt);
     expect(input.value).toBe('@lee ');
-    await userEvent.type(input, '@A', await caretSettled(input));
-    await screen.findByRole('option', { name: /AI/ });
-    await userEvent.keyboard('{Tab}');
+    await flushRaf();
+    typeAtEnd(input, '@A');
+    expect(await screen.findByRole('option', { name: /AI/ })).toBeInTheDocument();
+    key(input, 'Tab');
     expect(input.value).toBe('@lee @AI ');
-    await userEvent.type(input, '@k', await caretSettled(input));
-    await screen.findByRole('listbox');
+    await flushRaf();
+    typeAtEnd(input, '@k');
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
     fireEvent.blur(input);
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
