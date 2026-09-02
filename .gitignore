@@ -32,3 +32,6 @@ server/reports/mutation/*
 coverage-e2e/
 e2e/.results/
 test-results/
+
+# SonarQube credentials (local only)
+server/reports/sonar/CREDENTIALS.md
