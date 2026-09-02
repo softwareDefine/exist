@@ -207,8 +207,8 @@ function evalCell(
     };
     // 남은 MIN(/MAX(/SUM(/COUNT( 스칼라 인자형 → MINF 등으로
     expr = expr.replace(/\bMIN\s*\(/gi, 'MINF(').replace(/\bMAX\s*\(/gi, 'MAXF(').replace(/\bSUM\s*\(/gi, 'SUMF(');
-    // eslint-disable-next-line no-new-func
-    const result = Function(...fns, `"use strict"; return (${expr});`)(...fns.map((f) => impl[f]));
+    void fns; // 함수 화이트리스트는 safeEval이 impl 키로 검사
+    const result = safeEval(expr, impl);
     if (result === '' || result == null) return '';
     if (typeof result === 'number') {
       if (!isFinite(result)) return '#오류';
@@ -219,6 +219,111 @@ function evalCell(
   } catch {
     return '#오류';
   }
+}
+
+
+/* ── 안전 수식 평가기 (9/2 보안 수정) ──
+ * 예전엔 전처리된 수식을 Function()으로 실행했다 — 공동편집 시트라 남이 넣은 수식이 내 브라우저에서
+ * 코드로 도는 저장형 XSS 벡터(Sonar S1523). Function 대신 토크나이저 + 재귀하강 파서로 교체:
+ * 숫자·"문자열"·연산자(+ - * / % ^ 비교)·괄호·화이트리스트 함수 호출만 허용, 그 외 토큰은 즉시 #오류.
+ * 의미는 기존과 동일(+는 문자열이면 결합, 비교는 느슨한 동등, ^는 거듭제곱). */
+type SVal = number | string | boolean | null | undefined;
+function safeEval(src: string, impl: Record<string, unknown>): SVal {
+  let i = 0;
+  const err = (): never => { throw new Error('formula'); };
+  const skip = () => { while (i < src.length && /\s/.test(src[i])) i++; };
+  const eat = (t: string) => { skip(); if (src.startsWith(t, i)) { i += t.length; return true; } return false; };
+
+  function primary(): SVal {
+    skip();
+    const ch = src[i];
+    if (ch === undefined) err();
+    if (ch === '(') { i++; const v = compare(); skip(); if (src[i] !== ')') err(); i++; return v; }
+    if (ch === '"') { // 전처리 규칙상 이스케이프 없는 "..." 리터럴
+      const end = src.indexOf('"', i + 1);
+      if (end === -1) err();
+      const v = src.slice(i + 1, end); i = end + 1; return v;
+    }
+    if (/[0-9.]/.test(ch)) {
+      const m = /^\d*\.?\d+(?:[eE][+-]?\d+)?/.exec(src.slice(i));
+      if (!m) err();
+      i += m![0].length; return parseFloat(m![0]);
+    }
+    if (/[A-Za-z_]/.test(ch)) {
+      const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i));
+      const name = m![0]; i += name.length;
+      if (name === 'true') return true;
+      if (name === 'false') return false;
+      skip();
+      if (src[i] !== '(') err(); // 함수 호출 외 식별자는 불허 (전역 접근 차단)
+      const fn = impl[name.toUpperCase()] ?? impl[name];
+      if (typeof fn !== 'function') err();
+      i++; // '('
+      const args: SVal[] = [];
+      skip();
+      if (src[i] === ')') { i++; }
+      else {
+        for (;;) {
+          args.push(compare());
+          skip();
+          if (src[i] === ',') { i++; continue; }
+          if (src[i] === ')') { i++; break; }
+          err();
+        }
+      }
+      return (fn as (...a: SVal[]) => SVal)(...args);
+    }
+    return err();
+  }
+  function unary(): SVal {
+    if (eat('-')) return -toNum(unary());
+    if (eat('+')) return toNum(unary());
+    if (eat('!')) return !unary();
+    let v = primary();
+    skip();
+    if (src[i] === '^') { i++; v = toNum(v) ** toNum(unary()); } // 엑셀식 거듭제곱 (XOR 아님)
+    return v;
+  }
+  const toNum = (v: SVal): number => (typeof v === 'number' ? v : v === '' || v == null ? 0 : typeof v === 'boolean' ? (v ? 1 : 0) : parseFloat(String(v)));
+  function mul(): SVal {
+    let v = unary();
+    for (;;) {
+      skip();
+      const ch = src[i];
+      if (ch === '*' && src[i + 1] !== '*') { i++; v = toNum(v) * toNum(unary()); }
+      else if (ch === '*' && src[i + 1] === '*') { i += 2; v = toNum(v) ** toNum(unary()); }
+      else if (ch === '/') { i++; v = toNum(v) / toNum(unary()); }
+      else if (ch === '%') { i++; v = toNum(v) % toNum(unary()); }
+      else return v;
+    }
+  }
+  function add(): SVal {
+    let v = mul();
+    for (;;) {
+      skip();
+      const ch = src[i];
+      if (ch === '+') { i++; const r = mul(); v = typeof v === 'string' || typeof r === 'string' ? String(v ?? '') + String(r ?? '') : toNum(v) + toNum(r); }
+      else if (ch === '-') { i++; v = toNum(v) - toNum(mul()); }
+      else return v;
+    }
+  }
+  function compare(): SVal {
+    let v = add();
+    for (;;) {
+      skip();
+      if (eat('==')) { const r = add(); v = v == r; } // eslint-disable-line eqeqeq -- 기존 Function 평가와 동일한 느슨한 비교
+      else if (eat('!=')) { const r = add(); v = v != r; } // eslint-disable-line eqeqeq
+      else if (eat('>=')) v = toNum(v) >= toNum(add());
+      else if (eat('<=')) v = toNum(v) <= toNum(add());
+      else if (eat('>')) v = toNum(v) > toNum(add());
+      else if (eat('<')) v = toNum(v) < toNum(add());
+      else return v;
+    }
+  }
+  const out = compare();
+  skip();
+  if (i < src.length) err(); // 못 삼킨 토큰 = 허용 밖 문법
+  return out;
 }
 
 const COLORS = ['#30a46c', '#e5484d', '#f76808', '#4f7cff', '#8e4ec6', '#0091ff', '#d6409f'];

@@ -33,7 +33,9 @@ const sttEnabled = !!openai || !!WHISPER_URL;
 function toWav16k(src: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const args = ['-loglevel', 'error', '-i', src, '-ac', '1', '-ar', '16000', '-f', 'wav', 'pipe:1'];
-    const p = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    // PATH 검색 대신 고정 경로(Sonar S4036) — 컨테이너는 /usr/bin/ffmpeg, 그 외 환경은 FFMPEG_PATH로 지정
+    const ffmpegBin = process.env.FFMPEG_PATH || (process.platform === 'linux' ? '/usr/bin/ffmpeg' : 'ffmpeg');
+    const p = spawn(ffmpegBin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     const out: Buffer[] = [];
     let err = '';
     p.stdout.on('data', (d: Buffer) => out.push(d));

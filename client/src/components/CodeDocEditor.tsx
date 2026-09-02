@@ -54,6 +54,9 @@ function loadPyodide(): Promise<unknown> {
   pyodidePromise = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js';
+    // CDN 변조 방어(Sonar S5725) — 버전을 올리면 해시도 같이 갱신할 것
+    s.integrity = 'sha384-i3R37b3tF+HWudsUf1VSEOY2YxwSNMqY8DQa9Z0O3xh+NkJ9o+yjcGyIi5huj+nB';
+    s.crossOrigin = 'anonymous';
     s.onload = async () => {
       try {
         const py = await (window as unknown as { loadPyodide: () => Promise<unknown> }).loadPyodide();
