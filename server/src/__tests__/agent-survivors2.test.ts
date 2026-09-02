@@ -248,13 +248,15 @@ describe('getCatchup — DM 스코프·창 경계', () => {
 });
 
 describe('getDailyBrief — 오늘 일정 필터', () => {
-  it('오늘 이미 시작한 회의는 오늘 일정 사실이 아니다', async () => {
+  // 9/3 결함 #10a: 홈 배지 "오늘 회의 N건"은 이미 시작한 오늘 일정도 세는데 브리핑만 "없다"고
+  // 말해 자기모순이었다 — 이제 시작이 지난 오늘 일정은 "이미 시작됐거나 끝났다"로 사실화한다
+  it('오늘 이미 시작한 회의는 "없다"가 아니라 "이미 시작됐거나 끝났다"로 말한다', async () => {
     const u = await register(app, 'av15');
     await createMeeting(app, u, '지나간오늘', { starts_at: localIso(new Date(Date.now() - 2 * 60_000)) });
     queueJson({ text: '오늘 브리핑' });
     const d = await getDailyBrief(u.id);
     expect(d).toEqual({ text: '오늘 브리핑', source: 'ai' });
-    expect(userPayload<{ facts: string[] }>(captured[0]).facts).toEqual(['오늘 예정된 일정은 없다']);
+    expect(userPayload<{ facts: string[] }>(captured[0]).facts).toEqual(['오늘 일정 1건은 이미 시작됐거나 끝났다']);
   }, 20_000);
 });
 

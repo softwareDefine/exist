@@ -273,12 +273,12 @@ describe('runDecisionReminders — 24시간 뒤 1회 조름', () => {
     insertRecap(m.id, ['너무 옛 결정'], { createdAt: ago(8 * 24 * 60) }); // 7일 초과
     insertRecap(m.id, [], { createdAt: ago(25 * 60) }); // 빈 결정
 
-    expect(runDecisionReminders()).toBe(2); // host + b
+    expect(runDecisionReminders()).toBe(1); // b 만 — 발신자(호스트)는 리마인드 대상 아님 (9/3 결함 #10b)
     const text = '"rs5 그룹"의 결정 2건이 아직 확인을 기다려요 — 결정 탭에서 서명해 주세요';
-    expect(notifications(host.id)).toEqual([{ from_name: 'exist AI', text, kind: 'recap', meeting_code: m.code }]);
-    expect(notifications(b.id).map((n) => n.text)).toEqual([text]);
+    expect(notifications(host.id)).toEqual([]);
+    expect(notifications(b.id)).toEqual([{ from_name: 'exist AI', text, kind: 'recap', meeting_code: m.code }]);
     expect(notifications(a.id)).toEqual([]);
-    expect((db.prepare('SELECT COUNT(*) AS n FROM decision_remind_sent WHERE recap_id = ?').get(recapId) as { n: number }).n).toBe(2);
+    expect((db.prepare('SELECT COUNT(*) AS n FROM decision_remind_sent WHERE recap_id = ?').get(recapId) as { n: number }).n).toBe(1);
     expect(runDecisionReminders()).toBe(0); // 1회만
     expect(notifications(b.id)).toHaveLength(1);
   }, 20_000);
@@ -304,9 +304,9 @@ describe('sweepDecisionAckAutoReminders — 자동 에스컬레이션', () => {
       const pendingText = "'D-하나' 외 1건이 확인 대기예요 (최장 1시간째) — 'rs6 그룹' 기록 탭에서 확인해 주세요";
       expect(notifications(b.id).map((n) => n.text)).toEqual([pendingText]);
       expect(notifications(b.id)[0]).toMatchObject({ from_name: 'exist AI', kind: 'recap', meeting_code: m.code });
+      // 발신자(호스트)는 미확인이어도 리마인드 대상이 아니다 — 현황 보고만 받는다 (9/3 결함 #10b)
       expect(notifications(host.id).map((n) => n.text)).toEqual([
-        pendingText,
-        "미확인 결정 2건에 자동 리마인드를 보냈어요 ('rs6 그룹') — 대상: rs6_b, rs6_host",
+        "미확인 결정 2건에 자동 리마인드를 보냈어요 ('rs6 그룹') — 대상: rs6_b",
       ]);
       expect(notifications(a.id)).toEqual([]);
       expect((db.prepare('SELECT COUNT(*) AS n FROM decision_ack_autoremind WHERE recap_id = ?').get(recapId) as { n: number }).n).toBe(2);
@@ -314,6 +314,7 @@ describe('sweepDecisionAckAutoReminders — 자동 에스컬레이션', () => {
       // 간격이 지나기 전 재실행은 침묵
       sweepDecisionAckAutoReminders();
       expect(notifications(b.id)).toHaveLength(1);
+      expect(notifications(host.id)).toHaveLength(1);
 
       // 일 단위 표기 + 대상 5명 초과 로스터 + 1건짜리 문구
       const big = await createMeeting(app, host, 'rs6 큰그룹');
@@ -328,9 +329,9 @@ describe('sweepDecisionAckAutoReminders — 자동 에스컬레이션', () => {
       const dayText = "'D-셋' 결정이 2일째 확인 대기예요 — 확인 부탁해요 ('rs6 큰그룹')";
       expect(notifications(members[0].id).map((n) => n.text)).toEqual([dayText]);
       const hostTexts = notifications(host.id).map((n) => n.text);
-      expect(hostTexts).toContain(dayText);
+      expect(hostTexts).not.toContain(dayText); // 발신자(호스트)는 조름 대상 아님
       expect(hostTexts).toContain(
-        "미확인 결정 1건에 자동 리마인드를 보냈어요 ('rs6 큰그룹') — 대상: rs6_host, rs6_m1, rs6_m2, rs6_m3, rs6_m4 외 2명",
+        "미확인 결정 1건에 자동 리마인드를 보냈어요 ('rs6 큰그룹') — 대상: rs6_m1, rs6_m2, rs6_m3, rs6_m4, rs6_m5 외 1명",
       );
     } finally {
       delete process.env.ACK_AUTOREMIND_HOURS;

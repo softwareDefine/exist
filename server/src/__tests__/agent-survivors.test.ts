@@ -330,11 +330,13 @@ describe('/sent — 정렬 세부', () => {
     for (const x of [host, m1, m2]) ackDecision(newRecap, 2, x.id); // W 3/3 — critical 이어도 완료는 뒤
     const r = await get(host, '/sent');
     expect(r.body.totalSent).toBe(9);
+    // 발신자(host)는 분모에서 제외 (9/3 결함 #10b) — 대상은 m1·m2 둘. 'Z 다수'는 2/2 완료가 되어
+    // 최후순 그룹으로 밀리고, 완료끼리는 critical('W 완료')이 앞이라 8건 절단엔 W 가 들어온다
     expect(r.body.entries.map((e: { decision: string }) => e.decision)).toEqual([
-      'V1', 'V2', 'V3', 'V4', 'V5', // 0/3 — 같은 비율·시각은 결정 순서 유지
-      'Y 절반', // 1/3, 최신
-      'X 절반', // 1/3, 오래됨
-      'Z 다수', // 2/3 — 'W 완료'는 8건 절단 밖 + 완료라 최후순
+      'V1', 'V2', 'V3', 'V4', 'V5', // 0/2 — 같은 비율·시각은 결정 순서 유지
+      'Y 절반', // 1/2, 최신
+      'X 절반', // 1/2, 오래됨
+      'W 완료', // 완료는 뒤 — 'Z 다수'(비 critical 완료)는 절단 밖
     ]);
   }, 20_000);
 });

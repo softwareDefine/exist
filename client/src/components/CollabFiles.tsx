@@ -1060,14 +1060,14 @@ export default function CollabFiles({
     return (
       <span className="cf-presence">
         {shown.map((p) => (
-          <Avatar key={p.username} value={p.avatar} className="cf-presence-avatar" />
+          <Avatar key={p.username} value={p.avatar} name={p.username} className="cf-presence-avatar" />
         ))}
         {people.length > 4 && <span className="cf-presence-more">+{people.length - 4}</span>}
         {/* hover 시 전체 접속자 프로필 리스트 (할 일 담당자 팝업과 동일 톤) — 이름 우선 표기 */}
         <span className="hub-assign-tip cf-presence-tip" aria-hidden>
           {people.map((p) => (
             <span key={p.username} className="hub-assign-tip-row">
-              <Avatar value={p.avatar} className="hub-assign-avatar" />
+              <Avatar value={p.avatar} name={p.username} className="hub-assign-avatar" />
               <span>{dn(p.username)}</span>
             </span>
           ))}
@@ -4813,7 +4813,7 @@ export default function CollabFiles({
                     <div className="cf-ack-pending">
                       {ackStatus.pending.map((p) => (
                         <span key={p.username} className="cf-ack-pend">
-                          <Avatar value={p.avatar} className="cf-ack-pend-avatar" />
+                          <Avatar value={p.avatar} name={p.username} className="cf-ack-pend-avatar" />
                           <span>{dn(p.username)}</span>
                         </span>
                       ))}
@@ -5777,7 +5777,7 @@ export default function CollabFiles({
                       className={shareSelPpl.has(m.id) ? 'cf-dist-on' : undefined}
                       onClick={() => setShareSelPpl((s) => toggleIn(s, m.id))}
                     >
-                      <Avatar value={m.avatar} className="cf-dm-avatar" /> {dn(m.username)}
+                      <Avatar value={m.avatar} name={m.username} className="cf-dm-avatar" /> {dn(m.username)}
                       {shareSelPpl.has(m.id) && <CheckMarkIcon size={12} />}
                     </button>
                   ))}

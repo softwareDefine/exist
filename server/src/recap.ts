@@ -1208,7 +1208,7 @@ export function runDecisionReminders(): number {
   const fmt = (t: number) => new Date(t).toISOString().replace('T', ' ').slice(0, 19);
   const rows = db
     .prepare(
-      `SELECT r.id, r.meeting_id, r.decisions, m.title, m.code FROM meeting_recaps r
+      `SELECT r.id, r.meeting_id, r.decisions, m.title, m.code, m.host_id FROM meeting_recaps r
        JOIN meetings m ON m.id = r.meeting_id
        WHERE r.created_at <= ? AND r.created_at >= ? AND r.decisions != '[]'`,
     )
@@ -1218,6 +1218,7 @@ export function runDecisionReminders(): number {
     decisions: string;
     title: string;
     code: string;
+    host_id: number;
   }[];
   const agentId = ensureAgentUser();
   let sent = 0;
@@ -1235,7 +1236,8 @@ export function runDecisionReminders(): number {
       ).map((a) => a.user_id),
     );
     for (const p of participants) {
-      if (p.user_id === agentId || acked.has(p.user_id)) continue;
+      // 발신자(호스트)는 자기 결정의 리마인드 대상이 아니다 (9/3 결함 #10b)
+      if (p.user_id === agentId || p.user_id === r.host_id || acked.has(p.user_id)) continue;
       const dup = db
         .prepare('SELECT 1 FROM decision_remind_sent WHERE recap_id = ? AND user_id = ?')
         .get(r.id, p.user_id);
@@ -1379,9 +1381,10 @@ export function sweepDecisionAckAutoReminders(): void {
         db
           .prepare(
             `SELECT u.id, u.username FROM meeting_participants mp JOIN users u ON u.id = mp.user_id
-             WHERE mp.meeting_id = ? AND mp.user_id != ? ORDER BY u.username`,
+             WHERE mp.meeting_id = ? AND mp.user_id != ? AND mp.user_id != ? ORDER BY u.username`,
           )
-          .all(r.meeting_id, agentId) as { id: number; username: string }[],
+          // 발신자(호스트)는 자기 결정의 자동 리마인드 대상이 아니다 — 호스트에겐 아래 현황 보고만 (9/3 결함 #10b)
+          .all(r.meeting_id, agentId, r.host_id) as { id: number; username: string }[],
       );
     }
     const parts = partsCache.get(r.meeting_id)!;

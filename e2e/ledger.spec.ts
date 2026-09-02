@@ -75,7 +75,9 @@ test('decision lifecycle: ack, signature, 정정, 철회, history, live home car
 
   await test.step('정정 requires a reason; then revision chip + history', async () => {
     const row = ledger.filter({ hasText: D_PLAIN });
-    await row.getByRole('button', { name: '정정', exact: true }).click();
+    // 정정·철회는 ⋯(더보기) 메뉴 뒤로 격리됨 (9/3 결함 #4)
+    await row.getByRole('button', { name: '더보기' }).click();
+    await row.getByRole('menuitem', { name: '정정' }).click();
     const modal = A.page.locator('.cf-signmodal', { hasText: '결정 정정' });
     await expect(modal).toBeVisible();
     await modal.locator('textarea').fill('주간 정기 회의를 화요일 10시 30분으로 옮긴다');
@@ -97,7 +99,8 @@ test('decision lifecycle: ack, signature, 정정, 철회, history, live home car
 
   await test.step('철회 keeps the row with reason, stops asking for acks', async () => {
     const row = ledger.filter({ hasText: D_WD });
-    await row.getByRole('button', { name: '철회', exact: true }).click();
+    await row.getByRole('button', { name: '더보기' }).click();
+    await row.getByRole('menuitem', { name: '철회' }).click();
     const modal = A.page.locator('.cf-signmodal', { hasText: '결정 철회' });
     await modal.getByRole('button', { name: '철회하기' }).click();
     await expect(A.page.getByText('철회 사유를 적어주세요')).toBeVisible();

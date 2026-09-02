@@ -6,6 +6,8 @@ import { requireAuth, type AuthedRequest } from './auth.js';
 import { getRoomSize } from './sfu.js';
 import { isOrgMember } from './perm.js';
 import { listDecisions } from './recap.js';
+// 순환 import(meetings→agent invalidateBrief)지만 함수 선언이라 호이스팅으로 안전 — 런타임에만 호출
+import { getUserSchedule } from './meetings.js';
 
 /*
  * exist AI agent — 사용자의 일정·투두 상태(목표 vs 현재)를 분석해
@@ -565,20 +567,36 @@ const DAILY_CACHE_MS = 5 * 60 * 1000;
 
 /** 브리핑 재료 — 서버가 데이터에서 직접 만든 사실 문장만.
  *  AI는 이 문장들을 다듬기만 하고 새 사실(특히 시각·수치)을 만들 수 없다 (환각 방어). */
-function buildDailyFacts(ctx: UserContext, catchup: Catchup, pendingFileAcks: number): string[] {
+/** 오늘(로컬 자정~자정) 시작하는 일정 occurrence — 홈 히어로 배지 "오늘 회의 N건"(/api/meetings/schedule의
+ *  클라 집계)과 같은 기준. ctx.meetings의 원본 starts_at만 보면 반복 회의의 오늘 occurrence와
+ *  일정 이벤트가 빠져 배지("1건")와 브리핑 문장("없어요")이 서로 반박했다 (9/3 결함 #10a) */
+function todayScheduleOf(userId: number, scope: AgentScope, now: Date): { title: string; starts_at: string }[] {
+  const t0 = new Date(now);
+  t0.setHours(0, 0, 0, 0);
+  const t1 = t0.getTime() + 864e5;
+  return getUserSchedule(userId, scope)
+    .filter((s) => {
+      const t = new Date(s.starts_at).getTime();
+      return t >= t0.getTime() && t < t1;
+    })
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+}
+
+function buildDailyFacts(
+  ctx: UserContext,
+  catchup: Catchup,
+  pendingFileAcks: number,
+  todaySchedule: { title: string; starts_at: string }[],
+): string[] {
   const facts: string[] = [];
-  const today = ctx.meetings
-    .filter(
-      (m) =>
-        m.starts_at &&
-        new Date(m.starts_at) > ctx.now &&
-        new Date(m.starts_at).toDateString() === ctx.now.toDateString(),
-    )
-    .sort((a, b) => new Date(a.starts_at!).getTime() - new Date(b.starts_at!).getTime());
-  if (today[0]) {
-    const d = new Date(today[0].starts_at!);
+  const upcoming = todaySchedule.filter((s) => new Date(s.starts_at) > ctx.now);
+  if (upcoming[0]) {
+    const d = new Date(upcoming[0].starts_at);
     const ampm = d.getHours() < 12 ? '오전' : '오후';
-    facts.push(`오늘 ${ampm} ${d.getHours() % 12 || 12}시 "${today[0].title}" 일정이 있다`);
+    facts.push(`오늘 ${ampm} ${d.getHours() % 12 || 12}시 "${upcoming[0].title}" 일정이 있다`);
+  } else if (todaySchedule.length > 0) {
+    // 오늘 일정이 있었지만 시작 시각이 전부 지났다 — "없다"라고 말하면 배지 카운트와 모순
+    facts.push(`오늘 일정 ${todaySchedule.length}건은 이미 시작됐거나 끝났다`);
   } else {
     facts.push('오늘 예정된 일정은 없다');
   }
@@ -602,8 +620,13 @@ function buildDailyFacts(ctx: UserContext, catchup: Catchup, pendingFileAcks: nu
   return facts;
 }
 
-function ruleBasedDaily(ctx: UserContext, catchup: Catchup, pendingFileAcks: number): string {
-  const facts = buildDailyFacts(ctx, catchup, pendingFileAcks);
+function ruleBasedDaily(
+  ctx: UserContext,
+  catchup: Catchup,
+  pendingFileAcks: number,
+  todaySchedule: { title: string; starts_at: string }[],
+): string {
+  const facts = buildDailyFacts(ctx, catchup, pendingFileAcks, todaySchedule);
   const meaningful = facts.filter((f) => f !== '오늘 예정된 일정은 없다');
   if (meaningful.length === 0) return '오늘은 예정된 일정이 없어요. 밀린 일을 정리하기 좋은 날이에요.';
   return facts.map((f) => f + '요.').join(' ').replace(/다요\./g, '어요.').slice(0, 300);
@@ -618,13 +641,14 @@ export async function getDailyBrief(userId: number, scope?: AgentScope): Promise
   const ctx = getUserContext(userId, scope);
   const catchup = await getCatchup(userId, scope);
   const fileAckTotal = getPendingFileAcks(userId, scope).total;
+  const todaySched = todayScheduleOf(userId, scope, ctx.now);
 
   let result: DailyBrief;
   if (openai) {
     try {
       // 자유 작문 금지 — 서버가 만든 사실 문장만 주고 "다듬기"만 시킨다.
       // (원본 데이터를 주면 모델이 없는 시각·일정을 지어내는 사고가 실제로 났음)
-      const facts = buildDailyFacts(ctx, catchup, fileAckTotal);
+      const facts = buildDailyFacts(ctx, catchup, fileAckTotal, todaySched);
       const response = await openai.chat.completions.create({
         model: OPENAI_MODEL,
         ...samplingFor(OPENAI_MODEL, 0.3, 300),
@@ -654,10 +678,10 @@ export async function getDailyBrief(userId: number, scope?: AgentScope): Promise
       result = { text: text.slice(0, 300), source: 'ai' };
     } catch (err) {
       console.error('[agent] 오늘 브리핑 AI 실패, 규칙 폴백:', err);
-      result = { text: ruleBasedDaily(ctx, catchup, fileAckTotal), source: 'rule' };
+      result = { text: ruleBasedDaily(ctx, catchup, fileAckTotal, todaySched), source: 'rule' };
     }
   } else {
-    result = { text: ruleBasedDaily(ctx, catchup, fileAckTotal), source: 'rule' };
+    result = { text: ruleBasedDaily(ctx, catchup, fileAckTotal, todaySched), source: 'rule' };
   }
   dailyCache.set(key, { ...result, at: Date.now() });
   return result;
@@ -865,9 +889,12 @@ router.get('/sent', (req: AuthedRequest, res) => {
     } catch {
       continue;
     }
+    // 발신자(조회자 본인)는 도달 현황의 분모·미확인 목록에서 제외 — 내가 보낸 결정의
+    // "미확인: 나" 자기모순 방지. 수동 리마인드(meetings.ts decisions/remind)의 발송 경계와 동일 (9/3 결함 #10b)
+    const others = parts.filter((p) => p.id !== uid);
     for (let i = 0; i < ds.length; i++) {
       const ackedIds = new Set(acks.filter((a) => a.decision_idx === i).map((a) => a.user_id));
-      const missing = parts.filter((p) => !ackedIds.has(p.id)).map((p) => p.username);
+      const missing = others.filter((p) => !ackedIds.has(p.id)).map((p) => p.username);
       entries.push({
         recapId: r.recapId,
         idx: i,
@@ -875,8 +902,8 @@ router.get('/sent', (req: AuthedRequest, res) => {
         code: r.code,
         title: r.title,
         ts: new Date(r.created_at + 'Z').getTime(),
-        acked: parts.length - missing.length,
-        total: parts.length,
+        acked: others.length - missing.length,
+        total: others.length,
         missing,
         critical: crit[i] === true,
       });

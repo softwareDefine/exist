@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import Avatar from './Avatar';
 import { displayNameOf } from '../names'; // 미확인자 목록도 아이디 대신 표시명 (9/1 클라 테스트에서 발견)
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
@@ -341,11 +342,6 @@ export default function ProfileDashboard() {
       new Date(s.starts_at).getTime() >= nowMs &&
       new Date(s.starts_at).getTime() <= nowMs + 7 * 864e5,
   ).length;
-  const avatarVal = ov?.avatar ?? user?.avatar ?? '🐧';
-  const avatarIsImg =
-    avatarVal.startsWith('/api') ||
-    avatarVal.startsWith('http') ||
-    avatarVal.startsWith('/uploads');
   const nextStr = ov?.nextMeeting?.startsAt
     ? new Date(ov.nextMeeting.startsAt).toLocaleString('ko-KR', {
         month: 'numeric',
@@ -397,6 +393,8 @@ export default function ProfileDashboard() {
   );
 
   // ── 7/29 개편 공용 조각 — "전달보다 확인": 히어로 카운트 + 지금 처리할 것 인박스 + 오늘 일정 ──
+  // "오늘 회의 N건" 배지 기준 = 오늘(자정~자정) 시작하는 /api/meetings/schedule occurrence.
+  // 서버 오늘 브리핑(agent.ts todayScheduleOf)도 같은 창을 본다 — 배지·문장 자기모순 방지 (9/3 결함 #10a)
   const today0 = new Date();
   today0.setHours(0, 0, 0, 0);
   const todayEvents = schedule
@@ -916,15 +914,7 @@ export default function ProfileDashboard() {
           onClick={() => window.dispatchEvent(new Event('exist:open-settings'))}
           title="프로필 수정"
         >
-          {avatarIsImg ? (
-            <img
-              src={avatarVal}
-              alt=""
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : (
-            avatarVal
-          )}
+          <Avatar value={ov?.avatar ?? user?.avatar} name={user?.username} />
           <span className="pd-hero-edit-badge" aria-hidden>
             <PenIcon size={11} />
           </span>

@@ -121,7 +121,7 @@ export default function MentionInput({
               }}
               onMouseEnter={() => setSel(i)}
             >
-              <Avatar value={c.avatar} className="mention-avatar" />
+              <Avatar value={c.avatar} name={c.username} className="mention-avatar" />
               <span className="mention-name">{dn(c.username)}</span>
               {c.sub && <span className="mention-sub">{c.sub}</span>}
             </button>

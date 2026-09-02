@@ -111,6 +111,7 @@ function VideoTile({
   track,
   username,
   avatar,
+  account,
   isLocal,
   isScreen,
   paused,
@@ -123,6 +124,7 @@ function VideoTile({
   username: string;
   /** 프로필 아바타 (이모지/사진) — 카메라 꺼짐 자리에 표시 */
   avatar?: string | null;
+  account?: string | null;
   isLocal?: boolean;
   isScreen?: boolean;
   paused?: boolean;
@@ -219,7 +221,7 @@ function VideoTile({
       ) : (
         <div className="video-placeholder">
           {/* 프로필 아바타만 — "카메라 꺼짐" 텍스트는 이름표 아이콘과 중복이라 뺌 (3사 관례) */}
-          <Avatar value={avatar} className="video-avatar" />
+          <Avatar value={avatar} name={account} className="video-avatar" />
         </div>
       )}
       <span className="video-name">
@@ -1872,7 +1874,7 @@ registerProcessor('exist-pcm',P)`;
               {/* 겹친 아바타 스택 + hover 전체 프로필 리스트 (공동편집 접속자와 동일 톤, 이름 우선) */}
               <span className="cf-presence">
                 {onlinePeers.slice(0, 4).map((name) => (
-                  <Avatar
+                  <Avatar name={name}
                     key={name}
                     value={peerAvatars?.[name] ?? null}
                     className="cf-presence-avatar"
@@ -1884,7 +1886,7 @@ registerProcessor('exist-pcm',P)`;
                 <span className="hub-assign-tip cf-presence-tip" aria-hidden>
                   {onlinePeers.map((name) => (
                     <span key={name} className="hub-assign-tip-row">
-                      <Avatar value={peerAvatars?.[name] ?? null} className="hub-assign-avatar" />
+                      <Avatar value={peerAvatars?.[name] ?? null} name={name} className="hub-assign-avatar" />
                       <span>{dn(name)}</span>
                     </span>
                   ))}
@@ -2043,7 +2045,7 @@ registerProcessor('exist-pcm',P)`;
                     )}
                     <div className="ppl-list">
                       <div className="ppl-row">
-                        <Avatar
+                        <Avatar name={user?.username}
                           value={peerAvatars?.[user?.username ?? ''] ?? user?.avatar ?? null}
                           className="hub-assign-avatar"
                         />
@@ -2074,7 +2076,7 @@ registerProcessor('exist-pcm',P)`;
                         })
                         .map((p) => (
                           <div key={p.peerId} className="ppl-row">
-                            <Avatar
+                            <Avatar name={p.username}
                               value={peerAvatars?.[p.username] ?? null}
                               className="hub-assign-avatar"
                             />
@@ -2400,6 +2402,7 @@ registerProcessor('exist-pcm',P)`;
                   track={s.track}
                   username={dn(s.username)}
                   avatar={peerAvatars?.[s.username]}
+                  account={s.username}
                   isLocal={s.isLocal}
                   isScreen
                 />
@@ -2420,6 +2423,7 @@ registerProcessor('exist-pcm',P)`;
                       track={localTrack}
                       username={dn(me)}
                       avatar={peerAvatars?.[me] ?? user?.avatar ?? null}
+                      account={me}
                       isLocal
                       paused={!camOn}
                       micMuted={!micOn}
@@ -2434,6 +2438,7 @@ registerProcessor('exist-pcm',P)`;
                       track={pp!.videoTrack}
                       username={dn(pp!.username)}
                       avatar={peerAvatars ? (peerAvatars[pp!.username] ?? null) : null}
+                      account={pp!.username}
                       paused={pp!.videoPaused}
                       micMuted={pp!.audioMuted}
                       speaking={!!speaking[pp!.username]}
@@ -2485,6 +2490,7 @@ registerProcessor('exist-pcm',P)`;
                 track={localTrack}
                 username={dn(user?.username ?? '나')}
                 avatar={peerAvatars?.[user?.username ?? ''] ?? user?.avatar ?? null}
+                account={user?.username}
                 isLocal
                 paused={!camOn}
                 micMuted={!micOn}
@@ -2507,6 +2513,7 @@ registerProcessor('exist-pcm',P)`;
                   track={p.videoTrack}
                   username={dn(p.username)}
                   avatar={peerAvatars ? (peerAvatars[p.username] ?? null) : null}
+                  account={p.username}
                   paused={p.videoPaused}
                   micMuted={p.audioMuted}
                   speaking={!!speaking[p.username]}

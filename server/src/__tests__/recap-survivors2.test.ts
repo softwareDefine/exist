@@ -53,9 +53,9 @@ describe('runDecisionReminders — 발송 로그', () => {
       await joinMeeting(app, a, m.code);
       insertRecap(m.id, ['확인할 결정'], { createdAt: ago(25 * 60) });
 
-      expect(runDecisionReminders()).toBe(2); // host + a
+      expect(runDecisionReminders()).toBe(1); // a 만 — 발신자(호스트)는 리마인드 대상 아님 (9/3 결함 #10b)
       const calls = log.mock.calls.filter((c) => String(c[0]).includes('미확인 리마인드'));
-      expect(calls).toEqual([['[recap] 미확인 리마인드 2건 발송']]);
+      expect(calls).toEqual([['[recap] 미확인 리마인드 1건 발송']]);
 
       log.mockClear();
       expect(runDecisionReminders()).toBe(0); // 1회만 — 재실행은 로그도 없다

@@ -169,7 +169,7 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
       <div className="modal-card" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
         <div className="modal-head">설정</div>
         <div className="settings-user">
-          <Avatar value={avatar} className="settings-avatar" />
+          <Avatar value={avatar} name={user?.username} className="settings-avatar" />
           <b>{user?.name || user?.username}</b>
           {user?.name && <span className="settings-username">@{user.username}</span>}
           {/* 모바일 전용 — 헤더 프로필 메뉴가 없어서 로그아웃이 여기 */}

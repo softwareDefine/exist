@@ -5,7 +5,6 @@ import RegisterPage from './pages/RegisterPage';
 import ForgotPage from './pages/ForgotPage';
 import DashboardPage from './pages/DashboardPage';
 import MeetingRoomPage from './pages/MeetingRoomPage';
-import OrgChartPage from './pages/OrgChartPage';
 import JoinPage from './pages/JoinPage';
 import { useEffect } from 'react';
 import ErrorToasts from './components/ErrorToasts';
@@ -64,11 +63,12 @@ export default function App() {
             </Protected>
           }
         />
+        {/* 조직도 — 대시보드와 같은 앱 셸(나우바·레일) 안에서 렌더 (design-0903 결함 #7) */}
         <Route
           path="/org/:id"
           element={
             <Protected>
-              <OrgChartPage />
+              <DashboardPage />
             </Protected>
           }
         />

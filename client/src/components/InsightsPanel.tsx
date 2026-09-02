@@ -98,11 +98,16 @@ export default function InsightsPanel({ orgId }: { orgId: number }) {
       )}
 
       <div style={grid}>
-        <Stat
-          label="할 일 완료율"
-          value={`${m.todos.completionRate}%`}
-          sub={`${m.todos.done}/${m.todos.total}`}
-        />
+        {m.todos.total === 0 ? (
+          // 분모 0 — "0%(0/0)"는 성과 0으로 오독된다 → 빈 상태 문구로 대체 (design-0903)
+          <Stat label="아직 집계할 할 일이 없어요" value="—" muted />
+        ) : (
+          <Stat
+            label="할 일 완료율"
+            value={`${m.todos.completionRate}%`}
+            sub={`${m.todos.done}/${m.todos.total}`}
+          />
+        )}
         <Stat label="그룹" value={`${m.meetingCount}`} sub="개" />
         <Stat
           label="통화"
@@ -159,10 +164,21 @@ export default function InsightsPanel({ orgId }: { orgId: number }) {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function Stat({
+  label,
+  value,
+  sub,
+  muted,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  /** 데이터 없음(분모 0) 표시 — 성과색(그린) 대신 보조색 */
+  muted?: boolean;
+}) {
   return (
     <div style={stat}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: '#21C818' }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: muted ? 'var(--text-sub)' : '#21C818' }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>
         {label}
         {sub ? ` ${sub}` : ''}

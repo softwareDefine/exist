@@ -359,23 +359,33 @@ router.post('/:code/messages/read', (req: AuthedRequest, res) => {
   res.json({ ok: true });
 });
 
-/** 일정용 — 예정/반복 회의를 occurrence 단위로 펼쳐 반환 (달력·nowbar용)
- *  ?org=<id>|personal 로 필터 (recent와 동일 규칙) */
-router.get('/schedule', (req: AuthedRequest, res) => {
-  const orgParam = req.query.org;
+/** 일정 occurrence 한 건 — 회의(meeting) 또는 회의 안 일정 이벤트(event) */
+export interface ScheduleOccurrence {
+  id: number;
+  occId: string;
+  code: string;
+  title: string;
+  meetingTitle: string;
+  thumbnail: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  recur: string;
+  kind?: 'event';
+  allDay?: boolean;
+}
+
+/** 예정/반복 회의 + 일정 이벤트를 occurrence 단위로 펼친다 (/schedule 라우트 본체).
+ *  홈 히어로 "오늘 회의 N건"(이 데이터의 클라 집계)과 오늘 브리핑(agent.ts)이
+ *  같은 데이터 기준을 쓰도록 공용 함수로 분리 (9/3 결함 #10a) */
+export function getUserSchedule(userId: number, scope: 'personal' | number | undefined): ScheduleOccurrence[] {
   // 조직 필터 (회의/이벤트 공용)
   let orgFilter = '';
   const orgArgs: number[] = [];
-  if (orgParam === 'personal') {
+  if (scope === 'personal') {
     orgFilter = ' AND m.org_id IS NULL';
-  } else if (orgParam != null && orgParam !== '') {
-    const orgId = Number(orgParam);
-    if (!Number.isInteger(orgId)) return res.status(400).json({ error: '잘못된 조직입니다' });
-    if (!isMember(orgId, req.userId!)) {
-      return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
-    }
+  } else if (typeof scope === 'number') {
     orgFilter = ' AND m.org_id = ?';
-    orgArgs.push(orgId);
+    orgArgs.push(scope);
   }
 
   const rows = db
@@ -384,7 +394,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
        FROM meetings m JOIN meeting_participants mp ON mp.meeting_id = m.id
        WHERE mp.user_id = ? AND m.starts_at IS NOT NULL${orgFilter}`,
     )
-    .all(req.userId!, ...orgArgs) as {
+    .all(userId, ...orgArgs) as {
     id: number;
     code: string;
     title: string;
@@ -398,7 +408,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
   }[];
 
   const now = new Date();
-  const out: unknown[] = [];
+  const out: ScheduleOccurrence[] = [];
   for (const m of rows) {
     const occ = expandOccurrences(
       m.starts_at,
@@ -433,7 +443,7 @@ router.get('/schedule', (req: AuthedRequest, res) => {
        JOIN meeting_participants mp ON mp.meeting_id = m.id
        WHERE mp.user_id = ?${orgFilter}`,
     )
-    .all(req.userId!, ...orgArgs) as {
+    .all(userId, ...orgArgs) as {
     eid: number;
     etitle: string;
     date: string;
@@ -498,12 +508,26 @@ router.get('/schedule', (req: AuthedRequest, res) => {
     }
   }
 
-  out.sort(
-    (a, b) =>
-      new Date((a as { starts_at: string }).starts_at).getTime() -
-      new Date((b as { starts_at: string }).starts_at).getTime(),
-  );
-  res.json(out);
+  out.sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  return out;
+}
+
+/** 일정용 — 예정/반복 회의를 occurrence 단위로 펼쳐 반환 (달력·nowbar용)
+ *  ?org=<id>|personal 로 필터 (recent와 동일 규칙) */
+router.get('/schedule', (req: AuthedRequest, res) => {
+  const orgParam = req.query.org;
+  let scope: 'personal' | number | undefined;
+  if (orgParam === 'personal') {
+    scope = 'personal';
+  } else if (orgParam != null && orgParam !== '') {
+    const orgId = Number(orgParam);
+    if (!Number.isInteger(orgId)) return res.status(400).json({ error: '잘못된 조직입니다' });
+    if (!isMember(orgId, req.userId!)) {
+      return res.status(403).json({ error: '이 조직의 멤버가 아니에요' });
+    }
+    scope = orgId;
+  }
+  res.json(getUserSchedule(req.userId!, scope));
 });
 
 /** 회의 상세 (허브 탭용) — 제목/일정/호스트/현재 통화 인원 */

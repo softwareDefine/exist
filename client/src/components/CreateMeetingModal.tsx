@@ -328,7 +328,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                   <div className="cm-invited">
                     {invite.map((p) => (
                       <span className="cm-chip" key={p.username}>
-                        <Avatar value={p.avatar} className="cm-chip-av" />
+                        <Avatar value={p.avatar} name={p.username} className="cm-chip-av" />
                         {dn(p.username)}
                         <button type="button" onClick={() => removePerson(p.username)}>
                           <CloseIcon size={12} />
@@ -359,7 +359,7 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
                             key={r.username}
                             onClick={() => addPerson(r)}
                           >
-                            <Avatar value={r.avatar} className="cm-result-av" />
+                            <Avatar value={r.avatar} name={r.username} className="cm-result-av" />
                             <span className="cm-result-name">{dn(r.username)}</span>
                             <span className="cm-result-add">+ 추가</span>
                           </button>

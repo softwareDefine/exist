@@ -33,6 +33,23 @@ describe('Avatar / MeetingThumb / Marquee / Logo / AuthShell', () => {
     expect(container.textContent).toBe('🙂');
   });
 
+  it('Avatar — name이 있으면 기본 펭귄은 이니셜 + 인물 고정색, 고른 이모지는 배경만 고정', () => {
+    const { container, rerender } = render(<Avatar value="🐧" name="zed99" />);
+    expect(container.firstChild).toHaveClass('avatar-initial');
+    expect(container.textContent).toBe('Z');
+    const bg = (container.firstChild as HTMLElement).style.background;
+    expect(bg).not.toBe('');
+    // 값이 비어도 같은 사람이면 같은 색 (재추첨 금지)
+    rerender(<Avatar value={null} name="zed99" />);
+    expect(container.firstChild).toHaveClass('avatar-initial');
+    expect((container.firstChild as HTMLElement).style.background).toBe(bg);
+    // 직접 고른 이모지는 유지하되 배경은 인물 고정색
+    rerender(<Avatar value="🐯" name="zed99" />);
+    expect(container.textContent).toBe('🐯');
+    expect(container.firstChild).not.toHaveClass('avatar-initial');
+    expect((container.firstChild as HTMLElement).style.background).toBe(bg);
+  });
+
   it('MeetingThumb — 썸네일 있으면 이미지, 없으면 첫 글자 + id 기반 그라디언트', () => {
     const { container, rerender } = render(<MeetingThumb id={3} title="생산1팀" />);
     expect(container.textContent).toBe('생');

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import NowBar, { type Todo, type Meeting } from '../components/NowBar';
 import Logo from '../components/Logo';
@@ -11,6 +11,7 @@ import MeetingThumb from '../components/MeetingThumb';
 import OrgSwitcher from '../components/OrgSwitcher';
 import GlobalSearch from '../components/GlobalSearch';
 import { useOrgStore } from '../orgStore';
+import OrgChartPage from './OrgChartPage';
 import { readPins, PINS_EVENT } from '../lib/pins';
 import { initPush } from '../lib/push';
 import { getSocket } from '../lib/socket';
@@ -18,6 +19,12 @@ import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 export default function DashboardPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  // 조직도 라우트(/org/:id)도 같은 앱 셸(나우바·레일) 안에서 렌더 — 워크스페이스 자리에 조직도 (design-0903 결함 #7)
+  const onOrgPage = !!useMatch('/org/:id');
+  // openMeetingTab 등은 참조 안정이 필요(NowBar memo) — 라우트 상태는 ref로 읽는다
+  const onOrgPageRef = useRef(onOrgPage);
+  onOrgPageRef.current = onOrgPage;
   const orgCurrent = useOrgStore((s) => s.current);
   const orgs = useOrgStore((s) => s.orgs);
   // 모바일 상단 얇은 바 — 지금 어느 조직 컨텍스트인지
@@ -116,11 +123,15 @@ export default function DashboardPage() {
   // 회의 설정 모달 (일정/설정 버튼)
   const [settingsMeeting, setSettingsMeeting] = useState<Meeting | null>(null);
 
-  const openMeetingTab = useCallback((code: string, title: string, tab?: string) => {
-    setMeetingRequest({ code, title, ts: Date.now(), tab });
-    setFocusedCode(code); // nowbar가 이 회의 그룹을 띄우도록
-    setTabletDrawer(false); // 태블릿 드로어: 그룹 고르면 닫기
-  }, []);
+  const openMeetingTab = useCallback(
+    (code: string, title: string, tab?: string) => {
+      if (onOrgPageRef.current) navigate('/'); // 조직도 화면에서 그룹 열기 → 홈 셸로 복귀 후 탭 오픈
+      setMeetingRequest({ code, title, ts: Date.now(), tab });
+      setFocusedCode(code); // nowbar가 이 회의 그룹을 띄우도록
+      setTabletDrawer(false); // 태블릿 드로어: 그룹 고르면 닫기
+    },
+    [navigate],
+  );
 
   // 파일 딥링크 착지 — 그룹 탭 열고 공동편집에서 그 파일까지 연다.
   // 진입 2경로: ① URL /?g=CODE&file=N (공유 링크) ② 앱 내부 exist:deeplink 이벤트 (채팅·DM 카드 클릭)
@@ -257,6 +268,15 @@ export default function DashboardPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 드로어 '홈' 버튼 — 조직도 라우트에선 홈 라우트로 복귀 (워크스페이스 홈 전환은 WorkspacePanel이 처리)
+  useEffect(() => {
+    function onHome() {
+      if (onOrgPageRef.current) navigate('/');
+    }
+    window.addEventListener('exist:go-home', onHome);
+    return () => window.removeEventListener('exist:go-home', onHome);
+  }, [navigate]);
 
   // 초대 링크로 들어온 경우 — 그룹(/join/:code)은 자동 참여 후 열기, 조직(/join/org/:code)은 가입 신청
   useEffect(() => {
@@ -573,7 +593,11 @@ export default function DashboardPage() {
 
         <div className="workspace-col">
           {message && <div className="dash-message">{message}</div>}
-          <WorkspacePanel meetingRequest={meetingRequest} />
+          {/* 조직도 라우트여도 워크스페이스는 마운트 유지(display만 off) — 열린 탭 상태 보존 */}
+          <div style={{ display: onOrgPage ? 'none' : 'contents' }}>
+            <WorkspacePanel meetingRequest={meetingRequest} />
+          </div>
+          {onOrgPage && <OrgChartPage />}
         </div>
 
         {/* 태블릿 드로어 스크림 — 탭하면 닫힘 */}

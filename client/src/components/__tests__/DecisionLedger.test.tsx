@@ -138,20 +138,28 @@ describe('DecisionLedger', () => {
     expect(screen.queryByText('결정 확인 서명')).not.toBeInTheDocument();
   });
 
-  it('canManage 없으면 정정·철회 버튼 없음', async () => {
+  it('canManage 없으면 더보기(정정·철회) 메뉴 없음', async () => {
     m.get(`/api/meetings/${CODE}/decisions`, [entry()]);
     render(<DecisionLedger code={CODE} />);
     await screen.findByText('냉각수 온도 63도로 유지');
-    expect(screen.queryByRole('button', { name: '정정' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '철회' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '더보기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '정정' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '철회' })).not.toBeInTheDocument();
   });
 
-  it('정정 모달 — 사유 필수, PATCH body, 재확인 안내', async () => {
+  it('정정 모달 — ⋯ 메뉴 경유, 사유 필수, PATCH body, 재확인 안내', async () => {
     m.get(`/api/meetings/${CODE}/decisions`, [entry()]);
     m.patch(`/api/meetings/${CODE}/decisions/10/0`, { ok: true, acksReset: true });
     render(<DecisionLedger code={CODE} canManage />);
-    fireEvent.click(await screen.findByRole('button', { name: '정정' }));
+    // 파괴적 액션은 기본 노출되지 않는다 — ⋯ 메뉴를 열어야 보인다 (9/3 결함 #4)
+    const more = await screen.findByRole('button', { name: '더보기' });
+    expect(screen.queryByRole('menuitem', { name: '정정' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '철회' })).not.toBeInTheDocument();
+    fireEvent.click(more);
+    fireEvent.click(screen.getByRole('menuitem', { name: '정정' }));
     expect(screen.getByText('결정 정정')).toBeInTheDocument();
+    // 메뉴는 항목 선택과 함께 닫힌다
+    expect(screen.queryByRole('menuitem', { name: '정정' })).not.toBeInTheDocument();
     const textarea = document.querySelector('.ledger-edit-modal textarea') as HTMLTextAreaElement;
     expect(textarea.value).toBe('냉각수 온도 63도로 유지');
 
@@ -174,7 +182,8 @@ describe('DecisionLedger', () => {
     m.get(`/api/meetings/${CODE}/decisions`, [entry()]);
     m.fail('PATCH', `/api/meetings/${CODE}/decisions/10/0`, 403, '권한 없음');
     render(<DecisionLedger code={CODE} canManage />);
-    fireEvent.click(await screen.findByRole('button', { name: '정정' }));
+    fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '정정' }));
     fireEvent.change(screen.getByPlaceholderText(/회의에서 65도가 아니라/), { target: { value: '사유' } });
     fireEvent.click(screen.getByRole('button', { name: '정정하기' }));
     await waitFor(() => expect(ev.of('app:error').some((d) => String(d).includes('권한 없음'))).toBe(true));
@@ -183,11 +192,12 @@ describe('DecisionLedger', () => {
     expect(screen.queryByText('결정 정정')).not.toBeInTheDocument();
   });
 
-  it('철회 모달 — 사유 필수, POST, 철회된 행은 배지·사유 표시 + 확인/정정 불가', async () => {
+  it('철회 모달 — ⋯ 메뉴 경유, 사유 필수, POST, 철회된 행은 배지·사유 표시 + 확인/정정 불가', async () => {
     m.get(`/api/meetings/${CODE}/decisions`, [entry()]);
     m.post(`/api/meetings/${CODE}/decisions/10/0/withdraw`, { ok: true });
     render(<DecisionLedger code={CODE} canManage />);
-    fireEvent.click(await screen.findByRole('button', { name: '철회' }));
+    fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: '철회' }));
     expect(screen.getByText('결정 철회')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '철회하기' }));
     expect(ev.of('app:error')).toEqual(['철회 사유를 적어주세요']);
@@ -203,7 +213,7 @@ describe('DecisionLedger', () => {
     expect(await screen.findByText('철회됨')).toBeInTheDocument();
     expect(screen.getByText(/철회 · 안전팀 보류 — 김대리, 2026년 8월 20일/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '확인' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '정정' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '더보기' })).not.toBeInTheDocument(); // 철회된 행은 정정·철회 메뉴도 없다
     expect(document.querySelector('.ledger-item.withdrawn')).toBeInTheDocument();
   });
 

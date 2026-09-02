@@ -715,12 +715,13 @@ router.get('/:id/team-acks', (req: AuthedRequest, res) => {
       continue;
     }
     if (decisions.length === 0) continue;
-    // 확인 대상 = 그 그룹 참가자 ∩ 우리 조
+    // 확인 대상 = 그 그룹 참가자 ∩ 우리 조 — 조회자 본인은 제외: 자기 이름이 "미확인" 명단에
+    // 뜨는 자기모순 방지 + team-acks/remind의 발송 경계(본인 제외)와 일치 (9/3 결함 #10b)
     const targets = (
       db.prepare('SELECT user_id FROM meeting_participants WHERE meeting_id = ?').all(r.mid) as {
         user_id: number;
       }[]
-    ).filter((p) => team.has(p.user_id));
+    ).filter((p) => team.has(p.user_id) && p.user_id !== req.userId);
     if (targets.length === 0) continue;
     for (let idx = 0; idx < decisions.length && items.length < 8; idx++) {
       const acked = new Set(

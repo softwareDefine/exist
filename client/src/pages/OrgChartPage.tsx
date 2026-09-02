@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api';
 import { useOrgStore } from '../orgStore';
 import { useDisplayName } from '../names';
-import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
 import { BuildingIcon, UsersIcon, ShareIcon, CheckMarkIcon, GearIcon, PenIcon, ChevronIcon, ChevronUpIcon, ChevronLeftIcon, SparklesIcon, MailIcon } from '../components/Icons';
 import { POSITIONS } from '../lib/positions';
@@ -364,14 +363,11 @@ export default function OrgChartPage() {
     m.role !== 'owner' && (manager || (perms.includes('member:remove') && inMyScope(m)));
 
   return (
-    <div className="orgchart-page">
-      <header className="orgchart-top">
-        <button className="orgchart-back" onClick={() => navigate('/')} title="대시보드로">
-          <ChevronLeftIcon size={13} /> 대시보드
-        </button>
-        <Logo />
-        <span />
-      </header>
+    // 앱 셸(나우바·레일) 안에 임베드되는 화면 — 독자 헤더·중앙 로고 없음 (design-0903 결함 #7)
+    <div className="orgchart-page orgchart-embed">
+      <button className="orgchart-back" onClick={() => navigate('/')} title="홈 대시보드로">
+        <ChevronLeftIcon size={13} /> 홈
+      </button>
 
       {!detail ? (
         <div className="orgchart-loading">조직도를 불러오는 중…</div>
@@ -469,7 +465,7 @@ export default function OrgChartPage() {
               {detail.pending.map((p) => (
                 <div key={p.userId} className="orgchart-pending-row">
                   <span className="orgchart-pending-id">
-                    <Avatar value={p.avatar} className="orgchart-avatar sm" />
+                    <Avatar value={p.avatar} name={p.username} className="orgchart-avatar sm" />
                     {dn(p.username)}
                   </span>
                   <select
@@ -652,7 +648,7 @@ export default function OrgChartPage() {
                       className={`orgchart-card${editMode && (canEditTarget(m) || canRemoveTarget(m)) ? ' editable' : ''}`}
                     >
                       <div className="orgchart-card-main">
-                        <Avatar value={m.avatar} className="orgchart-avatar" />
+                        <Avatar value={m.avatar} name={m.username} className="orgchart-avatar" />
                         <div className="orgchart-info">
                           <div className="orgchart-name">
                             {dn(m.username)}

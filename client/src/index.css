@@ -924,6 +924,8 @@ input:focus {
   gap: 8px;
   font-size: 14px;
   min-width: 0;
+  /* 트랙이 내용보다 좁아져도(min-width:0) 옆 그리드 칸 위로 번지지 않게 */
+  overflow: hidden;
 }
 
 .nb-mini-thumb {
@@ -1544,12 +1546,13 @@ input:focus {
   transition: opacity 0.2s ease;
 }
 
+/* 아웃라인/고스트 — 저빈도 액션(코드 입장)이라 시각 볼륨 강등 (design-0902 #5) */
 .join-card {
-  background: linear-gradient(135deg, var(--green) 0%, #249a00 100%);
-  color: #fff;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 22px;
-  box-shadow: var(--shadow-sm);
 }
 
 .join-card .head {
@@ -1565,18 +1568,19 @@ input:focus {
   font-weight: 900;
 }
 
+/* 그룹 만들기(+)는 고빈도 — 카드 강등 후에도 유일한 그린 채움으로 위계 유지 */
 .join-card .new-btn {
   width: 38px;
   height: 38px;
   border: none;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--green);
   color: #fff;
   font-size: 20px;
 }
 
 .join-card .new-btn:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: #249a00;
 }
 
 .join-card form {
@@ -1588,7 +1592,9 @@ input:focus {
 .join-card input {
   flex: 1;
   min-width: 0;
-  border: none;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   border-radius: 8px;
   padding: 12px 14px;
   font-size: 15px;
@@ -1599,12 +1605,13 @@ input:focus {
 .join-card input::placeholder {
   letter-spacing: 0;
   text-transform: none;
+  color: var(--text-sub);
 }
 
 .join-card .join-btn {
   border: none;
   background: none;
-  color: #fff;
+  color: var(--green);
   font-size: 16px;
   font-weight: 600;
   padding: 8px 4px;
@@ -19301,6 +19308,11 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 .marquee-inner {
   display: inline-block;
   white-space: nowrap;
+  /* 기본 = 정적 말줄임 — 항상 문장 처음부터 보이고, 넘치면 … (스크롤은 hover 시에만) */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom; /* overflow:hidden이 inline-block baseline을 바꾸므로 고정 */
 }
 
 /* 인라인 스타일에서 Marquee로 옮겨온 텍스트들 */
@@ -20211,8 +20223,16 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   text-align: left;
 }
 
-.marquee-inner.on {
-  animation: marquee-slide linear infinite alternate;
+/* 스크롤 재생 조건: hover 가능한 기기 + 모션 허용일 때, 마퀴에 포인터를 올리거나
+   감싼 버튼·링크에 hover/키보드 포커스가 왔을 때만. 터치·reduced-motion은 항상 정적 말줄임. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .marquee:hover > .marquee-inner.on,
+  :is(button, a, [role='button']):is(:hover, :focus-visible) .marquee-inner.on {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    animation: marquee-slide linear infinite alternate;
+  }
 }
 
 /* 양 끝에서 잠깐 멈췄다가 반대로 — 음악 앱 제목 스크롤 느낌 */
@@ -23033,4 +23053,137 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 :root:not([data-theme="light"]) .pd-act-badge.critical {
   background: rgba(185, 28, 28, 0.25);
   color: #fca5a5;
+}
+
+/* ══ design-0902 추가 규칙 (nowbar·마퀴·사이드바 담당) ══════════════════
+ * 태블릿(768~1023px) nowbar 실버그: 한 줄 헤더에서 pill이 ~400px로 줄어도
+ * 다음 일정 그리드가 2열(1fr 1fr)을 유지 → 트랙(~80px)이 행 내용(nowrap
+ * '시작 …' 포함, 축소 불가)보다 좁아져 행이 옆 칸 위로 넘쳐 텍스트 겹침.
+ * → 1열로 강등 + 68px 카드에 안 들어가는 3번째 행부터 숨김. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .nowbar-pill .nb-next-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px 16px;
+  }
+
+  .nowbar-pill .nb-next-grid .nb-next-row:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+/* ══ ledger 결함 수정 (9/3, design-0902 결함 #4) — 파괴적 액션 ⋯ 메뉴 격리 + 확인/확인함 형태 분리 ══ */
+.ledger-more-wrap {
+  position: relative;
+  display: inline-block;
+  margin-left: 6px;
+}
+.ledger-more-btn {
+  border: none;
+  background: none;
+  padding: 0 5px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-sub);
+  cursor: pointer;
+  border-radius: 6px;
+  vertical-align: -1px;
+}
+.ledger-more-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.ledger-more-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  min-width: 104px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+}
+.ledger-more-menu button {
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ledger-more-menu button:hover {
+  background: var(--surface-2);
+}
+.ledger-more-menu button.danger {
+  color: var(--red, #e5484d);
+}
+.ledger-more-menu button.danger:hover {
+  background: color-mix(in srgb, var(--red, #e5484d) 10%, transparent);
+}
+/* 행동 "확인"은 채운 버튼답게(원장 + 정정/철회 모달의 주 행동 공용), 상태 "확인함"은 버튼 형태를 버린다
+ * — 같은 자리 동형(아웃라인 필) 요소가 행동/상태로 갈려 오독되던 문제 (조사 '함' 한 글자 차이) */
+button.ledger-ack {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+button.ledger-ack.critical {
+  background: var(--red, #e5484d);
+  border-color: var(--red, #e5484d);
+  color: #fff;
+}
+span.ledger-ack.done {
+  border-color: transparent;
+  background: none;
+  padding: 4px 0;
+  color: var(--green-dark);
+  cursor: default;
+}
+
+/* ===== design-0903 추가분 (orgchart 앱 셸 편입 · 아바타 이니셜) — 이 마커 아래가 이번 작업의 신규 규칙 ===== */
+
+/* 조직도 임베드 — 대시보드 workspace-col 안에서 자체 스크롤 (독자 페이지 셸 제거, 결함 #7) */
+.orgchart-embed {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  background: transparent;
+}
+
+.orgchart-embed .orgchart-main {
+  max-width: 1100px;
+  margin: 0;
+  padding: 2px 2px 28px;
+}
+
+.orgchart-embed > .orgchart-back {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0 10px;
+  cursor: pointer;
+}
+
+/* 이니셜 아바타 — 사진 없는 사용자의 기본. 배경·글자색은 인물 고정색(인라인 스타일) (결함 #8) */
+.avatar-initial {
+  font-weight: 700;
+  user-select: none;
+}
+
+/* 프로필 히어로 아바타 내부 — 공용 Avatar가 버튼(64px, radius 16)을 꽉 채우게 */
+.pd-hero-avatar .avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  display: grid;
+  place-items: center;
 }

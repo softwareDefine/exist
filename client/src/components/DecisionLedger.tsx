@@ -80,6 +80,17 @@ export default function DecisionLedger({ code, canManage }: { code: string; canM
   const [revFor, setRevFor] = useState<string | null>(null);
   const [revs, setRevs] = useState<DecisionRevision[]>([]);
   const [busy, setBusy] = useState(false);
+  // ⋯ 오버플로 메뉴 — 파괴적 액션(정정·철회)의 진입점. 조회성 "정리 보기"와 같은 줄에
+  // 나란히 두면 슬립 한 번 거리라 메뉴 뒤로 격리 (9/3, design-0902 결함 #4)
+  const [moreFor, setMoreFor] = useState<string | null>(null);
+
+  // 메뉴 밖 아무 곳이나 클릭하면 닫기
+  useEffect(() => {
+    if (!moreFor) return;
+    const close = () => setMoreFor(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [moreFor]);
 
   function openEdit(e: LedgerEntry) {
     setEditFor(e);
@@ -511,23 +522,52 @@ export default function DecisionLedger({ code, canManage }: { code: string; canM
                         >
                           정리 보기
                         </button>
-                        {/* 관리자 인간 감독 — 정정·철회. 지우는 버튼은 없다 (원장 줄은 사라지지 않는다) */}
+                        {/* 관리자 인간 감독 — 정정·철회. 지우는 버튼은 없다 (원장 줄은 사라지지 않는다).
+                            원장 무결성을 건드리는 액션이라 인라인 링크가 아닌 ⋯ 메뉴 뒤로 (9/3 결함 #4) */}
                         {canManage && !e.withdrawn && (
-                          <>
-                            <button className="ledger-src-link" onClick={() => openEdit(e)} title="문장·배경을 고치고 이력으로 남겨요">
-                              정정
-                            </button>
+                          <span className="ledger-more-wrap">
                             <button
-                              className="ledger-src-link ledger-withdraw-link"
-                              onClick={() => {
-                                setWdFor(e);
-                                setWdReason('');
+                              className="ledger-more-btn"
+                              aria-label="더보기"
+                              aria-haspopup="menu"
+                              aria-expanded={moreFor === `${e.recapId}-${e.idx}`}
+                              title="정정·철회"
+                              onClick={(ev) => {
+                                ev.stopPropagation();
+                                setMoreFor(
+                                  moreFor === `${e.recapId}-${e.idx}` ? null : `${e.recapId}-${e.idx}`,
+                                );
                               }}
-                              title="삭제 대신 철회 — 사유와 함께 남아요"
                             >
-                              철회
+                              ⋯
                             </button>
-                          </>
+                            {moreFor === `${e.recapId}-${e.idx}` && (
+                              <span className="ledger-more-menu" role="menu">
+                                <button
+                                  role="menuitem"
+                                  title="문장·배경을 고치고 이력으로 남겨요"
+                                  onClick={() => {
+                                    setMoreFor(null);
+                                    openEdit(e);
+                                  }}
+                                >
+                                  정정
+                                </button>
+                                <button
+                                  role="menuitem"
+                                  className="danger"
+                                  title="삭제 대신 철회 — 사유와 함께 남아요"
+                                  onClick={() => {
+                                    setMoreFor(null);
+                                    setWdFor(e);
+                                    setWdReason('');
+                                  }}
+                                >
+                                  철회
+                                </button>
+                              </span>
+                            )}
+                          </span>
                         )}
                       </div>
                       {/* 이 결정으로 개정된 문서 — 클릭 = 공동편집에서 열기 (결정→문서 다리) */}

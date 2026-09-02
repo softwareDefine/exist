@@ -2044,7 +2044,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                 {(t.assignees ?? []).length ? (
                                   <span className="hub-assign-faces">
                                     {t.assignees!.slice(0, 3).map((u) => (
-                                      <Avatar
+                                      <Avatar name={u}
                                         key={u}
                                         value={
                                           detail.participants.find((p) => p.username === u)
@@ -2071,7 +2071,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                     );
                                     return (
                                       <div key={name} className="hub-assign-tip-row">
-                                        <Avatar
+                                        <Avatar name={name}
                                           value={p?.avatar ?? null}
                                           className="hub-assign-avatar"
                                         />
@@ -2126,7 +2126,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                         {!rosterOpen && (
                           <span className="hub-roster-stack">
                             {detail.participants.slice(0, 5).map((p) => (
-                              <Avatar
+                              <Avatar name={p.username}
                                 key={p.username}
                                 value={p.avatar}
                                 className="hub-roster-face"
@@ -2154,7 +2154,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                   key={p.username}
                                   className={`hub-pcard${presence.has(p.username) ? ' online' : ''}`}
                                 >
-                                  <Avatar value={p.avatar} className="hub-pcard-avatar" />
+                                  <Avatar value={p.avatar} name={p.username} className="hub-pcard-avatar" />
                                   <span className="hub-pcard-info">
                                     <span className="hub-pcard-name">
                                       {dn(p.username)}
@@ -2257,7 +2257,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
               <div className="hub-set-people">
                 {detail.participants.map((p) => (
                   <div key={p.username} className="hub-set-person">
-                    <Avatar value={p.avatar} className="hub-set-avatar" />
+                    <Avatar value={p.avatar} name={p.username} className="hub-set-avatar" />
                     <span className="hub-set-info">
                       <span className="hub-set-name">
                         {dn(p.username)}
@@ -2728,7 +2728,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                             onMouseEnter={(e) => showProfileCard(m.from, e.currentTarget)}
                             onMouseLeave={hideProfileCardSoon}
                           >
-                            <Avatar value={m.avatar} className="chat-avatar" />
+                            <Avatar value={m.avatar} name={m.from} className="chat-avatar" />
                           </span>
                         ))}
                       <div className="chat-content">
@@ -2949,7 +2949,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
           onMouseLeave={hideProfileCardSoon}
         >
           <div className="profile-card-head">
-            <Avatar value={pcard.p.avatar} className="profile-card-avatar" />
+            <Avatar value={pcard.p.avatar} name={pcard.p.username} className="profile-card-avatar" />
             <div className="profile-card-meta">
               <b>
                 {dn(pcard.p.username)}
@@ -3040,7 +3040,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                         <span className="hub-todo-check" aria-hidden>
                           <CheckMarkIcon size={13} />
                         </span>
-                        <Avatar value={p.avatar} className="hub-assign-avatar" />
+                        <Avatar value={p.avatar} name={p.username} className="hub-assign-avatar" />
                         <span className="hub-assign-name">{dn(p.username)}</span>
                       </label>
                     ))}

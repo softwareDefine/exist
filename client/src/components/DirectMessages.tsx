@@ -269,7 +269,7 @@ export function DmWindow({
   return createPortal(
     <div className="dm-window">
       <div className="dm-window-head">
-        <Avatar value={peer.avatar} className="dm-head-avatar" />
+        <Avatar value={peer.avatar} name={peer.username} className="dm-head-avatar" />
         <div className="dm-head-info">
           <span className="dm-head-name">{dn(peer.username)}</span>
           {(peer.department || peer.position) && (
@@ -313,7 +313,7 @@ export function DmWindow({
                   (grouped ? (
                     <span className="chat-avatar-gap" />
                   ) : (
-                    <Avatar value={m.avatar} className="chat-avatar" />
+                    <Avatar value={m.avatar} name={m.from} className="chat-avatar" />
                   ))}
                 <div className="chat-content">
                   <div className="chat-line">
@@ -328,7 +328,7 @@ export function DmWindow({
         })}
         {aiThinking && (
           <div className="chat-row">
-            <Avatar value={peer.avatar} className="chat-avatar" />
+            <Avatar value={peer.avatar} name={peer.username} className="chat-avatar" />
             <div className="chat-content">
               <div className="chat-line">
                 <div className="chat-bubble chat-typing">
@@ -482,7 +482,7 @@ export default function DirectMessages({ scope }: { scope: DmScope }) {
             <div className="dm-search-results">
               {hits.map((h) => (
                 <button key={h.userId} className="dm-search-hit" onClick={() => openHit(h)}>
-                  <Avatar value={h.avatar} className="dm-item-avatar" />
+                  <Avatar value={h.avatar} name={h.username} className="dm-item-avatar" />
                   <span className="dm-item-name">{dn(h.username)}</span>
                 </button>
               ))}
@@ -503,7 +503,7 @@ export default function DirectMessages({ scope }: { scope: DmScope }) {
             className={`dm-item${activePeer?.userId === t.userId ? ' active' : ''}`}
             onClick={() => openThread(t)}
           >
-            <Avatar value={t.avatar} className="dm-item-avatar" />
+            <Avatar value={t.avatar} name={t.username} className="dm-item-avatar" />
             <div className="dm-item-main">
               <div className="dm-item-top">
                 <Marquee className="dm-item-name">{dn(t.username)}</Marquee>

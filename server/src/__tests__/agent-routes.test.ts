@@ -48,13 +48,15 @@ describe('/sent — 발신자 카드', () => {
     const r = await get(host, '/sent');
     expect(r.status).toBe(200);
     expect(r.body.totalSent).toBe(3);
+    // 발신자(조회자 본인)는 분모·미확인 목록에서 제외 (9/3 결함 #10b) — host 는 3명 중 자신을 뺀 2명 기준
     expect(r.body.entries.map((e: { idx: number; acked: number; total: number; missing: string[]; critical: boolean }) => [e.idx, e.acked, e.total, e.missing, e.critical])).toEqual([
-      [1, 0, 3, ['ag1_host', 'ag1_member', '박셋째'], true], // critical 이 먼저 (표시 이름 우선)
-      [0, 1, 3, ['ag1_host', '박셋째'], false],
-      [2, 3, 3, [], false], // 완료된 건 뒤로
+      [1, 0, 2, ['ag1_member', '박셋째'], true], // critical 이 먼저 (표시 이름 우선)
+      [0, 1, 2, ['박셋째'], false],
+      [2, 2, 2, [], false], // 완료된 건 뒤로
     ]);
     expect(r.body.entries[0]).toMatchObject({ recapId, decision: '결정 1 — 중요', code: m.code, title: 'ag1 그룹', ts: expect.any(Number) });
-    expect((await get(member, '/sent')).body).toEqual({ entries: [{ recapId: expect.any(Number), idx: 0, decision: '남이 보낸 결정', code: other.code, title: '남의 그룹', ts: expect.any(Number), acked: 0, total: 2, missing: ['ag1_host', 'ag1_member'], critical: false }], totalSent: 1 });
+    // member(발신자)도 자기 자신 제외 — 남은 대상은 host 1명뿐
+    expect((await get(member, '/sent')).body).toEqual({ entries: [{ recapId: expect.any(Number), idx: 0, decision: '남이 보낸 결정', code: other.code, title: '남의 그룹', ts: expect.any(Number), acked: 0, total: 1, missing: ['ag1_host'], critical: false }], totalSent: 1 });
     expect((await get(third, '/sent')).body).toEqual({ entries: [], totalSent: 0 });
     // 조직 admin 은 참가하지 않은 조직 그룹의 결정도 발신자로 본다 (?org= 스코프)
     const admin = await register(app, 'ag1_admin');
