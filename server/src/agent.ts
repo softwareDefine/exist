@@ -747,7 +747,7 @@ router.get('/pending-decisions', (req: AuthedRequest, res) => {
   const sc = scopeSql(scope);
   const rows = db
     .prepare(
-      `SELECT r.id AS recapId, r.decisions, r.created_at, m.code, m.title FROM meeting_recaps r
+      `SELECT r.id AS recapId, r.decisions, r.decision_state, r.created_at, m.code, m.title FROM meeting_recaps r
        JOIN meetings m ON m.id = r.meeting_id
        JOIN meeting_participants mp ON mp.meeting_id = r.meeting_id AND mp.user_id = ?${sc.sql}
        ORDER BY r.id DESC LIMIT 100`,
@@ -755,6 +755,7 @@ router.get('/pending-decisions', (req: AuthedRequest, res) => {
     .all(req.userId, ...sc.args) as {
     recapId: number;
     decisions: string;
+    decision_state: string | null;
     created_at: string;
     code: string;
     title: string;
@@ -777,8 +778,12 @@ router.get('/pending-decisions', (req: AuthedRequest, res) => {
       ),
     );
     const ds = JSON.parse(r.decisions) as string[];
+    // 철회된 결정은 확인 대상이 아니다 — 원장 탭은 걸렀는데 홈 인박스만 계속 확인을 요구했다 (9/2 E2E 발견)
+    let states: { withdrawn?: boolean }[] = [];
+    try { states = r.decision_state ? (JSON.parse(r.decision_state) as { withdrawn?: boolean }[]) : []; } catch { /* 손상 시 전체 노출 유지 */ }
     for (let i = 0; i < ds.length; i++) {
       if (acked.has(i)) continue;
+      if (states[i]?.withdrawn) continue;
       items.push({
         recapId: r.recapId,
         idx: i,

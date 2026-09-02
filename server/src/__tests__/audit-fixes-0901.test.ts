@@ -66,4 +66,24 @@ describe('db 마이그레이션 — 짝 컬럼 중 첫 번째만 있는 DB', () 
       process.env.DATA_DIR = prev;
     }
   });
+
+describe('pending-decisions — 철회 제외 (9/2 E2E 발견)', () => {
+  it('철회된 결정은 홈 인박스(확인 대기)에서 빠진다', async () => {
+    const request = (await import('supertest')).default;
+    const { createApp } = await import('../app.js');
+    const db = (await import('../db.js')).default;
+    const app = createApp();
+    const r = await request(app).post('/api/auth/register').send({ username: 'pw_user', password: 'password123' });
+    const H = { Authorization: `Bearer ${r.body.token}` };
+    const code = (await request(app).post('/api/meetings').set(H).send({ title: '철회' })).body.code as string;
+    const mid = (db.prepare('SELECT id FROM meetings WHERE code = ?').get(code) as { id: number }).id;
+    const rid = db.prepare("INSERT INTO meeting_recaps (meeting_id, summary, decisions, attendees) VALUES (?, 's', ?, '[]')")
+      .run(mid, JSON.stringify(['살아있는 결정', '철회된 결정'])).lastInsertRowid as number;
+    db.prepare('UPDATE meeting_recaps SET decision_state = ? WHERE id = ?')
+      .run(JSON.stringify([null, { withdrawn: true, reason: '재검토' }]), rid);
+    const p = await request(app).get('/api/agent/pending-decisions?org=personal').set(H);
+    expect(p.status).toBe(200);
+    expect(p.body.items.map((x: { decision: string }) => x.decision)).toEqual(['살아있는 결정']);
+  });
+});
 });

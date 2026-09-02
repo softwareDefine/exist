@@ -670,6 +670,8 @@ export default function CollabFiles({
   } | null>(null);
   // 마지막으로 연혁을 연 파일 — files:changed(개정 발행 등) 푸시 때 열린 속성 창을 재로드하기 위한 참조
   const historyFileRef = useRef<number | null>(null);
+  // 마지막으로 회람 현황을 연 파일 — 남이 서명해도 카드가 0/2에 머물던 것(9/2 E2E 발견) 즉시 갱신용
+  const ackFileRef = useRef<number | null>(null);
   const propsOpenRef = useRef(false);
   useEffect(() => {
     propsOpenRef.current = propsOpen;
@@ -1036,6 +1038,8 @@ export default function CollabFiles({
       void loadTrash(); // 삭제·복원도 변경에 포함 — 휴지통 개수 배지 동기화
       // 속성 창이 열려 있으면 연혁도 즉시 재로드 — 개정 발행이 새로고침 없이 v_new로 반영되게
       if (propsOpenRef.current && historyFileRef.current) void loadFileHistory(historyFileRef.current);
+      // 회람 현황(확인 N/M)도 — 서명은 files:changed로만 방송되는데 카드는 재선택 전까지 안 바뀌었다
+      if (propsOpenRef.current && ackFileRef.current != null) void loadAcks(ackFileRef.current);
     };
     socket.on('files:changed', onFilesChanged);
     return () => {
@@ -2106,6 +2110,7 @@ export default function CollabFiles({
 
   // ── 문서 열람 서명 (회람 사인) ──
   async function loadAcks(fileId: number) {
+    ackFileRef.current = fileId;
     try {
       setAckStatus(await api<FileAckStatus>(`/api/meetings/${code}/files/${fileId}/acks`));
     } catch {
