@@ -174,3 +174,11 @@ Known survivors deliberately not chased: `runner.ts:175,301` `startsWith` guard 
 **전체 52.95% → 66.84%** (covered 72.4 → 74.1%, valid 15,379: killed 10,232 · survived 3,597 · timeout 48 · no-coverage 1,502)
 주요 상승: workspaces 0→84.2, dm 1.3→81.6, auth 57.2→85.8, orgs 24.2→61.9, meetings 30.2→59.2, agent 33.2→59.3, handover 46.6→64.5, rag 62.2→74.0, ydoc 84.4→86.2, recap 43.2→53.6, steward 57.5→62.1, stt 53.4→61.7.
 남은 바닥: app.ts 24.5(에러 핸들러·정적 서빙 분기 — 대부분 스윕 전용), notifications 61.5, recap 53.6(프롬프트 문자열 변이 노이즈 포함). 문자열/로그 변이를 빼면 실질 검증률은 covered 74% 이상.
+
+## 9. 9/2 밤 킬 라운드 (2회) — 최종
+
+- 라운드 1: recap/agent/meetings 겨냥 테스트 82개 (+철회 필터 실버그 수정) → 53.6/59.3/59.2 → 78.8/77.4/76.6
+- 라운드 2: recap/agent 잔여 밀집 라인 34개 (등가 변이 22개 분석 제외) → **recap 83.1% · agent 84.9%**
+- meetings 76.6%는 static-hybrid 생존 168개(라우트 등록 라인 등 킬 불가) 제외 시 **82.0%**
+- 프로젝트 전체 66.84 → **73.99%** (killed 11,327 / survived 3,001 / nocov 999)
+- 인크리멘털 캐시 효과: 라운드 2는 변이 331개만 재실행, 27분 (풀런 71분 대비)
