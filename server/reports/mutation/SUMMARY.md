@@ -168,3 +168,9 @@ Working-tree changes (nothing committed): `.gitignore` (+ `server/.stryker-tmp/`
 | `llm.test.ts` (+3 tests) | #20 `llm.ts:14-16,27-31,54-55` model-prefix anchors (`xgpt-5`), 'none' support gate, `no json` throw, escape tracking (`\"` / `\\`), unterminated fallback, cleanAnswer `cut > 0` (leading `"}` kept) |
 
 Known survivors deliberately not chased: `runner.ts:175,301` `startsWith` guard (equivalent — regex strips `../` first, see §5), static-hybrid env-default mutants (§ caveat 2), `console.*`/StringLiteral notification-prose buckets. Note: `agent.ts` defines `GET /recent-decisions` three identical times (lines 708/742/776) — only the first is reachable; dead copies will stay NoCoverage until deduplicated (report finding, not fixed).
+
+
+## 8. 9/2 재실행 결과 (신규 테스트 77건 반영, 배치 A 170분 + B 24분, concurrency 2)
+**전체 52.95% → 66.84%** (covered 72.4 → 74.1%, valid 15,379: killed 10,232 · survived 3,597 · timeout 48 · no-coverage 1,502)
+주요 상승: workspaces 0→84.2, dm 1.3→81.6, auth 57.2→85.8, orgs 24.2→61.9, meetings 30.2→59.2, agent 33.2→59.3, handover 46.6→64.5, rag 62.2→74.0, ydoc 84.4→86.2, recap 43.2→53.6, steward 57.5→62.1, stt 53.4→61.7.
+남은 바닥: app.ts 24.5(에러 핸들러·정적 서빙 분기 — 대부분 스윕 전용), notifications 61.5, recap 53.6(프롬프트 문자열 변이 노이즈 포함). 문자열/로그 변이를 빼면 실질 검증률은 covered 74% 이상.
