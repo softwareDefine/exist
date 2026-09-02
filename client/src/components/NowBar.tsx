@@ -120,7 +120,7 @@ function TodoAssignees({ profiles }: { profiles?: Todo['assigneeProfiles'] }) {
       onMouseLeave={() => setTip(null)}
     >
       {profiles.slice(0, 3).map((p) => (
-        <Avatar key={p.username} value={p.avatar} className="nb-todo-assign-avatar" />
+        <Avatar key={p.username} value={p.avatar} name={p.username} className="nb-todo-assign-avatar" />
       ))}
       {profiles.length > 3 && <span className="nb-todo-assign-more">+{profiles.length - 3}</span>}
       {tip &&
@@ -132,7 +132,7 @@ function TodoAssignees({ profiles }: { profiles?: Todo['assigneeProfiles'] }) {
           >
             {profiles.map((p) => (
               <span key={p.username} className="hub-assign-tip-row">
-                <Avatar value={p.avatar} className="hub-assign-avatar" />
+                <Avatar value={p.avatar} name={p.username} className="hub-assign-avatar" />
                 <span>{p.name || p.username}</span>
               </span>
             ))}
@@ -450,11 +450,11 @@ function ProfileMenu({
   const dn = useDisplayName();
   return (
     <div className="nowbar-profile">
-      <Avatar value={avatar} className="nowbar-avatar" />
+      <Avatar value={avatar} name={user?.username} className="nowbar-avatar" />
       <div className="profile-menu">
         <div className="profile-menu-box">
           <div className="profile-name">
-            <Avatar value={avatar} className="profile-name-avatar" /> <b>{dn(user?.username)}</b>
+            <Avatar value={avatar} name={user?.username} className="profile-name-avatar" /> <b>{dn(user?.username)}</b>
           </div>
           <button className="profile-item" onClick={onOpenSettings}>
             <GearIcon size={16} /> 설정

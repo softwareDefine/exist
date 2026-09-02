@@ -148,7 +148,7 @@ const head: CSSProperties = {
 };
 const badge: CSSProperties = {
   fontSize: 12,
-  color: '#21C818',
+  color: 'var(--green-text)',
   background: 'rgba(33,200,24,0.1)',
   borderRadius: 8,
   padding: '3px 8px',
@@ -199,7 +199,7 @@ const checkBtn: CSSProperties = {
 };
 const when: CSSProperties = {
   fontSize: 12,
-  color: '#21C818',
+  color: 'var(--green-text)',
   fontWeight: 700,
   whiteSpace: 'nowrap',
   minWidth: 74,

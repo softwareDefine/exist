@@ -1865,7 +1865,7 @@ registerProcessor('exist-pcm',P)`;
                 justifyContent: 'center',
                 gap: 8,
                 fontSize: 13,
-                color: '#21C818',
+                color: 'var(--green-text)',
                 fontWeight: 700,
                 marginBottom: 16,
               }}
@@ -1950,7 +1950,7 @@ registerProcessor('exist-pcm',P)`;
             style={{
               width: '100%',
               padding: '12px 0',
-              background: '#21C818',
+              background: 'var(--green-text)',
               color: '#fff',
               border: 'none',
               borderRadius: 10,

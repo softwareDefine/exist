@@ -80,11 +80,11 @@ export default function ScheduleWidget({
                 onClick={() => setSel(new Date(view.y, view.m, d))}
                 style={{
                   ...dayCell,
-                  background: selected ? 'var(--green)' : 'transparent',
+                  background: selected ? 'var(--green-text)' : 'transparent',
                   color: selected
                     ? '#fff'
                     : isToday(d)
-                      ? 'var(--green)'
+                      ? 'var(--green-text)'
                       : dowColor(i % 7),
                   fontWeight: selected || isToday(d) ? 700 : 400,
                 }}

@@ -300,10 +300,10 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
             />
           </label>
           {saveError && (
-            <div className="error" style={{ color: '#d33', fontSize: 13 }}>{saveError}</div>
+            <div className="error" style={{ color: 'var(--red)', fontSize: 13 }}>{saveError}</div>
           )}
           {saveDone && (
-            <div style={{ color: 'var(--green)', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}><CheckMarkIcon size={13} /> {saveDone}</div>
+            <div style={{ color: 'var(--green-text)', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5 }}><CheckMarkIcon size={13} /> {saveDone}</div>
           )}
           <div className="modal-actions">
             <button type="button" className="modal-cancel" onClick={onClose}>

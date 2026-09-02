@@ -976,7 +976,7 @@ export default function ProfileDashboard() {
                     padding: '2px 8px',
                     borderRadius: 6,
                     background: it.type === 'recap' ? 'var(--green-soft)' : 'var(--surface-2)',
-                    color: it.type === 'recap' ? 'var(--green)' : 'var(--text-sub)',
+                    color: it.type === 'recap' ? 'var(--green-text)' : 'var(--text-sub)',
                     whiteSpace: 'nowrap',
                   }}
                 >

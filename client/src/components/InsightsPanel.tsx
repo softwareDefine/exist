@@ -178,7 +178,7 @@ function Stat({
 }) {
   return (
     <div style={stat}>
-      <div style={{ fontSize: 22, fontWeight: 700, color: muted ? 'var(--text-sub)' : '#21C818' }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: muted ? 'var(--text-sub)' : 'var(--green-text)' }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--text-sub)', marginTop: 2 }}>
         {label}
         {sub ? ` ${sub}` : ''}
@@ -188,7 +188,7 @@ function Stat({
 }
 
 function RiskCard({ label, data }: { label: string; data: { level: string; reason: string } }) {
-  const color = data.level === '높음' ? '#e5484d' : data.level === '보통' ? '#f76808' : '#21C818';
+  const color = data.level === '높음' ? '#e5484d' : data.level === '보통' ? '#f76808' : 'var(--green-text)';
   const bg =
     data.level === '높음'
       ? 'rgba(229,72,77,0.07)'
@@ -220,7 +220,7 @@ const head: CSSProperties = {
 };
 const badge: CSSProperties = {
   fontSize: 12,
-  color: '#21C818',
+  color: 'var(--green-text)',
   background: 'rgba(33,200,24,0.1)',
   borderRadius: 8,
   padding: '3px 8px',

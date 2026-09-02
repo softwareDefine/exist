@@ -32,11 +32,12 @@
 
 :root {
   /* exist 디자인 토큰 (로고 Group 1.svg 그린 기준) */
-  --green: #21c818;
-  --green-dark: #1aa312;
+  --green: #21c818; /* 장식 전용 — 게이지·보더·도트·로고·그라데이션 (글자 올리지 말 것) */
+  --green-text: #147d0e; /* 텍스트·그린 CTA 배경(흰 글자) — 흰 배경 대비 5.29:1 */
+  --green-dark: #0f6a0a; /* green-text의 hover/보조 단계 */
   --green-soft: #eafbe8;
   --text: #111111;
-  --text-sub: #9a9a9a;
+  --text-sub: #767676; /* 보조 텍스트 — 흰 배경 대비 4.54:1 (was #9a9a9a) */
   --border: #e2e2e2;
   --bg: #ffffff;
   --surface: #ffffff;
@@ -88,6 +89,8 @@
 /* ── 다크 모드 ── */
 .dark {
   --green-soft: #14331a;
+  --green-text: #21c818; /* 다크: 어두운 배경 위 밝은 그린이 대비 확보 — 기존 값 유지 */
+  --green-dark: #1aa312;
   --text: #e8e9ec;
   --text-sub: #8a8f98;
   --border: #2c2f36;
@@ -161,7 +164,7 @@ input {
 
 input:focus {
   outline: none;
-  border-color: var(--green) !important;
+  border-color: var(--green-text) !important;
   box-shadow: 0 0 0 3px rgba(45, 180, 0, 0.15);
 }
 
@@ -346,7 +349,7 @@ input:focus {
 }
 
 .nb-onboard b {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* hover 확장 — 카드가 아래로 이어져 늘어남 (별도 창 아님) */
@@ -433,7 +436,7 @@ input:focus {
 .nb-expand-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
   margin-bottom: 10px;
   display: flex;
   align-items: center;
@@ -502,7 +505,7 @@ input:focus {
 
 @media (hover: hover) and (pointer: fine) {
   .nb-cal-head button:hover {
-    color: var(--green);
+    color: var(--green-text);
   }
 }
 
@@ -534,7 +537,7 @@ input:focus {
 }
 
 .nb-cal-day.today {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-weight: 600;
 }
@@ -583,7 +586,7 @@ input:focus {
   width: 36px;
   border: none;
   border-radius: 8px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 16px;
 }
@@ -661,7 +664,7 @@ input:focus {
 }
 
 .progress-label b {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .progress-bar {
@@ -683,7 +686,7 @@ input:focus {
 .progress-pct {
   font-size: 13px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -738,7 +741,7 @@ input:focus {
 }
 
 .nb-current-text .countdown b {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .nb-current-text .tag {
@@ -792,7 +795,7 @@ input:focus {
   gap: 5px;
   border: none;
   border-radius: 8px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12.5px;
   font-weight: 600;
@@ -1000,7 +1003,7 @@ input:focus {
 }
 
 .nb-next-start b {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .nb-next-empty {
@@ -1079,7 +1082,7 @@ input:focus {
 
 .nowbar-todo.done .nowbar-todo-check {
   background: var(--green);
-  border-color: var(--green);
+  border-color: var(--green-text);
   color: #fff;
 }
 
@@ -1151,7 +1154,7 @@ input:focus {
 /* exist AI 아바타 — 모든 AI 표시는 별(SparklesIcon)로 통일 */
 .avatar-ai {
   background: color-mix(in srgb, var(--green) 14%, transparent);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .nowbar-avatar {
@@ -1239,7 +1242,7 @@ input:focus {
 }
 
 .profile-item.danger {
-  color: #d33;
+  color: var(--red);
 }
 
 .profile-item.danger:hover {
@@ -1406,7 +1409,7 @@ input:focus {
   height: 40px;
   border-radius: 10px;
   background: var(--surface-2);
-  color: var(--green);
+  color: var(--green-text);
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -1574,7 +1577,7 @@ input:focus {
   height: 38px;
   border: none;
   border-radius: 10px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 20px;
 }
@@ -1611,7 +1614,7 @@ input:focus {
 .join-card .join-btn {
   border: none;
   background: none;
-  color: var(--green);
+  color: var(--green-text);
   font-size: 16px;
   font-weight: 600;
   padding: 8px 4px;
@@ -1645,7 +1648,7 @@ input:focus {
   height: 40px;
   border-radius: 12px;
   background: rgba(33, 200, 24, 0.12);
-  color: var(--green);
+  color: var(--green-text);
   font-size: 20px;
   font-weight: 700;
   flex-shrink: 0;
@@ -1759,7 +1762,7 @@ input:focus {
 }
 
 .modal-select:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
@@ -1788,7 +1791,7 @@ input:focus {
 }
 
 .modal-primary {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -1812,8 +1815,8 @@ input:focus {
 }
 
 .modal-ghost:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 /* 설정 모달 */
@@ -1838,7 +1841,7 @@ input:focus {
   border: none;
   border-radius: 10px;
   padding: 0 14px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-weight: 700;
   font-size: 13px;
@@ -1918,8 +1921,8 @@ input:focus {
 }
 
 .avatar-upload-btn:hover:not(:disabled) {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .avatar-upload-btn:disabled {
@@ -1948,7 +1951,7 @@ input:focus {
 .settings-section {
   font-size: 13px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
   margin: 16px 0 10px;
 }
 
@@ -1973,7 +1976,7 @@ input:focus {
 }
 
 .avatar-pick.active {
-  border-color: var(--green);
+  border-color: var(--green-text);
   background: var(--green-soft);
 }
 
@@ -1983,7 +1986,7 @@ input:focus {
   border: 1px solid #f3c8c8;
   border-radius: 10px;
   background: var(--surface);
-  color: #d33;
+  color: var(--red);
   padding: 11px;
   font-size: 14px;
   font-weight: 600;
@@ -1992,7 +1995,7 @@ input:focus {
 .modal-danger:hover,
 .modal-danger.confirm {
   background: #fdf0f0;
-  border-color: #d33;
+  border-color: var(--red);
 }
 
 .modal-hint {
@@ -2021,7 +2024,7 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--green);
+  color: var(--green-text);
   font-size: 21px;
   font-weight: 900;
   margin: 26px 0 12px;
@@ -2100,7 +2103,7 @@ input:focus {
 
 /* 그룹 고정 핀 — 켜지면 초록 강조 + 카드 좌측 테두리로 고정 표시 */
 .recent-card .actions .pin-btn.on {
-  color: var(--green);
+  color: var(--green-text);
   opacity: 1;
 }
 
@@ -2251,7 +2254,7 @@ input:focus {
 .profile-card-host {
   font-size: 10.5px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
   border: 1px solid rgba(33, 200, 24, 0.4);
   border-radius: 6px;
   padding: 1px 5px;
@@ -2301,8 +2304,8 @@ input:focus {
 }
 
 .profile-card-actions button:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
   background: rgba(33, 200, 24, 0.06);
 }
 
@@ -2322,7 +2325,7 @@ input:focus {
 }
 
 .dm-search input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
@@ -2445,7 +2448,7 @@ input:focus {
   height: 18px;
   padding: 0 5px;
   border-radius: 8px;
-  background: #ff5b5b;
+  background: var(--red);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -2549,7 +2552,7 @@ input:focus {
 }
 
 .dm-window-body .chat-row.mine .chat-bubble {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -2592,13 +2595,13 @@ input:focus {
 }
 
 .dm-window-input input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
 .dm-window-input button {
   border: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-weight: 600;
   font-size: 14px;
@@ -2640,7 +2643,7 @@ input:focus {
   width: 40px;
   border: none;
   border-radius: 8px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 18px;
 }
@@ -2673,7 +2676,7 @@ input:focus {
 }
 
 .todo-item input {
-  accent-color: var(--green);
+  accent-color: var(--green-text);
   width: 16px;
   height: 16px;
 }
@@ -2701,7 +2704,7 @@ input:focus {
 }
 
 .todo-item .todo-del:hover {
-  color: #d33;
+  color: var(--red);
 }
 
 /* ───── 작업 공간 ───── */
@@ -2756,7 +2759,7 @@ input:focus {
 
 .ws-add:hover {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .ws-create input {
@@ -2803,7 +2806,7 @@ input:focus {
 
 .ws-tab.active {
   /* 현재 보는 탭: 흰 배경 + 녹색 글씨로 도드라지게 (비활성은 회색) */
-  color: var(--green);
+  color: var(--green-text);
   background: var(--surface);
   opacity: 1;
   /* 붙은 탭들 중 활성 탭을 위로 올려 양옆 테두리가 가려지지 않게 */
@@ -2931,8 +2934,8 @@ input:focus {
 }
 
 .hub-tab.active {
-  color: var(--green);
-  border-bottom-color: var(--green);
+  color: var(--green-text);
+  border-bottom-color: var(--green-text);
 }
 
 .hub-body {
@@ -3101,7 +3104,7 @@ input:focus {
 .hub-join.lg:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -3285,7 +3288,7 @@ input:focus {
 }
 
 .pipe-step.now {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .pipe-step-date {
@@ -3294,7 +3297,7 @@ input:focus {
 
 /* ② 실행 중 — 지금 살아있는 구간이라는 강조 테두리 */
 .pipe-now {
-  border-color: var(--green);
+  border-color: var(--green-text);
   box-shadow: 0 0 0 1px var(--green) inset;
 }
 
@@ -3378,7 +3381,7 @@ input:focus {
   border: none;
   border-radius: 10px;
   padding: 9px 14px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 13px;
   font-weight: 700;
@@ -3458,7 +3461,7 @@ input:focus {
   border-radius: 9px;
   padding: 8px 13px;
   background: color-mix(in srgb, var(--green) 8%, transparent);
-  color: var(--green);
+  color: var(--green-text);
   font-size: 12.5px;
   font-weight: 700;
 }
@@ -3482,7 +3485,7 @@ input:focus {
   gap: 5px;
   font-size: 12px;
   font-weight: 800;
-  color: var(--green);
+  color: var(--green-text);
 }
 .ho-review-row {
   display: flex;
@@ -3511,7 +3514,7 @@ input:focus {
   border: none;
   border-radius: 7px;
   padding: 4px 10px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 11.5px;
   font-weight: 800;
@@ -3522,7 +3525,7 @@ input:focus {
   gap: 6px;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 .ho-cancel {
   border: 1px solid var(--border);
@@ -3537,7 +3540,7 @@ input:focus {
   border: none;
   border-radius: 9px;
   padding: 8px 16px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 13px;
   font-weight: 700;
@@ -3577,7 +3580,7 @@ input:focus {
 .ho-shift-badge {
   font-size: 12px;
   font-weight: 800;
-  color: var(--green);
+  color: var(--green-text);
   background: color-mix(in srgb, var(--green) 12%, transparent);
   padding: 3px 10px;
   border-radius: 8px;
@@ -3632,7 +3635,7 @@ input:focus {
   border: none;
   border-radius: 9px;
   padding: 7px 13px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12.5px;
   font-weight: 700;
@@ -3641,7 +3644,7 @@ input:focus {
 .ho-signed {
   font-size: 12px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 반복 점검 체크리스트 — 편집기 + 카드 */
@@ -3664,7 +3667,7 @@ input:focus {
   font-size: 13px;
 }
 .ho-check-row input[type='checkbox'] {
-  accent-color: var(--green);
+  accent-color: var(--green-text);
   width: 15px;
   height: 15px;
 }
@@ -3682,7 +3685,7 @@ input:focus {
 }
 .ho-check-del:hover {
   opacity: 1;
-  color: #d33;
+  color: var(--red);
 }
 .ho-check-add {
   display: flex;
@@ -3725,7 +3728,7 @@ input:focus {
 }
 .ho-check-chip.done {
   background: color-mix(in srgb, var(--green) 12%, transparent);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 손 서명 — 패드(작성) + 칩(회람판) */
@@ -3741,7 +3744,7 @@ input:focus {
 .ho-signpad-title {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 .ho-sign-canvas {
   background: #fff;
@@ -3815,7 +3818,7 @@ input:focus {
   margin-left: 6px;
   font-size: 11px;
   font-weight: 800;
-  color: var(--green);
+  color: var(--green-text);
 }
 .ho-echo-bad {
   display: inline-flex;
@@ -3843,7 +3846,7 @@ input:focus {
   border: none;
   border-radius: 9px;
   padding: 7px 12px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -3881,7 +3884,7 @@ input:focus {
   align-items: center;
   gap: 6px;
   border: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12.5px;
   font-weight: 700;
@@ -3945,7 +3948,7 @@ input:focus {
 
 .hub-sched-badge.live {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-sched-badge.soon {
@@ -3977,7 +3980,7 @@ input:focus {
 }
 
 .hub-canvas-card:hover {
-  border-color: var(--green);
+  border-color: var(--green-text);
   background: rgba(33, 200, 24, 0.03);
 }
 
@@ -3999,7 +4002,7 @@ input:focus {
 }
 
 .hub-section-title b {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-section-title .hub-roster-org {
@@ -4028,7 +4031,7 @@ input:focus {
 }
 
 .hub-recap-card .hub-recap-more:hover {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-recap-list {
@@ -4079,7 +4082,7 @@ input:focus {
 }
 
 .hub-recap-decisions li svg {
-  color: var(--green);
+  color: var(--green-text);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -4106,7 +4109,7 @@ input:focus {
   padding: 2px 8px;
   border-radius: 6px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-recap-assignee.none {
@@ -4120,7 +4123,7 @@ input:focus {
   margin-left: auto;
   border: 1px solid rgba(33, 200, 24, 0.45);
   background: none;
-  color: var(--green);
+  color: var(--green-text);
   border-radius: 8px;
   padding: 3px 10px;
   font-size: 12px;
@@ -4142,7 +4145,7 @@ input:focus {
   border: none;
   border-radius: 8px;
   padding: 5px 12px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -4231,7 +4234,7 @@ input:focus {
   border: none;
   border-radius: 8px;
   padding: 5px 12px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -4246,7 +4249,7 @@ input:focus {
   margin-top: 7px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 다음 회의 제안 — AI가 감지한 시각, 사람이 버튼으로 확정 */
@@ -4263,7 +4266,7 @@ input:focus {
 }
 
 .hub-recap-next-label {
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 700;
   flex: none;
 }
@@ -4280,7 +4283,7 @@ input:focus {
   border: none;
   border-radius: 8px;
   padding: 4px 10px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -4300,7 +4303,7 @@ input:focus {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 700;
 }
 
@@ -4325,7 +4328,7 @@ input:focus {
 
 .hub-recap-src.ai {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 회의 정보 섹션 */
@@ -4360,7 +4363,7 @@ input:focus {
   margin-left: auto;
   font-size: 12px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 진행률 바 */
@@ -4389,7 +4392,7 @@ input:focus {
 .hub-todo-pct {
   font-size: 12px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
   flex-shrink: 0;
 }
 
@@ -4440,7 +4443,7 @@ input:focus {
 
 .hub-todo.done .hub-todo-check {
   background: var(--green);
-  border-color: var(--green);
+  border-color: var(--green-text);
   color: #fff;
 }
 
@@ -4466,7 +4469,7 @@ input:focus {
   padding: 2px 8px;
   border-radius: 6px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
   white-space: nowrap;
 }
 
@@ -4539,7 +4542,7 @@ input:focus {
 }
 
 .hub-todo-due.today {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -4599,7 +4602,7 @@ input:focus {
 }
 
 .nb-todo-due.today {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -5066,7 +5069,7 @@ input:focus {
 
 .hub-assign-opt input:checked + .hub-todo-check {
   background: var(--green);
-  border-color: var(--green);
+  border-color: var(--green-text);
   color: #fff;
 }
 
@@ -5095,7 +5098,7 @@ input:focus {
 }
 
 .hub-todo-del:hover {
-  color: #ff5b5b;
+  color: var(--red);
 }
 
 .hub-todo-add {
@@ -5130,13 +5133,13 @@ input:focus {
 }
 
 .hub-todo-add input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
 .hub-todo-add button {
   border: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border-radius: 8px;
   padding: 0 14px;
@@ -5203,7 +5206,7 @@ input:focus {
 }
 
 .msched-cal-head > button:hover {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .msched-head-label {
@@ -5222,7 +5225,7 @@ input:focus {
 }
 
 .msched-today-btn:hover {
-  border-color: var(--green) !important;
+  border-color: var(--green-text) !important;
 }
 
 /* 모바일 전용 알약 — [보기 형태 아이콘 | +] (애플 캘린더식). 데스크톱은 세그 유지 */
@@ -5488,7 +5491,7 @@ input:focus {
 }
 
 .msched-wcol-num.today {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -6137,7 +6140,7 @@ input:focus {
 }
 
 .msched-hour:hover .msched-hour-label {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .msched-hour-label {
@@ -6181,7 +6184,7 @@ input:focus {
 }
 
 .msched-event.compact.meeting {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 /* 일 뷰 이벤트 — 주 뷰 블록과 같은 초록 틴트 + 왼쪽 액센트 선 (배경과 구분 안 되던 문제) */
@@ -6311,13 +6314,13 @@ input:focus {
 }
 
 .msched-day-num.today {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
 .msched-day-num.sel:not(.today) {
   box-shadow: inset 0 0 0 1.5px var(--green);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 이벤트 칩 */
@@ -6597,7 +6600,7 @@ input:focus {
 }
 
 .msched-event-del:hover {
-  color: #ff5b5b;
+  color: var(--red);
 }
 
 .msched-event-edit {
@@ -6611,7 +6614,7 @@ input:focus {
 }
 .msched-event-edit:hover,
 .msched-event-edit.on {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .msched-add-actions {
@@ -6737,7 +6740,7 @@ input:focus {
 }
 
 .msched-ppl-search input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
@@ -6795,7 +6798,7 @@ input:focus {
 }
 
 .msched-add-remind select:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
@@ -6811,7 +6814,7 @@ input:focus {
 
 .msched-add-remind input[type='date']:focus,
 .msched-add-remind input[type='time']:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
@@ -7022,7 +7025,7 @@ input:focus {
 }
 
 .msched-add-memo:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
@@ -7060,14 +7063,14 @@ input:focus {
 .msched-add-title:focus,
 .msched-add-time:focus,
 .msched-add-times input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
 .msched-add-btn {
   width: 100%;
   border: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border-radius: 8px;
   padding: 9px;
@@ -7325,8 +7328,8 @@ input:focus {
 }
 
 .hub-set-btn:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .hub-set-btn.danger:hover {
@@ -7561,7 +7564,7 @@ input:focus {
 }
 
 .cm-input:focus {
-  border-color: var(--green) !important;
+  border-color: var(--green-text) !important;
   background: var(--surface);
 }
 
@@ -7708,11 +7711,11 @@ input:focus {
 }
 
 .cm-org:hover {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .cm-org.on {
-  border-color: var(--green);
+  border-color: var(--green-text);
   background: var(--green-soft);
   color: var(--green-dark);
 }
@@ -7869,12 +7872,12 @@ input:focus {
 }
 
 .cm-recur-chip:hover {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .cm-recur-chip.on {
   border-color: transparent;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -7907,7 +7910,7 @@ input:focus {
 }
 
 .cm-btn.primary {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -7997,7 +8000,7 @@ input:focus {
 }
 
 .datepick-btn:hover {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .datepick-ph {
@@ -8098,12 +8101,12 @@ input:focus {
 }
 
 .datepick-day.today {
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 600;
 }
 
 .datepick-day.sel {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-weight: 600;
 }
@@ -8426,7 +8429,7 @@ input:focus {
 
 .doc-newtab:hover {
   background: var(--surface-2);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .doc-tabbar-right {
@@ -8452,8 +8455,8 @@ input:focus {
 }
 
 .doc-export:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .doc-export-back {
@@ -8533,8 +8536,8 @@ input:focus {
 
 .doc-tool.on {
   background: rgba(33, 200, 24, 0.12);
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .doc-tool-sep {
@@ -8778,7 +8781,7 @@ input:focus {
 }
 
 .doc-size-input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 /* 우상단 댓글·이력 아이콘 (독스식) */
@@ -8802,7 +8805,7 @@ input:focus {
 }
 
 .doc-top-ico.on {
-  color: var(--green);
+  color: var(--green-text);
   background: rgba(33, 200, 24, 0.1);
 }
 
@@ -8863,7 +8866,7 @@ input:focus {
 }
 
 .doc-dd .item.on {
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 700;
 }
 
@@ -8977,7 +8980,7 @@ input:focus {
 }
 
 .doc-find input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .doc-find-btns {
@@ -9003,8 +9006,8 @@ input:focus {
 }
 
 .doc-find-btns .doc-find-go {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--green-text);
+  border-color: var(--green-text);
   color: #fff;
 }
 
@@ -9064,7 +9067,7 @@ input:focus {
 .doc-prose ul[data-type='taskList'] input[type='checkbox'] {
   width: 15px;
   height: 15px;
-  accent-color: var(--green);
+  accent-color: var(--green-text);
   cursor: pointer;
 }
 
@@ -9387,7 +9390,7 @@ input:focus {
 }
 
 .doc-cthread.new {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .doc-cthread.resolved {
@@ -9453,7 +9456,7 @@ input:focus {
 }
 
 .doc-creply-row input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .doc-creply-row button,
@@ -9476,8 +9479,8 @@ input:focus {
 }
 
 .doc-cthread-btns .primary {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--green-text);
+  border-color: var(--green-text);
   color: #fff;
 }
 
@@ -9547,8 +9550,8 @@ input:focus {
 }
 
 .doc-vers-save:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .doc-vers-list {
@@ -9574,7 +9577,7 @@ input:focus {
 }
 
 .doc-vers-row:hover {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .doc-vers-author {
@@ -9591,7 +9594,7 @@ input:focus {
   border-radius: 6px;
   padding: 2px 7px;
   background: rgba(33, 200, 24, 0.13);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .doc-vers-label.auto {
@@ -9633,13 +9636,13 @@ input:focus {
 }
 
 .doc-vers-pbtns button.on {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .doc-vers-pbtns button.primary {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--green-text);
+  border-color: var(--green-text);
   color: #fff;
 }
 
@@ -9723,7 +9726,7 @@ input:focus {
 
 .sheet-formula:focus {
   outline: none;
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .sheet-right {
@@ -9748,8 +9751,8 @@ input:focus {
 }
 
 .sheet-csv:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 /* 시트 서식 툴바 */
@@ -9849,8 +9852,8 @@ input:focus {
 
 .sht-btn.on {
   background: rgba(33, 200, 24, 0.14);
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .sht-sep {
@@ -9948,11 +9951,11 @@ input:focus {
 }
 
 .sheet-find input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .sheet-find button {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -10030,9 +10033,9 @@ input:focus {
 }
 
 .sheet-chart-types button.on {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .sheet-chart-range {
@@ -10119,7 +10122,7 @@ input:focus {
 .sheet-grid thead th.sel,
 .sheet-rownum.sel {
   background: rgba(33, 200, 24, 0.14);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .sheet-grid td {
@@ -10336,7 +10339,7 @@ input:focus {
 
 .sheet-newtab:hover {
   background: #e9ebee;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 다크모드: 문서/시트/발표도 다크 테마 적용 */
@@ -10444,8 +10447,8 @@ input:focus {
 }
 
 .slide-tools button:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .slide-right {
@@ -10458,7 +10461,7 @@ input:focus {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -10514,7 +10517,7 @@ input:focus {
 }
 
 .slide-thumb.active .slide-thumb-canvas {
-  border-color: var(--green);
+  border-color: var(--green-text);
   box-shadow: 0 0 0 1.5px var(--green);
 }
 
@@ -10588,8 +10591,8 @@ input:focus {
 }
 
 .slide-add:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .slide-stage {
@@ -10631,7 +10634,7 @@ input:focus {
 }
 
 .slide-notes:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 /* 도형 안 텍스트 — 도형 위에 가운데 겹침 */
@@ -10729,8 +10732,8 @@ input:focus {
 }
 
 .slide-pdf-btn:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 /* PDF 인쇄 전용 — 화면에선 숨김 */
@@ -10795,7 +10798,7 @@ input:focus {
 }
 
 .slide-el.sel {
-  border-color: var(--green);
+  border-color: var(--green-text);
   background: rgba(33, 200, 24, 0.04);
 }
 
@@ -11074,7 +11077,7 @@ input:focus {
   display: inline-block;
   width: 11px;
   font-size: 9px;
-  color: #9a9a9a;
+  color: #767676;
   flex: none;
   text-align: center;
 }
@@ -11262,7 +11265,7 @@ input:focus {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border: none;
   border-radius: 6px;
@@ -11345,7 +11348,7 @@ input:focus {
 }
 
 .vsc-git-menu input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .vsc-git-row {
@@ -11358,7 +11361,7 @@ input:focus {
 }
 
 .vsc-git-push {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -11553,7 +11556,7 @@ input:focus {
 }
 
 .vsc.light .vsc-welcome {
-  color: #9a9a9a;
+  color: #767676;
 }
 
 .vsc-tab {
@@ -11724,7 +11727,7 @@ input:focus {
 
 .hub-channels-add:hover {
   background: var(--surface);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-channels-list {
@@ -11760,7 +11763,8 @@ input:focus {
 
 .hub-channel-item.active {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--text);
+  font-weight: 700;
 }
 
 .hub-channel-name {
@@ -11927,7 +11931,7 @@ input:focus {
 }
 
 .ledger-title svg {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .ledger-count {
@@ -11936,7 +11940,7 @@ input:focus {
   padding: 2px 9px;
   border-radius: 999px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .ledger-search {
@@ -11951,7 +11955,7 @@ input:focus {
 }
 
 .ledger-search:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .ledger-empty {
@@ -12011,7 +12015,7 @@ input:focus {
   height: 24px;
   border-radius: 8px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -12147,7 +12151,7 @@ input:focus {
   box-shadow: none;
 }
 .cf-path:focus-within {
-  border-color: var(--green);
+  border-color: var(--green-text);
   box-shadow: 0 0 0 3px rgba(45, 180, 0, 0.12);
 }
 /* 편집 모드에도 폴더 아이콘은 남긴다 — 같은 알약이 편집 중일 뿐이라는 신호 */
@@ -12194,7 +12198,7 @@ input:focus {
 }
 
 .cf-search:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
@@ -12233,7 +12237,7 @@ input:focus {
 
 /* 새로 만들기 — 앱 공통 프라이머리 언어(솔리드 초록 알약: 참여·일정 추가·인수인계 작성과 동일) */
 .cf-tool.primary {
-  background: var(--green);
+  background: var(--green-text);
   border-color: transparent;
   color: #fff;
   font-weight: 700;
@@ -12246,7 +12250,7 @@ input:focus {
 .cf-tool.danger:hover:not(:disabled) {
   background: rgba(230, 60, 60, 0.08);
   border-color: rgba(230, 60, 60, 0.25);
-  color: #d33;
+  color: var(--red);
 }
 
 .cf-tool-sep {
@@ -12284,7 +12288,7 @@ input:focus {
 }
 .cf-gbar .cf-tool.danger:hover:not(:disabled) {
   background: rgba(230, 60, 60, 0.12);
-  color: #d33;
+  color: var(--red);
 }
 .cf-gsep {
   width: 1px;
@@ -12302,7 +12306,7 @@ input:focus {
   display: inline-flex;
   align-items: stretch;
   border-radius: 999px;
-  background: var(--green);
+  background: var(--green-text);
   height: 34px;
   /* overflow hidden 금지 — 새로 만들기 드롭다운이 잘린다. 라운드는 세그먼트별로 */
 }
@@ -12368,7 +12372,7 @@ input:focus {
 .cf-upload-toast-pct {
   font-size: 12px;
   font-weight: 800;
-  color: var(--green);
+  color: var(--green-text);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -12638,7 +12642,7 @@ input:focus {
   height: 20px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 11.5px;
   font-weight: 800;
@@ -12808,7 +12812,7 @@ input:focus {
 }
 .cf-ackbar.done {
   background: color-mix(in srgb, var(--green) 12%, transparent);
-  color: var(--green);
+  color: var(--green-text);
 }
 /* 서명 모달 — 인라인 패드 대신 의식감 있는 팝업. 무엇에 서명하는지(문서·개정·바뀐 점) 명시 */
 .cf-signmodal-backdrop {
@@ -12860,7 +12864,7 @@ input:focus {
 }
 .cf-signmodal-note-t {
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 .cf-signmodal-desc {
   font-size: 12px;
@@ -13061,7 +13065,7 @@ input:focus {
 .cf-ack-done {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 .cf-ack-req,
 .cf-ack-off {
@@ -13085,7 +13089,7 @@ input:focus {
   color: var(--red);
 }
 .cf-ack-head b.ok {
-  color: var(--green);
+  color: var(--green-text);
 }
 /* 미확인자 명단 — 아바타(정사각+살짝 radius 규칙) + 이름 세로 나열 */
 .cf-ack-pending {
@@ -13249,7 +13253,7 @@ input:focus {
 }
 .cf-move-tree button.cf-dist-on svg:last-child {
   margin-left: auto;
-  color: var(--green);
+  color: var(--green-text);
 }
 .cf-dist-ack {
   display: flex;
@@ -13262,7 +13266,7 @@ input:focus {
   cursor: pointer;
 }
 .cf-dist-ack input {
-  accent-color: var(--green);
+  accent-color: var(--green-text);
 }
 .cf-dist-acts {
   display: flex;
@@ -13275,7 +13279,7 @@ input:focus {
   border: none;
   border-top: 1px solid var(--border);
   border-left: 1px solid var(--border);
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   padding: 10px;
   font-size: 13px;
@@ -13370,7 +13374,7 @@ input:focus {
 }
 .cf-share-tabs button.on {
   background: rgba(33, 200, 24, 0.12);
-  color: var(--green);
+  color: var(--green-text);
 }
 .cf-share-tabs button.on:hover {
   background: rgba(33, 200, 24, 0.16);
@@ -13402,7 +13406,7 @@ input:focus {
   flex: none;
   border: none;
   border-radius: 999px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 13px;
   font-weight: 700;
@@ -13438,7 +13442,7 @@ input:focus {
   flex: none;
   border: none;
   border-radius: 8px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12.5px;
   font-weight: 700;
@@ -13457,7 +13461,7 @@ input:focus {
   margin: 2px 10px 6px;
   border: none;
   border-radius: 8px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   padding: 8px;
   font-size: 13px;
@@ -13546,7 +13550,7 @@ input:focus {
 }
 .cf-desktree-item.cur {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 700;
 }
 /* 휴지통은 선택돼도 초록이 아니라 빨강 — 장소의 정체성 유지 */
@@ -13571,10 +13575,10 @@ input:focus {
 }
 /* 투톤 아이콘 포인트 색 — 정렬 아래 화살표 등 (브랜드 초록 통일) */
 .ic-accent {
-  color: var(--green);
+  color: var(--green-text);
 }
 .ic-accent-green {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 사이드바 트리 셰브론 — 접고 펴기 (윈도우 탐색기식: 접힘 › / 펼침 ∨) */
@@ -13595,7 +13599,7 @@ input:focus {
 
 /* 사이드바 아이콘 채색 — 장소·상태는 유색, 액션 툴바는 무채 (Win11 문법) */
 .side-ic-home > svg {
-  color: var(--green);
+  color: var(--green-text);
 }
 .side-ic-folder > svg {
   color: #e0a13f;
@@ -13665,7 +13669,7 @@ button.cf-home-fold {
   background: var(--red-soft);
 }
 .cf-nav-active {
-  color: var(--green) !important;
+  color: var(--green-text) !important;
 }
 
 /* 내용 검색 결과 — 문서 안 텍스트 일치 */
@@ -13860,7 +13864,7 @@ button.cf-home-fold {
   color: var(--red); /* 사이드바 휴지통과 같은 빨강 — 장소 정체성 통일 */
 }
 .cf-icon-home {
-  color: var(--green); /* 사이드바 홈과 같은 초록 */
+  color: var(--green-text); /* 사이드바 홈과 같은 초록 */
 }
 .cf-details-trashicon svg {
   color: var(--red); /* 세부정보 휴지통 카드도 동일 */
@@ -13874,7 +13878,7 @@ button.cf-home-fold {
   padding: 12px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
   background: color-mix(in srgb, var(--green) 8%, transparent);
   border-radius: 10px;
 }
@@ -13884,7 +13888,7 @@ button.cf-home-fold {
   flex: none;
   border-radius: 50%;
   border: 2px solid color-mix(in srgb, var(--green) 30%, transparent);
-  border-top-color: var(--green);
+  border-top-color: var(--green-text);
   animation: hub-recap-spin 0.8s linear infinite;
 }
 @keyframes hub-recap-spin {
@@ -14036,7 +14040,7 @@ button.cf-home-fold {
   border: none;
   border-radius: 10px;
   padding: 9px 0;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-weight: 700;
   font-size: 13px;
@@ -14303,8 +14307,8 @@ button.cf-home-fold {
 }
 
 .cf-props-btn:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 /* 속성 창 — 조회성 정보 팝업. 긴 내용(연혁·버전)은 본문만 스크롤 (dvh — 모바일 주소창 변동 대응) */
@@ -14342,8 +14346,8 @@ button.cf-home-fold {
 }
 
 .cf-back:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .cf-editor-name {
@@ -14413,7 +14417,7 @@ button.cf-home-fold {
 
 .cf-add:hover {
   background: var(--surface);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .cf-type-menu {
@@ -14444,7 +14448,7 @@ button.cf-home-fold {
 
 .cf-type-menu button:hover {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 체크 자리 고정 — 선택 표시가 붙어도 라벨이 안 밀리게 (정렬·보기·필터 공용) */
@@ -14454,7 +14458,7 @@ button.cf-home-fold {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* ⋯ 더보기 메뉴 — 탐색기식 (실행 취소·선택 3종) */
@@ -14514,7 +14518,7 @@ button.cf-home-fold {
 
 .cf-item.active {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .cf-chevron {
@@ -14660,7 +14664,7 @@ button.cf-home-fold {
   margin-left: 3px;
   font-size: 10.5px;
   font-weight: 800;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 그리드 타일에선 우상단 배지, 리스트/트리에선 인라인 */
@@ -14726,8 +14730,8 @@ button.cf-home-fold {
 
 .cf-fullscreen:hover,
 .cf-fullscreen.on {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .cf-editor-host {
@@ -14923,7 +14927,7 @@ button.cf-home-fold {
   flex-shrink: 0;
   font-size: 11px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 메시지 행 */
@@ -14992,7 +14996,7 @@ button.cf-home-fold {
 }
 
 .hub-chat .chat-row.mine .chat-bubble {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -15020,14 +15024,14 @@ button.cf-home-fold {
 }
 
 .hub-chat-input input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
 .hub-chat-input button {
   border: none;
   border-radius: 10px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-weight: 600;
   font-size: 15px;
@@ -15124,7 +15128,7 @@ button.cf-home-fold {
 /* 공동편집 문서 카드의 "열기" — 클릭 유도가 보이게 초록 칩 (그레이 텍스트는 묻힌다) */
 .chat-file-open {
   flex: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -15239,7 +15243,7 @@ button.cf-home-fold {
 }
 
 .hub-live {
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -15297,7 +15301,7 @@ button.cf-home-fold {
 }
 
 .hub-roster-head b {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-roster-org {
@@ -15370,7 +15374,7 @@ button.cf-home-fold {
 .hub-pcard-pos {
   font-size: 12px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-pcard-badge {
@@ -15379,7 +15383,7 @@ button.cf-home-fold {
   padding: 1px 6px;
   border-radius: 6px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-pcard-badge.admin {
@@ -15396,7 +15400,7 @@ button.cf-home-fold {
 }
 
 .hub-pcard-host {
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 600;
 }
 
@@ -15416,7 +15420,7 @@ button.cf-home-fold {
 
 .hub-pcard-dm:hover {
   opacity: 1;
-  color: var(--green);
+  color: var(--green-text);
   background: rgba(33, 200, 24, 0.08);
 }
 
@@ -15478,7 +15482,7 @@ button.cf-home-fold {
 
 .org-field-select:focus,
 .org-field-input:focus {
-  border-color: var(--green);
+  border-color: var(--green-text);
   outline: none;
 }
 
@@ -15493,7 +15497,7 @@ button.cf-home-fold {
 
 .org-member-pos {
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-join {
@@ -15504,7 +15508,7 @@ button.cf-home-fold {
   gap: 10px;
   border: none;
   border-radius: 12px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 16px;
   font-weight: 600;
@@ -15526,7 +15530,7 @@ button.cf-home-fold {
   align-items: center;
   font-size: 13px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
   margin-bottom: 8px;
 }
 
@@ -15544,7 +15548,7 @@ button.cf-home-fold {
 }
 
 .hub-preview-more:hover {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hub-preview-msg {
@@ -15599,7 +15603,7 @@ button.cf-home-fold {
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: #ff5b5b;
+  background: var(--red);
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -15642,7 +15646,7 @@ button.cf-home-fold {
 }
 
 .notif-clear:hover {
-  color: #ff5b5b;
+  color: var(--red);
 }
 
 .notif-list {
@@ -15700,7 +15704,7 @@ button.cf-home-fold {
 .notif-from {
   font-size: 13px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .notif-time {
@@ -15737,12 +15741,12 @@ button.cf-home-fold {
 
 .notif-foot-btn:hover {
   background: var(--surface-2);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .notif-foot-btn.danger:hover {
   background: #fff0f0;
-  color: #ff5b5b;
+  color: var(--red);
 }
 
 /* ───── 조직 전환기 ───── */
@@ -15768,13 +15772,13 @@ button.cf-home-fold {
 }
 
 .org-switcher-btn:hover {
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .org-switcher-icon {
   display: inline-flex;
   align-items: center;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .org-switcher-name {
@@ -15798,7 +15802,7 @@ button.cf-home-fold {
   height: 19px;
   padding: 0 6px;
   border-radius: 10px;
-  background: #ff5b5b;
+  background: var(--red);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -15857,7 +15861,7 @@ button.cf-home-fold {
 }
 
 .org-menu-item.active {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .org-menu-item.action {
@@ -15866,7 +15870,7 @@ button.cf-home-fold {
 }
 
 .org-menu-item.action:hover {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .org-menu-item-name {
@@ -15882,7 +15886,7 @@ button.cf-home-fold {
 
 .org-menu-item > .org-check {
   margin-left: auto;
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 600;
 }
 
@@ -15896,7 +15900,7 @@ button.cf-home-fold {
 
 .org-menu-manage:hover {
   background: var(--surface);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .org-menu-divider {
@@ -15931,7 +15935,7 @@ button.cf-home-fold {
   padding: 9px 12px;
   font-weight: 600;
   letter-spacing: 1px;
-  color: var(--green);
+  color: var(--green-text);
   text-align: left;
 }
 
@@ -15982,7 +15986,7 @@ button.cf-home-fold {
 
 .org-role.owner {
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .org-role.admin {
@@ -16084,7 +16088,7 @@ button.cf-home-fold {
 
 .org-roles-perm input:checked + .hub-todo-check {
   background: var(--green);
-  border-color: var(--green);
+  border-color: var(--green-text);
   color: #fff;
 }
 
@@ -16115,7 +16119,7 @@ button.cf-home-fold {
 .org-suggest-badge {
   font-size: 11.5px;
   font-weight: 800;
-  color: var(--green);
+  color: var(--green-text);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
@@ -16160,7 +16164,7 @@ button.cf-home-fold {
 .org-groups-mine {
   font-size: 10.5px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
   background: var(--green-soft);
   padding: 1px 7px;
   border-radius: 8px;
@@ -16241,13 +16245,13 @@ button.cf-home-fold {
 }
 
 .org-btn:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 .org-btn.approve {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--green-text);
+  border-color: var(--green-text);
   color: #fff;
 }
 
@@ -16257,8 +16261,8 @@ button.cf-home-fold {
 }
 
 .org-btn.reject:hover {
-  border-color: #ff5b5b;
-  color: #ff5b5b;
+  border-color: var(--red);
+  color: var(--red);
 }
 
 /* 권한 매트릭스 — 역할별 권한 가시화 */
@@ -16322,7 +16326,7 @@ button.cf-home-fold {
   font-size: 12px;
 }
 .org-perm-table td.yes {
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 700;
 }
 .org-perm-table td.no {
@@ -16370,7 +16374,7 @@ button.cf-home-fold {
 }
 
 .orgchart-back:hover {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .orgchart-top > span {
@@ -16412,7 +16416,7 @@ button.cf-home-fold {
   height: 52px;
   border-radius: 14px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .orgchart-title h1 {
@@ -16452,7 +16456,7 @@ button.cf-home-fold {
 }
 
 .orgchart-code b {
-  color: var(--green);
+  color: var(--green-text);
   letter-spacing: 1px;
 }
 
@@ -16462,7 +16466,7 @@ button.cf-home-fold {
   gap: 6px;
   height: 38px;
   border: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border-radius: 8px;
   padding: 0 15px;
@@ -16511,7 +16515,7 @@ button.cf-home-fold {
   padding: 0 6px;
   border-radius: 10px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -16556,7 +16560,7 @@ button.cf-home-fold {
 .orgchart-pos {
   font-size: 13px;
   font-weight: 600;
-  color: var(--green);
+  color: var(--green-text);
   margin-top: 1px;
 }
 
@@ -16581,7 +16585,7 @@ button.cf-home-fold {
 }
 
 .orgchart-pending-head b {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .orgchart-pending-row {
@@ -16667,7 +16671,7 @@ button.cf-home-fold {
   height: 13px;
   padding: 0 3px;
   border-radius: 8px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 9px;
   font-weight: 600;
@@ -16722,13 +16726,13 @@ html:not(.dark) .meeting-controls button:hover {
 
 html:not(.dark) .meeting-controls button.off,
 html:not(.dark) .meeting-controls .ctl-split:has(> button.main.off) {
-  background: #d33;
-  border-color: #d33;
+  background: var(--red);
+  border-color: var(--red);
 }
 
 html:not(.dark) .meeting-controls button.active {
   background: var(--green);
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 html:not(.dark) .meeting-controls .chat-toggle {
@@ -16751,8 +16755,8 @@ html:not(.dark) .cam-off-label {
 }
 
 html:not(.dark) .meeting-controls .leave {
-  background: #d33;
-  border-color: #d33;
+  background: var(--red);
+  border-color: var(--red);
   color: #fff;
 }
 
@@ -17185,7 +17189,7 @@ html:not(.dark) .meeting-controls .leave:hover {
 
 /* 회의 탭 안읽음 배지 */
 .tab-badge {
-  background: #d33;
+  background: var(--red);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -17210,12 +17214,12 @@ html:not(.dark) .meeting-controls .leave:hover {
 
 .expand-btn:hover {
   background: var(--surface-3);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 회의 탭 */
 .ws-tab.meeting.active {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .ws-tab.meeting[draggable='true'] {
@@ -17243,7 +17247,7 @@ html:not(.dark) .meeting-controls .leave:hover {
 }
 
 .ws-tab.active .ws-tab-org {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .ws-tab .tab-close {
@@ -17263,7 +17267,7 @@ html:not(.dark) .meeting-controls .leave:hover {
 
 .ws-tab .tab-close:hover {
   background: var(--red-soft);
-  color: #d33;
+  color: var(--red);
 }
 
 .meeting-header {
@@ -17295,7 +17299,7 @@ html:not(.dark) .meeting-controls .leave:hover {
 }
 
 .meeting-code b {
-  color: var(--green);
+  color: var(--green-text);
   letter-spacing: 2px;
 }
 
@@ -17653,7 +17657,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 
 .hdr-pill .expand-btn:hover {
   background: var(--hover);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .hdr-pill-sep {
@@ -18027,7 +18031,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .chat-msg.mine .chat-bubble {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -18052,7 +18056,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 .chat-input button {
   border: none;
   border-radius: 8px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-weight: 600;
   padding: 0 16px;
@@ -18190,7 +18194,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .ledger-tl-now {
-  color: var(--green);
+  color: var(--green-text);
   font-size: 11px;
 }
 
@@ -18248,7 +18252,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   border-radius: 7px;
   padding: 5px 12px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -18313,7 +18317,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   gap: 4px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* ── 회의 기록 아카이브 — 기록 탭 [회의] 세그먼트 ── */
@@ -18391,7 +18395,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   gap: 3px;
   font-size: 11.5px;
   font-weight: 800;
-  color: var(--green);
+  color: var(--green-text);
 }
 .ma-counts i {
   font-style: normal;
@@ -18492,7 +18496,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   margin-left: 6px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -18523,7 +18527,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   padding: 3px 8px;
   margin-top: 4px;
   background: color-mix(in srgb, var(--green) 10%, transparent);
-  color: var(--green);
+  color: var(--green-text);
   font-size: 11.5px;
   font-weight: 700;
 }
@@ -18539,7 +18543,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   padding: 6px 11px;
   margin-top: 2px;
   background: color-mix(in srgb, var(--green) 8%, transparent);
-  color: var(--green);
+  color: var(--green-text);
   font-size: 12px;
   font-weight: 700;
 }
@@ -18569,7 +18573,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .hub-recap-slot b {
-  color: var(--green);
+  color: var(--green-text);
   font-size: 11.5px;
 }
 
@@ -18601,7 +18605,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   border: 1px solid var(--green);
   border-radius: 8px;
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -18612,7 +18616,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -18633,7 +18637,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   flex-shrink: 0;
   font-size: 11px;
   font-weight: 700;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 통화 채팅이 물린 채널 표시 — 기본 채널이 아니라 화상회의 채널임을 알림 */
@@ -18655,7 +18659,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .meeting-controls button.off {
-  background: #d33;
+  background: var(--red);
   color: #fff;
 }
 
@@ -18682,7 +18686,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   position: absolute;
   top: -2px;
   right: -2px;
-  background: #d33;
+  background: var(--red);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -18698,7 +18702,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   width: auto;
   border-radius: 999px;
   padding: 0 24px;
-  background: #d33;
+  background: var(--red);
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -18819,7 +18823,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 /* 안내(성공) 토스트 — 같은 모양, 초록 아이콘 */
 .error-toast.info .error-toast-ic {
   background: rgba(33, 200, 24, 0.12);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 조직도 헤더 — 가입코드·초대 링크 나란히 */
@@ -18848,9 +18852,9 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .orgchart-editmode.on {
-  border-color: var(--green);
+  border-color: var(--green-text);
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 역할 관리 모달 — 프리셋 칩 */
@@ -18871,7 +18875,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 .org-roles-preset {
   border: 1px dashed var(--green);
   background: var(--green-soft);
-  color: var(--green);
+  color: var(--green-text);
   border-radius: 8px;
   padding: 5px 11px;
   font-size: 12.5px;
@@ -18943,7 +18947,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 .login-form .submit {
   border: none;
   border-radius: 8px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   padding: 12px;
   font-size: 16px;
@@ -18971,11 +18975,11 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .login-form .meta button:hover {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .login-form .error {
-  color: #d33;
+  color: var(--red);
   font-size: 13px;
   text-align: center;
 }
@@ -18987,7 +18991,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .login-form .meta a:hover {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .auth-heading {
@@ -19024,7 +19028,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .recovery-desc b {
-  color: #d33;
+  color: var(--red);
 }
 
 .recovery-box {
@@ -19049,8 +19053,8 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .recovery-copy:hover {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--green-text);
+  color: var(--green-text);
 }
 
 /* ───── 반응형 ───── */
@@ -19397,7 +19401,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 
 .hub-decision-ack:hover,
 .ledger-ack:hover {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -19481,7 +19485,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   margin-left: auto;
   flex-shrink: 0;
   border: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -19629,7 +19633,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 .hub-gloss-add button {
   border: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border-radius: 8px;
   padding: 8px 16px;
@@ -19707,7 +19711,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   margin-left: 10px;
 }
 .cf-history-row.cur {
-  border-left-color: var(--green);
+  border-left-color: var(--green-text);
 }
 .cf-history-rev {
   flex: none;
@@ -19806,7 +19810,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 .cf-revise-note:focus {
   outline: none;
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 /* 기타 사유 표시 — 근거 결정 버튼과 같은 자리지만 점프 없는 정적 표기 */
 .cf-ack-basis.static {
@@ -19838,7 +19842,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 .cf-revise-opt input {
   margin-top: 2px;
-  accent-color: var(--green);
+  accent-color: var(--green-text);
 }
 .cf-revise-opt span {
   flex: 1;
@@ -19868,7 +19872,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 .cf-revise-go {
   border: none;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   border-radius: 8px;
   padding: 8px 16px;
@@ -19930,7 +19934,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 .ledger-revchip:hover {
   background: var(--surface-2);
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 /* ── 안건 생애 타임라인 — 검토→대기→재논의→결정→실행→완료 한 줄 ── */
@@ -20150,7 +20154,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
   font-size: 12px;
   font-weight: 800;
@@ -20203,7 +20207,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .pd-ack-btn:hover {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
@@ -20579,7 +20583,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
     border-radius: 14px;
     font-size: 24px;
     font-weight: 600;
-    color: var(--green);
+    color: var(--green-text);
   }
 
   /* 그룹이 없을 때 — 빈 상태 카드는 레일에선 안 보이는데 자리만 차지하므로 제거.
@@ -20799,7 +20803,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
     justify-content: center;
     gap: 5px;
     padding: 0 12px;
-    background: #1aa315; /* --green(#21c818)보다 한 톤 깊은 초록 — 상단 바만 차분하게 */
+    background: var(--green-text); /* 텍스트·CTA용 그린 — 흰 글자 대비 확보 */
     border: none;
     font-size: 12px;
     font-weight: 800;
@@ -20833,7 +20837,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
     height: 15px;
     padding: 0 4px;
     border-radius: 8px;
-    background: #ff5b5b;
+    background: var(--red);
     color: #fff;
     font-size: 10px;
     font-weight: 700;
@@ -20987,7 +20991,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   }
 
   .hub-m-item svg {
-    color: var(--green);
+    color: var(--green-text);
   }
 
   .hub-m-item .hub-tab-count {
@@ -21568,7 +21572,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   color: var(--red);
 }
 .cf-ack-cell.done {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 /* 좁힌 컬럼은 윈도우처럼 … 말줄임 — 행·헤더 공통 */
@@ -21673,7 +21677,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 
 @media (hover: hover) and (pointer: fine) {
   .cf-fav-chip:hover {
-    border-color: var(--green);
+    border-color: var(--green-text);
   }
 }
 
@@ -21689,7 +21693,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .cf-fav-star.on {
-  color: var(--green); /* 고정됨 — 앱 프라이머리 (별 시절 노랑 대신) */
+  color: var(--green-text); /* 고정됨 — 앱 프라이머리 (별 시절 노랑 대신) */
 }
 
 /* 상세 패널 미리보기 — 접힘 섹션 (fold 버튼 + 항목, 버전 기록과 같은 문법) */
@@ -21843,7 +21847,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   font-weight: 700;
 }
 .cf-crumb-home {
-  color: var(--green);
+  color: var(--green-text);
   font-weight: 700;
 }
 .cf-crumb-ack {
@@ -21948,7 +21952,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 .cf-home-tab.on {
   background: rgba(33, 200, 24, 0.12);
-  color: var(--green);
+  color: var(--green-text);
 }
 .cf-home-tab.on:hover {
   background: rgba(33, 200, 24, 0.16);
@@ -22137,7 +22141,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 
 /* 음소거/카메라 꺼짐: 타원 전체가 빨강 (토글 자체 배경은 none이므로 컨테이너에 칠함) */
 .meeting-controls .ctl-split:has(> button.main.off) {
-  background: #d33;
+  background: var(--red);
 }
 
 .meeting-controls .ctl-split:has(> button.main.off) button.main {
@@ -22189,7 +22193,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .hub-call.mini .meeting-controls .ctl-split:has(> button.main.off) button.main {
-  background: #d33;
+  background: var(--red);
 }
 
 /* 장치 선택 메뉴 — 비디오·다크 UI 위에 뜨는 유리 패널 (양 테마 공통 다크) */
@@ -22262,7 +22266,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  color: #21c818;
+  color: var(--green-text);
 }
 
 .dev-menu-label {
@@ -22651,9 +22655,9 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .pd-ack-btn.solid {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
-  border-color: var(--green);
+  border-color: var(--green-text);
 }
 
 .pd-inbox-empty {
@@ -22668,7 +22672,7 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 
 .pd-inbox-empty-ic {
   display: inline-flex;
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .pd-onboard {
@@ -22697,13 +22701,13 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 }
 
 .pd-today-row:hover .pd-today-title {
-  color: var(--green);
+  color: var(--green-text);
 }
 
 .pd-today-time {
   flex-shrink: 0;
   font-size: 13px;
-  color: var(--green);
+  color: var(--green-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -23131,8 +23135,8 @@ html:not(.dark) .strip-page-btn:active:not(:disabled) {
 /* 행동 "확인"은 채운 버튼답게(원장 + 정정/철회 모달의 주 행동 공용), 상태 "확인함"은 버튼 형태를 버린다
  * — 같은 자리 동형(아웃라인 필) 요소가 행동/상태로 갈려 오독되던 문제 (조사 '함' 한 글자 차이) */
 button.ledger-ack {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--green-text);
+  border-color: var(--green-text);
   color: #fff;
 }
 button.ledger-ack.critical {
@@ -23186,4 +23190,91 @@ span.ledger-ack.done {
   border-radius: inherit;
   display: grid;
   place-items: center;
+}
+
+/* ── 모바일 터치 타겟 44px 보정 (design-0902 결함 #9) ──────────────
+ * 시각 크기는 그대로 두고 히트 영역만 ::after로 확장. coarse 포인터(터치)에서만.
+ * 촘촘한 그리드(캘린더 날짜칸)·리스트 행(cf-item, hub-channel-item)은
+ * 인접 요소와 히트 영역이 겹쳐 오탭을 만들므로 제외. */
+@media (pointer: coarse) {
+  .nb-cal-head button,
+  .nb-sched-add,
+  .ws-add,
+  .nowbar-sidebar-toggle,
+  .hub-m-back button,
+  .hub-channels-add,
+  .hub-agenda-close,
+  .gs-close,
+  .msched-cal-head > button,
+  .msched-viewpill > button,
+  .msched-event-edit,
+  .msched-event-del,
+  .cf-add,
+  .cf-nav > button,
+  .cf-details-toggle,
+  .hub-switch,
+  .hub-todo-add button,
+  .todo-add button,
+  .hub-gloss-add button,
+  .hub-recap-run,
+  .hub-recap-next-btn,
+  .pipe-cta,
+  .pipe-more,
+  .hub-set-btn,
+  .hub-followup-btn,
+  .msched-today-btn,
+  .msched-event-link,
+  .msched-pop-link,
+  .ledger-src-link,
+  .ledger-ack,
+  .pillseg button,
+  .orgchart-back,
+  .login-form .meta a {
+    position: relative;
+  }
+
+  /* 아이콘·정사각 소형 버튼: 사방 -10px → 24px짜리도 44px 확보 */
+  .nb-cal-head button::after,
+  .nb-sched-add::after,
+  .ws-add::after,
+  .nowbar-sidebar-toggle::after,
+  .hub-m-back button::after,
+  .hub-channels-add::after,
+  .hub-agenda-close::after,
+  .gs-close::after,
+  .msched-cal-head > button::after,
+  .msched-viewpill > button::after,
+  .msched-event-edit::after,
+  .msched-event-del::after,
+  .cf-add::after,
+  .cf-nav > button::after,
+  .cf-details-toggle::after,
+  .hub-switch::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+  }
+
+  /* 소형 텍스트 버튼(가로는 충분, 세로 부족): 세로 위주 확장 */
+  .hub-todo-add button::after,
+  .todo-add button::after,
+  .hub-gloss-add button::after,
+  .hub-recap-run::after,
+  .hub-recap-next-btn::after,
+  .pipe-cta::after,
+  .pipe-more::after,
+  .hub-set-btn::after,
+  .hub-followup-btn::after,
+  .msched-today-btn::after,
+  .msched-event-link::after,
+  .msched-pop-link::after,
+  .ledger-src-link::after,
+  .ledger-ack::after,
+  .pillseg button::after,
+  .orgchart-back::after,
+  .login-form .meta a::after {
+    content: '';
+    position: absolute;
+    inset: -8px -2px;
+  }
 }
