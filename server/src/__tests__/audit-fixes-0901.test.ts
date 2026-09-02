@@ -80,7 +80,8 @@ describe('pending-decisions — 철회 제외 (9/2 E2E 발견)', () => {
     const rid = db.prepare("INSERT INTO meeting_recaps (meeting_id, summary, decisions, attendees) VALUES (?, 's', ?, '[]')")
       .run(mid, JSON.stringify(['살아있는 결정', '철회된 결정'])).lastInsertRowid as number;
     db.prepare('UPDATE meeting_recaps SET decision_state = ? WHERE id = ?')
-      .run(JSON.stringify([null, { withdrawn: true, reason: '재검토' }]), rid);
+      // 실제 withdrawDecision 이 쓰는 canonical 형태 (db.ts 주석·rag.ts 와 동일: {status:'withdrawn', ...})
+      .run(JSON.stringify([null, { status: 'withdrawn', reason: '재검토', by: 'pw_user', at: new Date().toISOString() }]), rid);
     const p = await request(app).get('/api/agent/pending-decisions?org=personal').set(H);
     expect(p.status).toBe(200);
     expect(p.body.items.map((x: { decision: string }) => x.decision)).toEqual(['살아있는 결정']);

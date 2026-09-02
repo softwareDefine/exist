@@ -779,11 +779,11 @@ router.get('/pending-decisions', (req: AuthedRequest, res) => {
     );
     const ds = JSON.parse(r.decisions) as string[];
     // 철회된 결정은 확인 대상이 아니다 — 원장 탭은 걸렀는데 홈 인박스만 계속 확인을 요구했다 (9/2 E2E 발견)
-    let states: { withdrawn?: boolean }[] = [];
-    try { states = r.decision_state ? (JSON.parse(r.decision_state) as { withdrawn?: boolean }[]) : []; } catch { /* 손상 시 전체 노출 유지 */ }
+    let states: ({ status?: string } | null)[] = [];
+    try { states = r.decision_state ? (JSON.parse(r.decision_state) as ({ status?: string } | null)[]) : []; } catch { /* 손상 시 전체 노출 유지 */ }
     for (let i = 0; i < ds.length; i++) {
       if (acked.has(i)) continue;
-      if (states[i]?.withdrawn) continue;
+      if (states[i]?.status === 'withdrawn') continue;
       items.push({
         recapId: r.recapId,
         idx: i,
