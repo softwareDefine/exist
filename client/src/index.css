@@ -6561,7 +6561,7 @@ input:focus {
 .msched-event-time {
   font-size: 12px;
   font-weight: 600;
-  color: var(--evc, var(--green));
+  color: var(--evc, var(--green-text)); /* 폴백도 텍스트용 그린 (9/3) */
   flex-shrink: 0;
 }
 
