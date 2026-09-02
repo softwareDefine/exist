@@ -10865,11 +10865,10 @@ input:focus {
   height: 20px;
   border-radius: 50%;
   cursor: pointer;
-  z-index: 60; /* 겹친 도형 위에서도 항상 클릭 가능 */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  z-index: 2;
+  z-index: 2; /* 겹친 도형 위에서도 클릭 가능 (중복 선언 정리 — 아래 값이 유효했음) */
 }
 
 .slide-el-resize {

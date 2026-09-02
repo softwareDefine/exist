@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useAuthStore } from '../store';
 import { useOrgStore, type OrgContext } from '../orgStore';
 import { getSocket } from '../lib/socket';
+import { keyActivate } from '../lib/a11y';
 import { FolderIcon, UsersIcon, CloseIcon, HomeIcon } from './Icons';
 import CanvasBoard from './CanvasBoard';
 import MeetingHub from './MeetingHub';
@@ -364,10 +365,15 @@ function WorkspacePanel({ meetingRequest }: Props) {
               <span
                 className="tab-close"
                 title="작업공간 삭제"
+                role="button"
+                tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
                   void deleteWorkspace(ws.id);
                 }}
+                onKeyDown={keyActivate(() => {
+                  void deleteWorkspace(ws.id);
+                })}
               >
                 <CloseIcon size={12} />
               </span>
@@ -426,10 +432,15 @@ function WorkspacePanel({ meetingRequest }: Props) {
             <span
               className="tab-close"
               title="그룹 나가기"
+              role="button"
+              tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation();
                 closeMeetingTab(t.code);
               }}
+              onKeyDown={keyActivate(() => {
+                closeMeetingTab(t.code);
+              })}
             >
               <CloseIcon size={12} />
             </span>

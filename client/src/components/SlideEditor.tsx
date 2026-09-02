@@ -6,6 +6,7 @@ import { PlusIcon, CloseIcon, PlayIcon, CopyIcon, ChevronIcon } from './Icons';
 import ColorGrid from './ColorGrid';
 import OverflowToolbar from './OverflowToolbar';
 import { exportPptx } from '../lib/pptx';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 interface SlideMeta {
   id: string;
@@ -842,16 +843,16 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
   if (present) {
     const slide = slides[presentIdx];
     return (
-      <div className="slide-present" onClick={() => setPresentIdx((i) => Math.min(slides.length - 1, i + 1))}>
+      <div className="slide-present" role="button" tabIndex={0} onClick={() => setPresentIdx((i) => Math.min(slides.length - 1, i + 1))} onKeyDown={keyActivate(() => setPresentIdx((i) => Math.min(slides.length - 1, i + 1)))}>
         <div className="slide-present-canvas" style={{ background: slide?.bg || undefined }}>
           {slide && elsOf(slide.id).map(([id, el]) => renderEl(id, el, false))}
         </div>
         {presentNotes && (
-          <div className="slide-present-notes" onClick={(e) => e.stopPropagation()}>
+          <div className="slide-present-notes" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
             {slide?.note?.trim() ? slide.note : '이 슬라이드에는 노트가 없어요'}
           </div>
         )}
-        <div className="slide-present-bar" onClick={(e) => e.stopPropagation()}>
+        <div className="slide-present-bar" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
           <button onClick={() => setPresentIdx((i) => Math.max(0, i - 1))}>◀</button>
           <span>
             {presentIdx + 1} / {slides.length}
@@ -898,7 +899,7 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
               </button>
               {shapeMenu && (
                 <>
-                  <div className="slide-shape-back" onClick={() => setShapeMenu(false)} />
+                  <div className="slide-shape-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setShapeMenu(false)} onKeyDown={keyActivate(() => setShapeMenu(false))} />
                   <div className="slide-shape-menu">
                     <button onClick={() => addShape('rect')}>▭ 사각형</button>
                     <button onClick={() => addShape('ellipse')}>◯ 원</button>
@@ -915,7 +916,7 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
               </button>
               {colorMenu === 'bg' && (
                 <>
-                  <div className="slide-shape-back" onClick={() => setColorMenu(null)} />
+                  <div className="slide-shape-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setColorMenu(null)} onKeyDown={keyActivate(() => setColorMenu(null))} />
                   <div className="slide-color-pop">
                     <ColorGrid
                       value={activeSlide?.bg}
@@ -982,7 +983,7 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
                     </button>
                     {colorMenu === 'fill' && (
                       <>
-                        <div className="slide-shape-back" onClick={() => setColorMenu(null)} />
+                        <div className="slide-shape-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setColorMenu(null)} onKeyDown={keyActivate(() => setColorMenu(null))} />
                         <div className="slide-color-pop">
                           <ColorGrid
                             value={selElData.fill}
@@ -1007,7 +1008,7 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
                     </button>
                     {colorMenu === 'stroke' && (
                       <>
-                        <div className="slide-shape-back" onClick={() => setColorMenu(null)} />
+                        <div className="slide-shape-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setColorMenu(null)} onKeyDown={keyActivate(() => setColorMenu(null))} />
                         <div className="slide-color-pop">
                           <ColorGrid
                             value={selElData.stroke}
@@ -1064,7 +1065,7 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
                     </button>
                     {fontMenu && (
                       <>
-                        <div className="slide-shape-back" onClick={() => setFontMenu(false)} />
+                        <div className="slide-shape-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setFontMenu(false)} onKeyDown={keyActivate(() => setFontMenu(false))} />
                         <div className="slide-shape-menu">
                           {FONTS.map((f) => (
                             <button
@@ -1120,7 +1121,7 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
                     </button>
                     {colorMenu === 'text' && (
                       <>
-                        <div className="slide-shape-back" onClick={() => setColorMenu(null)} />
+                        <div className="slide-shape-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setColorMenu(null)} onKeyDown={keyActivate(() => setColorMenu(null))} />
                         <div className="slide-color-pop">
                           <ColorGrid
                             value={selElData!.color}
@@ -1156,7 +1157,7 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
             </button>
             {exportMenu && (
               <>
-                <div className="slide-shape-back" onClick={() => setExportMenu(false)} />
+                <div className="slide-shape-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setExportMenu(false)} onKeyDown={keyActivate(() => setExportMenu(false))} />
                 <div className="slide-shape-menu slide-export-menu">
                   <button
                     onClick={() => {
@@ -1193,7 +1194,10 @@ export default function SlideEditor({ roomId, fileName, active = true }: { roomI
             <div
               key={s.id}
               className={`slide-thumb${s.id === activeSlideId ? ' active' : ''}`}
+              role="button"
+              tabIndex={0}
               onClick={() => setActiveSlideId(s.id)}
+              onKeyDown={keyActivate(() => setActiveSlideId(s.id))}
             >
               <span className="slide-thumb-num">{i + 1}</span>
               <div className="slide-thumb-canvas" style={{ background: s.bg || undefined }}>

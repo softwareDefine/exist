@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useOrgStore } from '../orgStore';
 import { MailIcon } from './Icons';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 interface Props {
   open: boolean;
@@ -47,8 +48,15 @@ export default function JoinOrgModal({ open, onClose }: Props) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="button"
+      tabIndex={0}
+      aria-label="닫기"
+      onKeyDown={keyActivate(onClose)}
+    >
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
         {done ? (
           <>
             <div className="modal-head">

@@ -6,6 +6,7 @@ import { useAuthStore } from '../store';
 import { DownloadIcon, CloseIcon } from './Icons';
 import ColorGrid from './ColorGrid';
 import OverflowToolbar from './OverflowToolbar';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 const COLS = 26; // A..Z
 const ROWS = 60;
@@ -1707,7 +1708,7 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
             </button>
             {menu === 'export' && (
               <>
-                <div className="sht-back" onClick={() => setMenu(null)} />
+                <div className="sht-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                 <div className="sht-pop sht-pop-border sht-pop-right">
                   <button onClick={() => { exportCsv(); setMenu(null); }}>CSV (.csv)</button>
                   <button onClick={() => { void exportXlsx(); setMenu(null); }}>엑셀 (.xlsx)</button>
@@ -1761,7 +1762,7 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
             </button>
             {menu === 'text' && (
               <>
-                <div className="sht-back" onClick={() => setMenu(null)} />
+                <div className="sht-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                 <div className="sht-pop">
                   <ColorGrid
                     value={styleOf(sel.r, sel.c).color}
@@ -1778,7 +1779,7 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
             </button>
             {menu === 'fill' && (
               <>
-                <div className="sht-back" onClick={() => setMenu(null)} />
+                <div className="sht-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                 <div className="sht-pop">
                   <ColorGrid
                     value={styleOf(sel.r, sel.c).bg}
@@ -1795,7 +1796,7 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
             </button>
             {menu === 'border' && (
               <>
-                <div className="sht-back" onClick={() => setMenu(null)} />
+                <div className="sht-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                 <div className="sht-pop sht-pop-border">
                   <button onClick={() => { applyBorder('all'); setMenu(null); }}>모든 테두리</button>
                   <button onClick={() => { applyBorder('outer'); setMenu(null); }}>바깥 테두리</button>
@@ -1810,7 +1811,7 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
             </button>
             {menu === 'merge' && (
               <>
-                <div className="sht-back" onClick={() => setMenu(null)} />
+                <div className="sht-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                 <div className="sht-pop sht-pop-border">
                   <button onClick={() => { mergeSel(); setMenu(null); }}>선택 영역 병합</button>
                   <button onClick={() => { unmergeSel(); setMenu(null); }}>병합 해제</button>
@@ -1841,7 +1842,7 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
             </button>
             {menu === 'rowcol' && (
               <>
-                <div className="sht-back" onClick={() => setMenu(null)} />
+                <div className="sht-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                 <div className="sht-pop sht-pop-border">
                   <button onClick={() => { structural('row', sel.r, 1); setMenu(null); }}>위에 행 삽입</button>
                   <button onClick={() => { structural('row', sel.r, -1); setMenu(null); }}>행 삭제</button>
@@ -1857,7 +1858,7 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
             </button>
             {menu === 'sort' && (
               <>
-                <div className="sht-back" onClick={() => setMenu(null)} />
+                <div className="sht-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                 <div className="sht-pop sht-pop-border">
                   <button onClick={() => { sortRange(false); setMenu(null); }}>오름차순 정렬</button>
                   <button onClick={() => { sortRange(true); setMenu(null); }}>내림차순 정렬</button>
@@ -2052,10 +2053,16 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
           <div
             key={s.id}
             className={`sheet-tab${s.id === activeSheetId ? ' active' : ''}`}
+            role="button"
+            tabIndex={0}
             onClick={() => {
               setActiveSheetId(s.id);
               selectCell(0, 0);
             }}
+            onKeyDown={keyActivate(() => {
+              setActiveSheetId(s.id);
+              selectCell(0, 0);
+            })}
             onDoubleClick={() => setRenamingSheet({ id: s.id, name: s.name })}
             title="더블클릭하면 이름 변경"
           >
@@ -2091,8 +2098,8 @@ export default function SheetEditor({ roomId, active = true }: { roomId: string;
         const { labels, series } = chartData();
         const empty = series.length === 0 || series.every((s) => s.data.every((v) => v === 0));
         return (
-          <div className="sheet-chart-overlay" onClick={() => setChart(null)}>
-            <div className="sheet-chart" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet-chart-overlay" role="button" tabIndex={0} aria-label="닫기" onClick={() => setChart(null)} onKeyDown={keyActivate(() => setChart(null))}>
+            <div className="sheet-chart" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
               <div className="sheet-chart-head">
                 <div className="sheet-chart-types">
                   {(['bar', 'line', 'pie'] as const).map((t) => (

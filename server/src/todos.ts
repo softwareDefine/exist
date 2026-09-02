@@ -121,7 +121,7 @@ function setAssignees(
       });
     }
   }
-  return next.sort();
+  return next.sort((a, b) => a.localeCompare(b));
 }
 
 /** 목록 — ?meeting=CODE면 그 회의 공유 할 일, 없으면 내 할 일 전부

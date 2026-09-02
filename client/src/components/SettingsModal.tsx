@@ -4,6 +4,7 @@ import { useAuthStore } from '../store';
 import { useNameStore } from '../names';
 import Avatar from './Avatar';
 import { SunIcon, MoonIcon, CheckMarkIcon } from './Icons';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 const AVATARS = ['🐧', '🦊', '🐻', '🐼', '🐯', '🦁', '🐸', '🐰', '🦉', '🐢', '🐳', '🚀'];
 
@@ -157,8 +158,15 @@ export default function SettingsModal({ open, onClose, avatar, onAvatarChange }:
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="button"
+      tabIndex={0}
+      aria-label="닫기"
+      onKeyDown={keyActivate(onClose)}
+    >
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
         <div className="modal-head">설정</div>
         <div className="settings-user">
           <Avatar value={avatar} className="settings-avatar" />

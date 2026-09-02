@@ -8,6 +8,7 @@ import PillSeg from './PillSeg';
 import HandoverPanel from './HandoverPanel';
 import MeetingArchive from './MeetingArchive';
 import SignPad from './SignPad';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 /*
  * 결정 원장 — 이 그룹의 모든 통화 결정이 시간순으로 쌓이는 타임라인.
@@ -566,8 +567,15 @@ export default function DecisionLedger({ code, canManage }: { code: string; canM
                       {/* 서명 모달 — 작업 전 확인 필수 결정의 확인 (공동편집 서명과 같은 의식감,
                           무엇에 서명하는지 결정 내용 명시 — "서명 의미 명시" 관례) */}
                       {signFor === `${e.recapId}-${e.idx}` && (
-                        <div className="cf-signmodal-backdrop" onClick={() => setSignFor(null)}>
-                          <div className="cf-signmodal" onClick={(ev) => ev.stopPropagation()}>
+                        <div
+                          className="cf-signmodal-backdrop"
+                          onClick={() => setSignFor(null)}
+                          role="button"
+                          tabIndex={0}
+                          aria-label="닫기"
+                          onKeyDown={keyActivate(() => setSignFor(null))}
+                        >
+                          <div className="cf-signmodal" onClick={(ev) => ev.stopPropagation()} onKeyDown={keyStopPropagation}>
                             <div className="cf-signmodal-head">결정 확인 서명</div>
                             <div className="cf-signmodal-note">
                               <div className="cf-signmodal-note-t">
@@ -638,8 +646,19 @@ export default function DecisionLedger({ code, canManage }: { code: string; canM
       )}
       {/* 정정 모달 — 무엇을 왜 고치는지 명시. 문장이 바뀌면 서명이 초기화됨을 미리 알린다 */}
       {editFor && (
-        <div className="cf-signmodal-backdrop" onClick={() => !busy && setEditFor(null)}>
-          <div className="cf-signmodal ledger-edit-modal" onClick={(ev) => ev.stopPropagation()}>
+        <div
+          className="cf-signmodal-backdrop"
+          onClick={() => !busy && setEditFor(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="닫기"
+          onKeyDown={keyActivate(() => !busy && setEditFor(null))}
+        >
+          <div
+            className="cf-signmodal ledger-edit-modal"
+            onClick={(ev) => ev.stopPropagation()}
+            onKeyDown={keyStopPropagation}
+          >
             <div className="cf-signmodal-head">결정 정정</div>
             <div className="cf-signmodal-desc">
               AI가 정리한 문장을 고쳐요. 원래 문장은 이력으로 남고, <b>문장이 바뀌면 기존 서명은 구버전 서명이 되어 참가자에게 재확인을 요청</b>해요. 배경만 고치면 서명은 유지돼요.
@@ -669,8 +688,19 @@ export default function DecisionLedger({ code, canManage }: { code: string; canM
       )}
       {/* 철회 모달 — 삭제가 아니라 철회. 사유 필수 */}
       {wdFor && (
-        <div className="cf-signmodal-backdrop" onClick={() => !busy && setWdFor(null)}>
-          <div className="cf-signmodal ledger-edit-modal" onClick={(ev) => ev.stopPropagation()}>
+        <div
+          className="cf-signmodal-backdrop"
+          onClick={() => !busy && setWdFor(null)}
+          role="button"
+          tabIndex={0}
+          aria-label="닫기"
+          onKeyDown={keyActivate(() => !busy && setWdFor(null))}
+        >
+          <div
+            className="cf-signmodal ledger-edit-modal"
+            onClick={(ev) => ev.stopPropagation()}
+            onKeyDown={keyStopPropagation}
+          >
             <div className="cf-signmodal-head">결정 철회</div>
             <div className="cf-signmodal-note">
               <div>{wdFor.decision}</div>

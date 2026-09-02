@@ -26,6 +26,7 @@ import { getSocket } from '../lib/socket';
 import { useFieldRec, stopFieldRecording } from '../lib/fieldRecording';
 import { useOrgStore } from '../orgStore';
 import { dueBadge } from '../lib/due';
+import { keyActivate } from '../lib/a11y';
 import { useDisplayName } from '../names';
 
 /** 전역 검색 버튼 — Ctrl+K 없는 모바일·태블릿의 진입점 (GlobalSearch가 이벤트 수신) */
@@ -329,7 +330,10 @@ function CurrentBlock({
   return (
     <div
       className={`nb-current${onOpen ? ' clickable' : ''}`}
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
       onClick={onOpen ? () => onOpen(ctx.meeting) : undefined}
+      onKeyDown={onOpen ? keyActivate(() => onOpen(ctx.meeting)) : undefined}
       title={onOpen ? '클릭하면 회의 공간이 열려요' : undefined}
     >
       <MeetingThumb
@@ -513,9 +517,9 @@ function NowBar({
 
   /** 모바일 — 카드(pill) 탭으로 shade 토글. 내부 버튼(점·AI 토글·참여 등) 클릭은 제외.
    *  미읽음 알림이 있으면 알림 카드로 열면서 읽음 처리 (별도 벨 없이 카드에 통합) */
-  function onPillTap(e: React.MouseEvent) {
+  function onPillTap(e?: React.MouseEvent) {
     if (!window.matchMedia('(max-width: 767px)').matches) return;
-    if ((e.target as Element).closest?.('button')) return;
+    if ((e?.target as Element | undefined)?.closest?.('button')) return;
     const opening = !shadeOpen;
     if (opening && notifUnread > 0) {
       pauseAuto(); // auto 모드가 카드를 되돌리지 않게 잠깐 수동
@@ -796,7 +800,7 @@ function NowBar({
       <header className={`nowbar${shadeOpen ? ' shade-open' : ''}`}>
         <Logo />
         <SidebarToggle onToggle={onToggleSidebar} />
-        <div className="nowbar-pill" onClick={onPillTap}>
+        <div className="nowbar-pill" role="button" tabIndex={0} onClick={onPillTap} onKeyDown={keyActivate(() => onPillTap())}>
           <div className="nowbar-card front nb-onboard">
             <SparklesIcon size={13} /> 일정이나 할 일을 추가해 <b>nowbar</b>를 사용해보세요
           </div>
@@ -824,7 +828,7 @@ function NowBar({
 
       {shadeOpen && <button className="nb-shade-scrim" onClick={() => setShadeOpen(false)} />}
 
-      <div className="nowbar-pill" onWheel={onWheel} onClick={onPillTap} title="스크롤로 카드 전환">
+      <div className="nowbar-pill" role="button" tabIndex={0} onWheel={onWheel} onClick={onPillTap} onKeyDown={keyActivate(() => onPillTap())} title="스크롤로 카드 전환">
         {/* 모바일 통합 알림 뱃지 — 탭하면 shade가 알림 카드로 열리며 읽음 처리 */}
         {notifUnread > 0 && (
           <span className="nb-pill-count" aria-label={`안 읽은 알림 ${notifUnread}개`}>
@@ -840,7 +844,10 @@ function NowBar({
               <div
                 key={mkey(m)}
                 className={`nb-next-row${onOpenMeeting ? ' clickable' : ''}`}
+                role={onOpenMeeting ? 'button' : undefined}
+                tabIndex={onOpenMeeting ? 0 : undefined}
                 onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
+                onKeyDown={onOpenMeeting ? keyActivate(() => onOpenMeeting(m)) : undefined}
                 title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
               >
                 <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />
@@ -1018,7 +1025,10 @@ function NowBar({
                     <div
                       key={mkey(m)}
                       className={`nb-next-row${onOpenMeeting ? ' clickable' : ''}`}
+                      role={onOpenMeeting ? 'button' : undefined}
+                      tabIndex={onOpenMeeting ? 0 : undefined}
                       onClick={onOpenMeeting ? () => onOpenMeeting(m) : undefined}
+                      onKeyDown={onOpenMeeting ? keyActivate(() => onOpenMeeting(m)) : undefined}
                       title={onOpenMeeting ? '클릭하면 회의 공간이 열려요' : undefined}
                     >
                       <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="nb-mini-thumb" />

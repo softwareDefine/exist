@@ -11,6 +11,7 @@ import UnifiedInbox from './UnifiedInbox';
 import { DmWindow, type Thread, type DmScope } from './DirectMessages';
 import { dueBadge } from '../lib/due';
 import { getSocket } from '../lib/socket';
+import { keyActivate } from '../lib/a11y';
 import ScheduleWidget from './ScheduleWidget';
 import Marquee from './Marquee';
 import { ListIcon, SparklesIcon, CalendarIcon, ChatIcon, UsersIcon, CheckMarkIcon, ChartIcon, CheckIcon, PenIcon, UserIcon, BoltIcon, BuildingIcon, CloseIcon } from './Icons';
@@ -536,7 +537,10 @@ export default function ProfileDashboard() {
           <div key={key} className={`pd-sent-row${done ? ' done' : ''}`}>
             <div
               className="pd-act-main"
+              role="button"
+              tabIndex={0}
               onClick={() => openMeeting(e.code, e.title)}
+              onKeyDown={keyActivate(() => openMeeting(e.code, e.title))}
               title={`"${e.title}" 열기`}
             >
               <Marquee className="pd-act-title">
@@ -604,7 +608,10 @@ export default function ProfileDashboard() {
               <span className="pd-act-badge">결정</span>
               <div
                 className="pd-act-main"
+                role="button"
+                tabIndex={0}
                 onClick={() => openMeeting(p.code, p.title)}
+                onKeyDown={keyActivate(() => openMeeting(p.code, p.title))}
                 title={`"${p.title}" 열기`}
               >
                 <Marquee className="pd-act-title">{p.decision}</Marquee>
@@ -629,7 +636,10 @@ export default function ProfileDashboard() {
               <span className="pd-act-badge sign">서명</span>
               <div
                 className="pd-act-main"
+                role="button"
+                tabIndex={0}
                 onClick={() => openFileAck(f)}
+                onKeyDown={keyActivate(() => openFileAck(f))}
                 title={`"${f.title}"의 문서를 열어 서명`}
               >
                 <Marquee className="pd-act-title">『{f.name}』 열람 서명 — {f.title}</Marquee>
@@ -645,9 +655,14 @@ export default function ProfileDashboard() {
               <span className="pd-act-badge sign">서명</span>
               <div
                 className="pd-act-main"
+                role="button"
+                tabIndex={0}
                 onClick={() =>
                   openMeeting(actions.pendingAcks[0].code, actions.pendingAcks[0].title)
                 }
+                onKeyDown={keyActivate(() =>
+                  openMeeting(actions.pendingAcks[0].code, actions.pendingAcks[0].title)
+                )}
                 title={`"${actions.pendingAcks[0].title}" 열기`}
               >
                 <span className="pd-act-title">
@@ -664,7 +679,10 @@ export default function ProfileDashboard() {
                 <span className="pd-act-badge todo">할일</span>
                 <div
                   className="pd-act-main"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => t.code && openMeeting(t.code, t.mtitle ?? t.code)}
+                  onKeyDown={keyActivate(() => t.code && openMeeting(t.code, t.mtitle ?? t.code))}
                 >
                   <span className="pd-act-title">
                     {t.title}
@@ -690,7 +708,7 @@ export default function ProfileDashboard() {
           {actions.dms.map((d) => (
             <div key={`m-${d.userId}`} className="pd-act-row">
               <span className="pd-act-badge dm">DM</span>
-              <div className="pd-act-main" onClick={() => setDmPeer(dmThread(d))}>
+              <div className="pd-act-main" role="button" tabIndex={0} onClick={() => setDmPeer(dmThread(d))} onKeyDown={keyActivate(() => setDmPeer(dmThread(d)))}>
                 <span className="pd-act-title">
                   {d.name || d.username} · {d.lastText}
                 </span>
@@ -769,7 +787,10 @@ export default function ProfileDashboard() {
             <div key={`${e.recapId}-${e.idx}`} className="pd-sent-row">
               <div
                 className="pd-act-main"
+                role="button"
+                tabIndex={0}
                 onClick={() => openMeeting(e.meetingCode, e.meetingTitle)}
+                onKeyDown={keyActivate(() => openMeeting(e.meetingCode, e.meetingTitle))}
                 title={`"${e.meetingTitle}" 열기`}
               >
                 <Marquee className="pd-act-title">{e.text}</Marquee>
@@ -951,7 +972,10 @@ export default function ProfileDashboard() {
               <div
                 key={i}
                 style={{ ...listRow, cursor: it.meeting ? 'pointer' : 'default' }}
+                role={it.meeting ? 'button' : undefined}
+                tabIndex={it.meeting ? 0 : undefined}
                 onClick={() => it.meeting && openMeeting(it.meeting.code, it.meeting.title)}
+                onKeyDown={keyActivate(() => it.meeting && openMeeting(it.meeting.code, it.meeting.title))}
                 title={it.meeting ? `"${it.meeting.title}" 열기` : undefined}
               >
                 <span

@@ -43,7 +43,7 @@ interface UItem {
 
 /** SQLite datetime('now')은 UTC인데 타임존 표기가 없어 Date.parse가 로컬로 오해함 — UTC로 보정 */
 function parseUtc(s: string): number {
-  return /Z|[+-]\d{2}:\d{2}$/.test(s) ? Date.parse(s) : Date.parse(s.replace(' ', 'T') + 'Z');
+  return /(?:Z|[+-]\d{2}:\d{2})$/.test(s) ? Date.parse(s) : Date.parse(s.replace(' ', 'T') + 'Z');
 }
 
 export default function UnifiedInbox({ scope }: { scope: DmScope }) {

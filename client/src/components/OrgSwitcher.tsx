@@ -4,6 +4,7 @@ import { useOrgStore, type OrgContext } from '../orgStore';
 import { BuildingIcon, ChevronIcon, PlusIcon, UsersIcon, CheckMarkIcon } from './Icons';
 import CreateOrgModal from './CreateOrgModal';
 import JoinOrgModal from './JoinOrgModal';
+import { keyActivate } from '../lib/a11y';
 
 /** 상단 조직 전환기 — 현재 컨텍스트(개인/조직) 선택 + 생성·가입·멤버관리 진입 */
 export default function OrgSwitcher() {
@@ -92,6 +93,12 @@ export default function OrgSwitcher() {
                 <span
                   className="org-menu-manage"
                   title="조직도 보기"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={keyActivate(() => {
+                    setOpen(false);
+                    navigate(`/org/${o.id}`);
+                  })}
                   onClick={(e) => {
                     e.stopPropagation();
                     setOpen(false);

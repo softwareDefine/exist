@@ -268,8 +268,9 @@ function collectT(el: Node, out: string[]) {
 /** 두 런의 스타일이 같으면 이어붙일 수 있다 */
 function sameStyle(a: CharStyle, b: CharStyle): boolean {
   return (
-    !a.bold === !b.bold && !a.italic === !b.italic && !a.underline === !b.underline &&
-    !a.strike === !b.strike && a.sizePt === b.sizePt && a.color === b.color
+    Boolean(a.bold) === Boolean(b.bold) && Boolean(a.italic) === Boolean(b.italic) &&
+    Boolean(a.underline) === Boolean(b.underline) && Boolean(a.strike) === Boolean(b.strike) &&
+    a.sizePt === b.sizePt && a.color === b.color
   );
 }
 

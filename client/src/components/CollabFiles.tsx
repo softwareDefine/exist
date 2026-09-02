@@ -13,6 +13,7 @@ import CanvasBoard from './CanvasBoard';
 import Marquee from './Marquee';
 import Avatar from './Avatar';
 import SignPad from './SignPad';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 import {
   FolderIcon,
   FolderGlyphIcon,
@@ -830,6 +831,7 @@ export default function CollabFiles({
       title="드래그로 폭 조절 · 더블클릭 기본폭"
       onPointerDown={(e) => startColDrag(k, e)}
       onClick={(e) => e.stopPropagation()}
+      onKeyDown={keyStopPropagation}
       onDoubleClick={(e) => {
         e.stopPropagation();
         setColW((prev) => {
@@ -2492,7 +2494,10 @@ export default function CollabFiles({
             <div
               className={`cf-item${f.id === activeId ? ' active' : ''}`}
               style={{ paddingLeft: 10 + depth * 14 }}
+              role="button"
+              tabIndex={0}
               onClick={() => openFile(f)}
+              onKeyDown={keyActivate(() => openFile(f))}
             >
               {f.type === 'folder' && (
                 <span className={`cf-chevron${collapsed.has(f.id) ? '' : ' open'}`}>
@@ -2503,7 +2508,7 @@ export default function CollabFiles({
                 <TypeIcon type={f.type} />
               </span>
               {renamingId === f.id ? (
-                <form onSubmit={(e) => renameEntry(f, e)} onClick={(e) => e.stopPropagation()}>
+                <form onSubmit={(e) => renameEntry(f, e)} onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                   <input
                     className="cf-name-input"
                     autoFocus
@@ -2524,7 +2529,7 @@ export default function CollabFiles({
                 />
               )}
               <PresenceStack fileId={f.id} />
-              <span className="cf-actions" onClick={(e) => e.stopPropagation()}>
+              <span className="cf-actions" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                 {f.type === 'folder' && (
                   <button title="안에 만들기" onClick={() => setTypeMenuFor(f.id)}>
                     ＋
@@ -2690,6 +2695,11 @@ export default function CollabFiles({
           </button>
           <div
             className="cf-path"
+            role="button"
+            tabIndex={0}
+            onKeyDown={keyActivate(() => {
+              if (!pathEditing) startPathEdit();
+            })}
             onClick={(e) => {
               // 빈 영역 클릭 → 경로 직접 입력 모드 (크럼 버튼 클릭은 그대로 통과)
               if ((e.target as HTMLElement).closest('button')) return;
@@ -3241,6 +3251,9 @@ export default function CollabFiles({
             >
               <span
                 className={`side-chevron${sideRootOpen ? ' open' : ''}`}
+                role="button"
+                tabIndex={0}
+                onKeyDown={keyActivate(() => setSideRootOpen((v) => !v))}
                 onClick={(e) => {
                   e.stopPropagation();
                   setSideRootOpen((v) => !v);
@@ -3317,6 +3330,11 @@ export default function CollabFiles({
                     >
                       <span
                         className={`side-chevron${open ? ' open' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={keyActivate(() => {
+                          if (hasKids) toggleSideOpen(f.id);
+                        })}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (hasKids) toggleSideOpen(f.id);
@@ -3380,6 +3398,9 @@ export default function CollabFiles({
               <div
                 ref={homeMainRef}
                 className="cf-main cf-homeview"
+                role="button"
+                tabIndex={0}
+                onKeyDown={keyActivate(() => setSelectedIds(new Set()))}
                 onClick={(e) => {
                   // 러버밴드 직후의 합성 클릭은 무시 (본문·휴지통과 동일 문법)
                   if (rubberMoved.current) {
@@ -3705,6 +3726,9 @@ export default function CollabFiles({
           <div
             ref={trashMainRef}
             className="cf-main list cf-trashmain"
+            role="button"
+            tabIndex={0}
+            onKeyDown={keyActivate(() => setTrashSelIds(new Set()))}
             onClick={(e) => {
               // 러버밴드 직후의 합성 클릭은 무시 — 방금 만든 선택을 지우면 안 됨 (본문과 동일 문법)
               if (rubberMoved.current) {
@@ -3819,6 +3843,13 @@ export default function CollabFiles({
                   <div
                     key={t.id}
                     data-tid={t.id}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={keyActivate(() => {
+                      setTrashSelIds((prev) =>
+                        prev.has(t.id) && prev.size === 1 ? new Set() : new Set([t.id]),
+                      );
+                    })}
                     className={`cf-trash-row${trashSelIds.has(t.id) ? ' selected' : ''}${
                       clipboard?.fromTrash && clipboard.ids.includes(t.id) ? ' cutting' : ''
                     }`}
@@ -3921,6 +3952,9 @@ export default function CollabFiles({
           ref={mainRef}
           style={{ display: trashOpen || homeOpen || ackOpen ? 'none' : undefined }}
           className={`cf-main ${view}`}
+          role="button"
+          tabIndex={0}
+          onKeyDown={keyActivate(() => clearSel())}
           onClick={() => {
             if (rubberMoved.current) {
               rubberMoved.current = false;
@@ -4092,7 +4126,7 @@ export default function CollabFiles({
             </div>
           )}
           {creating && (
-            <form className="cf-new cf-main-new" onSubmit={createEntry} onClick={(e) => e.stopPropagation()}>
+            <form className="cf-new cf-main-new" onSubmit={createEntry} onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
               <span className={`cf-icon ${creating.type}`}>
                 <TypeIcon type={creating.type} size={view === 'grid' ? 30 : 15} />
               </span>
@@ -4113,6 +4147,12 @@ export default function CollabFiles({
           {cwd === null && !search.trim() && (
             <div
               className={`cf-entry cf-entry-home${homeSel ? ' selected' : ''}`}
+              role="button"
+              tabIndex={0}
+              onKeyDown={keyActivate(() => {
+                clearSel();
+                setHomeSel(true);
+              })}
               onClick={(e) => {
                 e.stopPropagation();
                 clearSel();
@@ -4150,6 +4190,12 @@ export default function CollabFiles({
               className={`cf-entry cf-entry-trash${trashSel ? ' selected' : ''}${
                 dropTarget === 'trash' ? ' droptarget' : ''
               }`}
+              role="button"
+              tabIndex={0}
+              onKeyDown={keyActivate(() => {
+                clearSel();
+                setTrashSel(true);
+              })}
               onDragOver={(e) => {
                 if (dragIdsRef.current.length === 0) return;
                 e.preventDefault();
@@ -4294,6 +4340,9 @@ export default function CollabFiles({
                   if (e.ctrlKey) void copyMany(ids, f.id);
                   else void moveMany(ids, f.id);
                 }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={keyActivate(() => selectOnly(f.id))}
                 onClick={(e) => {
                   e.stopPropagation();
                   clickSelect(f, e);
@@ -4341,7 +4390,7 @@ export default function CollabFiles({
                 {/* 목록 뷰에선 접속 중 컬럼이 담당 — 아이콘 옆 스택은 그리드 전용 */}
                 {view !== 'list' && <PresenceStack fileId={f.id} />}
                 {renamingId === f.id ? (
-                  <form onSubmit={(e) => renameEntry(f, e)} onClick={(e) => e.stopPropagation()}>
+                  <form onSubmit={(e) => renameEntry(f, e)} onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                     <input
                       className="cf-name-input"
                       autoFocus
@@ -4354,6 +4403,11 @@ export default function CollabFiles({
                 ) : (
                   <span
                     className="cf-entry-name"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={keyActivate(() => {
+                      if (isSel && selCount === 1 && canEdit(f) && renamingId == null) startRename(f);
+                    })}
                     onClick={(e) => {
                       // 윈도우식 — 이미 (단일)선택된 항목의 이름을 한 번 더 클릭하면 잠시 후 인라인 편집
                       if (isSel && selCount === 1 && canEdit(f) && renamingId == null) {
@@ -4941,8 +4995,15 @@ export default function CollabFiles({
          * 사이드바는 요약·행동(열기·공유·회람·관리)만 남긴다. 데이터는 선택 시 이미
          * 로드돼 있는 것들(fileMeetings·fileVersions·preview) + 연혁(버튼에서 lazy) */}
         {propsOpen && selected && selected.type !== 'folder' && (
-          <div className="cf-move-overlay" onClick={() => setPropsOpen(false)}>
-            <div className="cf-move-modal cf-props-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="cf-move-overlay"
+            role="button"
+            tabIndex={0}
+            aria-label="닫기"
+            onClick={() => setPropsOpen(false)}
+            onKeyDown={keyActivate(() => setPropsOpen(false))}
+          >
+            <div className="cf-move-modal cf-props-modal" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
               <div className="cf-share-head">
                 <span className={`cf-share-head-ic cf-icon ${selected.type}`}>
                   <TypeIcon type={selected.type} size={22} name={selected.name} />
@@ -5144,8 +5205,15 @@ export default function CollabFiles({
         {/* 하단 상태바 — 윈도우식 */}
         {/* 이동 다이얼로그 — 드라이브식 폴더 픽커 */}
         {movePicker && (
-          <div className="cf-move-overlay" onClick={() => setMovePicker(null)}>
-            <div className="cf-move-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="cf-move-overlay"
+            role="button"
+            tabIndex={0}
+            aria-label="닫기"
+            onClick={() => setMovePicker(null)}
+            onKeyDown={keyActivate(() => setMovePicker(null))}
+          >
+            <div className="cf-move-modal" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
               <div className="cf-move-title">
                 {movePicker.length === 1
                   ? `"${byId.get(movePicker[0])?.name ?? ''}" 이동`
@@ -5540,8 +5608,15 @@ export default function CollabFiles({
       />
       {/* 개정 발행 모달 — 서명 리셋 경고 + 근거 결정 선택(선택사항, 원장과 잇는 다리) */}
       {reviseFor && (
-        <div className="cf-move-overlay" onClick={() => setReviseFor(null)}>
-          <div className="cf-move-modal cf-revise-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="cf-move-overlay"
+          role="button"
+          tabIndex={0}
+          aria-label="닫기"
+          onClick={() => setReviseFor(null)}
+          onKeyDown={keyActivate(() => setReviseFor(null))}
+        >
+          <div className="cf-move-modal cf-revise-modal" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
             <div className="cf-share-head">
               <span className={`cf-share-head-ic cf-icon ${reviseFor.type}`}>
                 <TypeIcon type={reviseFor.type} size={22} name={reviseFor.name} />
@@ -5620,8 +5695,15 @@ export default function CollabFiles({
       )}
       {/* 통합 공유 모달 — 채널 게시 · DM · 다른 그룹 배포 · 링크 복사 (cf-move 모달 문법) */}
       {shareFor && (
-        <div className="cf-move-overlay" onClick={() => setShareFor(null)}>
-          <div className="cf-move-modal cf-share-modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="cf-move-overlay"
+          role="button"
+          tabIndex={0}
+          aria-label="닫기"
+          onClick={() => setShareFor(null)}
+          onKeyDown={keyActivate(() => setShareFor(null))}
+        >
+          <div className="cf-move-modal cf-share-modal" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
             {/* 헤더 — 파일 정체 + 닫기 */}
             <div className="cf-share-head">
               <span className={`cf-share-head-ic cf-icon ${shareFor.type}`}>
@@ -5871,8 +5953,15 @@ export default function CollabFiles({
             {/* 서명 모달 — 인라인 대신 의식감 있는 팝업. 무엇에 서명하는지(문서·개정·바뀐 점) 명시
                 (전자서명의 "서명 의미 명시" 관례) — 진입점은 열람 화면뿐: 안 읽고 서명 방지 */}
             {ackSignFor === active.id && (
-              <div className="cf-signmodal-backdrop" onClick={() => setAckSignFor(null)}>
-                <div className="cf-signmodal" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="cf-signmodal-backdrop"
+                role="button"
+                tabIndex={0}
+                aria-label="닫기"
+                onClick={() => setAckSignFor(null)}
+                onKeyDown={keyActivate(() => setAckSignFor(null))}
+              >
+                <div className="cf-signmodal" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                   <div className="cf-signmodal-head">열람 확인 서명</div>
                   <div className="cf-signmodal-doc">
                     <TypeIcon type={active.type} name={active.name} />

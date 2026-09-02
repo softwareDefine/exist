@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useOrgStore, type Org } from '../orgStore';
 import { CheckMarkIcon, BuildingIcon } from './Icons';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 interface Props {
   open: boolean;
@@ -59,15 +60,29 @@ export default function CreateOrgModal({ open, onClose }: Props) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="button"
+      tabIndex={0}
+      aria-label="닫기"
+      onKeyDown={keyActivate(onClose)}
+    >
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
         {created ? (
           <>
             <div className="modal-head"><BuildingIcon size={16} /> {created.name} 조직이 만들어졌어요</div>
             <div className="modal-sub">
               이 가입코드를 팀원에게 공유하세요. 신청이 오면 멤버 관리에서 승인할 수 있어요.
             </div>
-            <div className="meeting-code-box" onClick={copyCode} title="클릭해서 복사">
+            <div
+              className="meeting-code-box"
+              onClick={copyCode}
+              title="클릭해서 복사"
+              role="button"
+              tabIndex={0}
+              onKeyDown={keyActivate(copyCode)}
+            >
               {created.joinCode}
             </div>
             <button className="modal-ghost" onClick={copyCode}>

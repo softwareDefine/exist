@@ -16,6 +16,7 @@ import RecapPanel from './RecapPanel';
 import { DmWindow, type DmScope, type Thread } from './DirectMessages';
 import MentionInput, { type MentionCandidate } from './MentionInput';
 import { togglePin, isPinned, PINS_EVENT } from '../lib/pins';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 import { dueBadge } from '../lib/due';
 import { useDisplayName } from '../names';
 import { useFieldRec, startFieldRecording, stopFieldRecording } from '../lib/fieldRecording';
@@ -1783,6 +1784,9 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                               <div
                                 className={`hub-agenda-body${a.id != null ? ' clickable' : ''}`}
                                 onClick={a.id != null ? () => void openAgendaTimeline(a.id!) : undefined}
+                                role={a.id != null ? 'button' : undefined}
+                                tabIndex={a.id != null ? 0 : undefined}
+                                onKeyDown={a.id != null ? keyActivate(() => void openAgendaTimeline(a.id!)) : undefined}
                                 title={a.id != null ? '안건 생애 타임라인 보기' : undefined}
                               >
                                 <Marquee className="hub-agenda-title">{a.title}</Marquee>
@@ -1797,6 +1801,12 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                       e.stopPropagation();
                                       void openAgendaTimeline(a.closedBeforeId);
                                     }}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={keyActivate(() => {
+                                      if (a.closedBeforeId == null) return;
+                                      void openAgendaTimeline(a.closedBeforeId);
+                                    })}
                                   >
                                     ⟲ {a.closedBefore}
                                   </span>
@@ -1988,6 +1998,12 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                     setEditTodoId(t.id);
                                     setEditTodoTitle(t.title);
                                   }}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={keyActivate(() => {
+                                    setEditTodoId(t.id);
+                                    setEditTodoTitle(t.title);
+                                  })}
                                 >
                                   <PenIcon size={11} />
                                 </span>
@@ -2101,6 +2117,9 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                       <div
                         className="hub-section-title clickable"
                         onClick={() => setRosterOpen((v) => !v)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={keyActivate(() => setRosterOpen((v) => !v))}
                       >
                         <UsersIcon size={15} /> 참가자 <b>{detail.participants.length}</b>
                         {detail.orgName && <span className="hub-roster-org">· {detail.orgName}</span>}
@@ -2595,6 +2614,12 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                             setEditChannelId(ch.id);
                             setEditChannelName(ch.name);
                           }}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={keyActivate(() => {
+                            setEditChannelId(ch.id);
+                            setEditChannelName(ch.name);
+                          })}
                         >
                           <PenIcon size={11} />
                         </span>
@@ -2607,6 +2632,9 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                             e.stopPropagation();
                             void deleteChannel(ch);
                           }}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={keyActivate(() => void deleteChannel(ch))}
                         >
                           <CloseIcon size={12} />
                         </span>
@@ -2618,6 +2646,9 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                           e.stopPropagation();
                           void cycleNotify(ch);
                         }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={keyActivate(() => void cycleNotify(ch))}
                       >
                         <NotifyModeIcon mode={ch.notifyMode ?? 'mention'} />
                       </span>
@@ -2722,6 +2753,9 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                                   alt={m.file.name}
                                   loading="lazy"
                                   onClick={() => setImgView({ url: chatFileHref(m.file!.url!), name: m.file!.name })}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={keyActivate(() => setImgView({ url: chatFileHref(m.file!.url!), name: m.file!.name }))}
                                 />
                                 <a
                                   className="chat-img-dl"
@@ -2954,8 +2988,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
       {/* 채팅 이미지 확대 보기 — body 포털, 배경 클릭·Esc로 닫힘 */}
       {imgView &&
         createPortal(
-          <div className="img-viewer" role="dialog" aria-label="이미지 보기" onClick={() => setImgView(null)}>
-            <div className="img-viewer-bar" onClick={(e) => e.stopPropagation()}>
+          <div className="img-viewer" role="dialog" aria-label="이미지 보기" tabIndex={0} onClick={() => setImgView(null)} onKeyDown={keyActivate(() => setImgView(null))}>
+            <div className="img-viewer-bar" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
               <span className="img-viewer-name" title={imgView.name}>
                 {imgView.name}
               </span>
@@ -2966,7 +3000,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
                 <CloseIcon size={15} />
               </button>
             </div>
-            <img className="img-viewer-img" src={imgView.url} alt={imgView.name} onClick={(e) => e.stopPropagation()} />
+            <img className="img-viewer-img" src={imgView.url} alt={imgView.name} onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation} />
           </div>,
           document.body,
         )}
@@ -2989,7 +3023,7 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
           if (!t) return null;
           return createPortal(
             <>
-              <div className="todo-pop-backdrop" onClick={() => setTodoPop(null)} />
+              <div className="todo-pop-backdrop" role="button" tabIndex={0} aria-label="닫기" onClick={() => setTodoPop(null)} onKeyDown={keyActivate(() => setTodoPop(null))} />
               <div
                 className={`todo-pop${todoPop.up ? ' up' : ''}`}
                 style={{ left: todoPop.left, top: todoPop.top }}
@@ -3074,8 +3108,8 @@ function MeetingHub({ code, expanded, onToggleExpand, gotoTab, visible = true }:
         })()}
       {/* 안건 생애 타임라인 — 검토 시작→대기→재논의→결정→실행→완료 한 줄 (박형우 멘토 프레임) */}
       {atlOpen && (
-        <div className="cf-move-overlay" onClick={() => setAtlOpen(false)}>
-          <div className="cf-move-modal hub-atl-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="cf-move-overlay" role="button" tabIndex={0} aria-label="닫기" onClick={() => setAtlOpen(false)} onKeyDown={keyActivate(() => setAtlOpen(false))}>
+          <div className="cf-move-modal hub-atl-modal" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
             {atl === null ? (
               <div className="hub-atl-loading">타임라인을 불러오는 중…</div>
             ) : (

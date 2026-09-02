@@ -14,6 +14,7 @@ import { useOrgStore } from '../orgStore';
 import { readPins, PINS_EVENT } from '../lib/pins';
 import { initPush } from '../lib/push';
 import { getSocket } from '../lib/socket';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 export default function DashboardPage() {
   const location = useLocation();
@@ -447,7 +448,10 @@ export default function DashboardPage() {
               <div
                 key={m.id}
                 className={`recent-card clickable${isPinned ? ' pinned' : ''}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => openMeetingTab(m.code, m.title)}
+                onKeyDown={keyActivate(() => openMeetingTab(m.code, m.title))}
                 title="클릭하면 옆 탭에서 그룹이 열려요"
               >
                 <MeetingThumb id={m.id} title={m.title} thumbnail={m.thumbnail} className="thumb" />
@@ -456,7 +460,7 @@ export default function DashboardPage() {
                     {m.title}
                     {isPinned && <PinIcon size={17} />}
                   </div>
-                  <div className="actions" onClick={(e) => e.stopPropagation()}>
+                  <div className="actions" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                     <button title="통화" onClick={() => openMeetingTab(m.code, m.title, 'call')}>
                       <PhoneIcon size={17} />
                     </button>
@@ -493,8 +497,8 @@ export default function DashboardPage() {
 
         {/* 모바일 — 그룹 추가 선택 (만들기 / 코드로 참여) */}
         {addOpen && (
-          <div className="modal-overlay" onClick={() => setAddOpen(false)}>
-            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="button" tabIndex={0} aria-label="닫기" onClick={() => setAddOpen(false)} onKeyDown={keyActivate(() => setAddOpen(false))}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
               <div className="modal-head">그룹 추가</div>
               {canCreateGroup && (
                 <button
@@ -530,8 +534,8 @@ export default function DashboardPage() {
 
         {/* 모바일 — 그룹 코드로 참여 모달 */}
         {joinOpen && (
-          <div className="modal-overlay" onClick={() => setJoinOpen(false)}>
-            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-overlay" role="button" tabIndex={0} aria-label="닫기" onClick={() => setJoinOpen(false)} onKeyDown={keyActivate(() => setJoinOpen(false))}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
               <div className="modal-head">그룹 코드로 참여</div>
               <form onSubmit={joinMeeting}>
                 <label className="modal-label">

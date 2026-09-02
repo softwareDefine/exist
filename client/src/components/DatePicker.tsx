@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from './Icons';
+import { keyActivate } from '../lib/a11y';
 
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -55,7 +56,14 @@ export default function DatePicker({
       </button>
       {open && (
         <>
-          <div className="datepick-back" onClick={() => setOpen(false)} />
+          <div
+            className="datepick-back"
+            onClick={() => setOpen(false)}
+            role="button"
+            tabIndex={0}
+            aria-label="닫기"
+            onKeyDown={keyActivate(() => setOpen(false))}
+          />
           <div className="datepick-pop">
             <div className="datepick-head">
               <button type="button" onClick={() => setView(new Date(year, month - 1, 1))}>

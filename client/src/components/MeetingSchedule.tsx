@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import { useDisplayName } from '../names';
+import { keyActivate } from '../lib/a11y';
 import { PhoneIcon, BellIcon, ListIcon, PlusIcon, CheckMarkIcon, PenIcon, CloseIcon, ChevronLeftIcon, ChevronRightIcon, PinIcon, SparklesIcon } from './Icons';
 import Marquee from './Marquee';
 import PillSeg from './PillSeg';
@@ -1493,7 +1494,10 @@ export default function MeetingSchedule({
                     <div
                       key={key}
                       className={'msched-wallday-col' + (key === selected ? ' sel' : '')}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelected(key)}
+                      onKeyDown={keyActivate(() => setSelected(key))}
                     >
                       {dayUntimed.map((e) => (
                         <span key={e.id} className="msched-wallday-chip" style={evColorStyle(e.color)} title={`${e.title} · ${dn(e.author)}${e.memo ? ` — ${e.memo}` : ''}`}>
@@ -1553,6 +1557,8 @@ export default function MeetingSchedule({
                         <div
                           key={h}
                           className="msched-week-cell"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             if (suppressClick.current) {
                               suppressClick.current = false;
@@ -1562,6 +1568,11 @@ export default function MeetingSchedule({
                             setTime(`${pad(h)}:00`);
                             setEndTime('');
                           }}
+                          onKeyDown={keyActivate(() => {
+                            setSelected(key);
+                            setTime(`${pad(h)}:00`);
+                            setEndTime('');
+                          })}
                           title="드래그하면 그 길이만큼 일정을 만들어요"
                         />
                       ))}
@@ -1670,6 +1681,8 @@ export default function MeetingSchedule({
                   key={h}
                   data-hour={h}
                   className="msched-hour"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     if (suppressClick.current) {
                       suppressClick.current = false;
@@ -1687,6 +1700,18 @@ export default function MeetingSchedule({
                     setTime(`${pad(h)}:00`);
                     setEndTime('');
                   }}
+                  onKeyDown={keyActivate(() => {
+                    if (isMobile()) {
+                      resetForm();
+                      setTime(`${pad(h)}:00`);
+                      setEndTime(`${pad(Math.min(h + 1, 23))}:${h + 1 > 23 ? '59' : '00'}`);
+                      setPop({ mode: 'create', evId: null, x: window.innerWidth / 2, y: 100 });
+                      return;
+                    }
+                    setAllDay(false);
+                    setTime(`${pad(h)}:00`);
+                    setEndTime('');
+                  })}
                   title="드래그하면 그 길이만큼 일정을 만들어요"
                 >
                   <span className="msched-hour-label">
@@ -1903,6 +1928,8 @@ export default function MeetingSchedule({
         {/* 모바일 그립 — 끌어서 올리고 내리기 (탭 = 토글) */}
         <div
           className="msched-panel-grip"
+          role="button"
+          tabIndex={0}
           onClick={() => {
             if (suppressGripClick.current) {
               suppressGripClick.current = false;
@@ -1910,6 +1937,7 @@ export default function MeetingSchedule({
             }
             setPanelUp((v) => !v);
           }}
+          onKeyDown={keyActivate(() => setPanelUp((v) => !v))}
           onTouchStart={gripTouchStart}
           onTouchMove={gripTouchMove}
           onTouchEnd={gripTouchEnd}

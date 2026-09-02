@@ -23,6 +23,7 @@ import Marquee from './Marquee';
 import { PlusIcon, CloseIcon, DownloadIcon, CheckMarkIcon, ChevronIcon } from './Icons';
 import ColorGrid from './ColorGrid';
 import OverflowToolbar from './OverflowToolbar';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 const CARET_COLORS = ['#30a46c', '#e5484d', '#f76808', '#4f7cff', '#8e4ec6', '#0091ff', '#d6409f'];
 
@@ -817,8 +818,11 @@ export default function DocEditor({
             <div
               key={d.id}
               className={`doc-tab${d.id === activeId ? ' active' : ''}`}
+              role="button"
+              tabIndex={0}
               onClick={() => setActiveId(d.id)}
               onDoubleClick={() => setRenaming({ id: d.id, name: d.name })}
+              onKeyDown={keyActivate(() => setActiveId(d.id))}
               title="더블클릭하면 이름 변경"
             >
               {renaming?.id === d.id ? (
@@ -898,7 +902,7 @@ export default function DocEditor({
             </button>
             {menu === 'export' && (
               <>
-                <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                 <div className="doc-dd right">
                   <button
                     className="item"
@@ -958,7 +962,7 @@ export default function DocEditor({
               </button>
               {menu === 'style' && (
                 <>
-                  <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                  <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                   <div className="doc-dd">
                     <button
                       className={`item${!editor?.isActive('heading') ? ' on' : ''}`}
@@ -1014,7 +1018,7 @@ export default function DocEditor({
               </button>
               {menu === 'font' && (
                 <>
-                  <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                  <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                   <div className="doc-dd">
                     {FONT_FAMILIES.map((f) => (
                       <button
@@ -1049,7 +1053,7 @@ export default function DocEditor({
               </button>
               {menu === 'lh' && (
                 <>
-                  <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                  <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                   <div className="doc-dd">
                     <button
                       className="item"
@@ -1124,7 +1128,7 @@ export default function DocEditor({
               </button>
               {menu === 'color' && (
                 <>
-                  <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                  <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                   <div className="doc-dd sw">
                     <ColorGrid
                       value={editor?.getAttributes('textStyle').color as string | undefined}
@@ -1149,7 +1153,7 @@ export default function DocEditor({
               </button>
               {menu === 'hl' && (
                 <>
-                  <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                  <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                   <div className="doc-dd sw">
                     <ColorGrid
                       value={editor?.getAttributes('highlight').color as string | undefined}
@@ -1201,7 +1205,7 @@ export default function DocEditor({
               </button>
               {menu === 'link' && (
                 <>
-                  <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                  <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                   <div className="doc-find">
                     <input
                       autoFocus
@@ -1242,7 +1246,7 @@ export default function DocEditor({
               </button>
               {menu === 'table' && (
                 <>
-                  <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                  <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                   <div className="doc-dd">
                     {!inTable ? (
                       <button
@@ -1303,7 +1307,7 @@ export default function DocEditor({
               </button>
               {menu === 'find' && (
                 <>
-                  <div className="doc-dd-back" onClick={() => setMenu(null)} />
+                  <div className="doc-dd-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setMenu(null)} onKeyDown={keyActivate(() => setMenu(null))} />
                   <div className="doc-find">
                     <input
                       autoFocus
@@ -1438,7 +1442,10 @@ export default function DocEditor({
                   <div
                     key={id}
                     className={`doc-cthread${activeCommentId === id ? ' active' : ''}`}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => jumpToComment(id)}
+                    onKeyDown={keyActivate(() => jumpToComment(id))}
                   >
                     {c.anchor && <div className="doc-cthread-anchor">“{c.anchor}”</div>}
                     <div className="doc-cthread-meta">
@@ -1453,7 +1460,7 @@ export default function DocEditor({
                         <div className="doc-cthread-text">{r.text}</div>
                       </div>
                     ))}
-                    <div className="doc-creply-row" onClick={(e) => e.stopPropagation()}>
+                    <div className="doc-creply-row" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                       <input
                         placeholder="답글…"
                         value={replyDrafts[id] ?? ''}
@@ -1462,7 +1469,7 @@ export default function DocEditor({
                       />
                       <button onClick={() => addReply(id)}>등록</button>
                     </div>
-                    <div className="doc-cthread-btns" onClick={(e) => e.stopPropagation()}>
+                    <div className="doc-cthread-btns" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                       <button className="primary" onClick={() => resolveComment(id)}><CheckMarkIcon size={12} /> 해결</button>
                       <button className="danger" onClick={() => deleteComment(id)}>삭제</button>
                     </div>
@@ -1510,8 +1517,8 @@ export default function DocEditor({
 
       {/* 변경이력 모달 */}
       {versionsOpen && (
-        <div className="modal-overlay" onClick={() => setVersionsOpen(false)}>
-          <div className="modal-card doc-vers-card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" role="button" tabIndex={0} aria-label="닫기" onClick={() => setVersionsOpen(false)} onKeyDown={keyActivate(() => setVersionsOpen(false))}>
+          <div className="modal-card doc-vers-card" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
             {!previewVer ? (
               <>
                 <div className="modal-head">변경이력</div>

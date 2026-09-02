@@ -7,6 +7,7 @@ import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
 import { BuildingIcon, UsersIcon, ShareIcon, CheckMarkIcon, GearIcon, PenIcon, ChevronIcon, ChevronUpIcon, ChevronLeftIcon, SparklesIcon, MailIcon } from '../components/Icons';
 import { POSITIONS } from '../lib/positions';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 import InsightsPanel from '../components/InsightsPanel';
 
 interface Member {
@@ -520,8 +521,8 @@ export default function OrgChartPage() {
 
           {/* 역할(정책) 관리 모달 — 소유자 전용. IAM식: 액션 조합 = 역할, 스코프 = 자기 부서 */}
           {owner && rolesOpen && (
-            <div className="modal-overlay" onClick={() => setRolesOpen(false)}>
-              <div className="modal-card org-roles-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-overlay" role="button" tabIndex={0} aria-label="닫기" onClick={() => setRolesOpen(false)} onKeyDown={keyActivate(() => setRolesOpen(false))}>
+              <div className="modal-card org-roles-modal" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                 <div className="modal-head">역할 관리</div>
                 <div className="org-roles-hint">
                   만든 역할을 멤버에게 주면 중간관리자가 돼요 — 권한은 그 사람의 <b>자기 부서</b>{' '}

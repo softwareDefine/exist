@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { useAuthStore } from '../store';
 import MeetingThumb from './MeetingThumb';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 interface MeetingInfo {
   id: number;
@@ -117,8 +118,15 @@ export default function MeetingSettingsModal({ meeting, onClose, onChanged }: Pr
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      role="button"
+      tabIndex={0}
+      aria-label="닫기"
+      onKeyDown={keyActivate(onClose)}
+    >
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
         <div className="modal-head">회의 설정</div>
 
         {/* 회의 사진 */}

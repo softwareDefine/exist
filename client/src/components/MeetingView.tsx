@@ -3,6 +3,7 @@ import { Device } from 'mediasoup-client';
 import type { Transport, Producer } from 'mediasoup-client/types';
 import { getSocket, request } from '../lib/socket';
 import { api } from '../api';
+import { keyActivate } from '../lib/a11y';
 import { useAuthStore } from '../store';
 import { useDisplayName, displayNameOf } from '../names';
 import Logo from './Logo';
@@ -190,6 +191,9 @@ function VideoTile({
       className={`video-tile${isScreen ? ' screen' : ''}${speaking && !isScreen ? ' speaking' : ''}${onPress ? ' pressable' : ''}`}
       style={isScreen && mediaRatio ? { aspectRatio: `${mediaRatio}` } : undefined}
       onClick={onPress}
+      role={onPress ? 'button' : undefined}
+      tabIndex={onPress ? 0 : undefined}
+      onKeyDown={onPress ? keyActivate(onPress) : undefined}
     >
       {showVideo ? (
         <>
@@ -1597,7 +1601,7 @@ registerProcessor('exist-pcm',P)`;
     const noun = kind === 'mic' ? '마이크' : '카메라';
     return (
       <>
-        <div style={{ position: 'fixed', inset: 0, zIndex: 39 }} onClick={() => setDevMenu(null)} />
+        <div style={{ position: 'fixed', inset: 0, zIndex: 39 }} role="button" tabIndex={0} aria-label="닫기" onClick={() => setDevMenu(null)} onKeyDown={keyActivate(() => setDevMenu(null))} />
         <div className={`dev-menu${align === 'right' ? ' align-right' : ''}`}>
           <div className="dev-menu-title">{noun} 선택</div>
           {[{ deviceId: '', label: `기본 ${noun}` }, ...list].map((d, i) => {
@@ -2019,7 +2023,11 @@ registerProcessor('exist-pcm',P)`;
                   {devMenu === 'people' && (
                     <div
                       style={{ position: 'fixed', inset: 0, zIndex: 39 }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="닫기"
                       onClick={() => setDevMenu(null)}
+                      onKeyDown={keyActivate(() => setDevMenu(null))}
                     />
                   )}
                   <div className="dev-menu ppl-menu">
@@ -2155,7 +2163,7 @@ registerProcessor('exist-pcm',P)`;
           </button>
           {devMenu === 'opts' && (
             <>
-              <div style={{ position: 'fixed', inset: 0, zIndex: 39 }} onClick={() => setDevMenu(null)} />
+              <div style={{ position: 'fixed', inset: 0, zIndex: 39 }} role="button" tabIndex={0} aria-label="닫기" onClick={() => setDevMenu(null)} onKeyDown={keyActivate(() => setDevMenu(null))} />
               <div className="dev-menu align-right ctl-opts">
                 <div className="dev-menu-title">통화 설정</div>
                 <button
@@ -2373,6 +2381,16 @@ registerProcessor('exist-pcm',P)`;
               setCtlHidden(true);
             }
           }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={keyActivate(() => {
+            // 키보드는 빈 영역 클릭과 동일 취급 — 컨트롤 토글
+            if (ctlHidden) bumpControls();
+            else if (shouldAutoHide()) {
+              if (ctlTimer.current) clearTimeout(ctlTimer.current);
+              setCtlHidden(true);
+            }
+          })}
         >
           {hasScreen && (
             <div className={`screen-stage screens-${screens.length}`}>
@@ -2640,6 +2658,9 @@ registerProcessor('exist-pcm',P)`;
       <footer
         className="meeting-controls"
         onClick={bumpControls}
+        role="button"
+        tabIndex={0}
+        onKeyDown={keyActivate(bumpControls)}
         onTouchStart={(e) => {
           areaTouchY.current = e.touches[0].clientY;
         }}

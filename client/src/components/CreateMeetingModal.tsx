@@ -6,6 +6,7 @@ import { useDisplayName } from '../names';
 import { useAuthStore } from '../store';
 import { CloseIcon, CalendarIcon, CopyIcon, CheckMarkIcon, BuildingIcon, UserIcon } from './Icons';
 import Avatar from './Avatar';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 
 interface Person {
   username: string;
@@ -185,8 +186,15 @@ export default function CreateMeetingModal({ open, onClose, onCreated, defaultSc
   }
 
   return (
-    <div className="cm-overlay" onClick={onClose}>
-      <div className="cm-modal" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="cm-overlay"
+      onClick={onClose}
+      role="button"
+      tabIndex={0}
+      aria-label="닫기"
+      onKeyDown={keyActivate(onClose)}
+    >
+      <div className="cm-modal" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
         {created ? (
           <div className="cm-done">
             <div className="cm-done-emoji">🎉</div>

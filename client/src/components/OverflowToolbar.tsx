@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import type React from 'react';
+import { keyActivate } from '../lib/a11y';
 
 /*
  * 구글 시트식 오버플로 툴바 — 폭이 모자라면 뒤쪽 버튼들을 ⋮ 팝오버로 접는다.
@@ -112,7 +113,14 @@ export default function OverflowToolbar({
           </button>
           {moreOpen && (
             <>
-              <div className="tb-more-back" onClick={() => setMoreOpen(null)} />
+              <div
+                className="tb-more-back"
+                onClick={() => setMoreOpen(null)}
+                role="button"
+                tabIndex={0}
+                aria-label="닫기"
+                onKeyDown={keyActivate(() => setMoreOpen(null))}
+              />
               <div className="tb-more-panel" style={{ top: moreOpen.top, right: moreOpen.right }}>
                 {hidden}
               </div>

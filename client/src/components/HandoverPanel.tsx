@@ -5,6 +5,7 @@ import { useAuthStore } from '../store';
 import { useDisplayName } from '../names';
 import { CheckMarkIcon, SparklesIcon, AlertIcon, ListIcon, BulbIcon, RefreshIcon } from './Icons';
 import SignPad from './SignPad';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 // AlertIcon — 복명복창 대조 mismatch 배지에 사용
 
 /*
@@ -476,8 +477,15 @@ export default function HandoverPanel({
                 )}
                 {/* 서명 모달 — 인수인계 수령 확인 (원장·공동편집 서명과 같은 팝업 문법) */}
                 {signFor === h.id && (
-                  <div className="cf-signmodal-backdrop" onClick={() => setSignFor(null)}>
-                    <div className="cf-signmodal" onClick={(ev) => ev.stopPropagation()}>
+                  <div
+                    className="cf-signmodal-backdrop"
+                    onClick={() => setSignFor(null)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="닫기"
+                    onKeyDown={keyActivate(() => setSignFor(null))}
+                  >
+                    <div className="cf-signmodal" onClick={(ev) => ev.stopPropagation()} onKeyDown={keyStopPropagation}>
                       <div className="cf-signmodal-head">인수인계 수령 서명</div>
                       <div className="cf-signmodal-note">
                         <div className="cf-signmodal-note-t">

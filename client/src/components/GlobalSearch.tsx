@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { api } from '../api';
 import { useOrgStore } from '../orgStore';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 import {
   CheckMarkIcon,
   ChatIcon,
@@ -138,8 +139,21 @@ export default function GlobalSearch() {
   }
 
   return (
-    <div className="gs-overlay" onClick={() => setOpen(false)}>
-      <div className="gs-box" role="dialog" aria-label="전역 검색" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="gs-overlay"
+      onClick={() => setOpen(false)}
+      role="button"
+      tabIndex={0}
+      aria-label="닫기"
+      onKeyDown={keyActivate(() => setOpen(false))}
+    >
+      <div
+        className="gs-box"
+        role="dialog"
+        aria-label="전역 검색"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={keyStopPropagation}
+      >
         <div className="gs-head">
           <SearchIcon size={16} />
           <input

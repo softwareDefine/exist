@@ -28,6 +28,7 @@ import { WebsocketProvider } from 'y-websocket';
 import { yCollab } from 'y-codemirror.next';
 import { useAuthStore } from '../store';
 import Marquee from './Marquee';
+import { keyActivate, keyStopPropagation } from '../lib/a11y';
 import { api } from '../api';
 import {
   PlusIcon,
@@ -699,7 +700,7 @@ export default function CodeDocEditor({
   );
 
   const renderTree = (parent: string, depth: number): React.ReactNode[] => {
-    const subFolders = [...folderPaths].filter((p) => dirname(p) === parent).sort();
+    const subFolders = [...folderPaths].filter((p) => dirname(p) === parent).sort((a, b) => a.localeCompare(b));
     const subFiles = files
       .filter((f) => !f.dir && dirname(f.name) === parent)
       .sort((a, b) => a.ord - b.ord);
@@ -712,7 +713,10 @@ export default function CodeDocEditor({
           key={`d:${fp}`}
           className={`vsc-file vsc-folder${currentDir === fp ? ' cur' : ''}`}
           style={{ paddingLeft: 10 + depth * 14 }}
+          role="button"
+          tabIndex={0}
           onClick={() => toggleFolder(fp)}
+          onKeyDown={keyActivate(() => toggleFolder(fp))}
           title={fp}
           draggable={!!folderEntry}
           onDragStart={(e) => {
@@ -752,7 +756,10 @@ export default function CodeDocEditor({
           key={f.id}
           className={`vsc-file${f.id === activeId ? ' active' : ''}`}
           style={{ paddingLeft: 10 + depth * 14 }}
+          role="button"
+          tabIndex={0}
           onClick={() => openFile(f.id)}
+          onKeyDown={keyActivate(() => openFile(f.id))}
           title={f.name}
           draggable
           onDragStart={(e) => {
@@ -774,7 +781,7 @@ export default function CodeDocEditor({
   return (
     <div className={`vsc ${appDark ? 'dark' : 'light'}`}>
       {/* 파일 탐색기 — 모바일에선 ☰로 여닫는 오버레이 서랍 */}
-      {sideOpen && <div className="vsc-side-scrim" onClick={() => setSideOpen(false)} />}
+      {sideOpen && <div className="vsc-side-scrim" role="button" tabIndex={0} aria-label="닫기" onClick={() => setSideOpen(false)} onKeyDown={keyActivate(() => setSideOpen(false))} />}
       <div className={`vsc-sidebar${sideOpen ? ' m-open' : ''}`}>
         <div className="vsc-sidebar-head">
           <span>탐색기{currentDir && <span className="vsc-curdir"> · {basename(currentDir)}/</span>}</span>
@@ -856,7 +863,10 @@ export default function CodeDocEditor({
                 <div
                   key={id}
                   className={`vsc-tab${id === activeId ? ' active' : ''}`}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setActiveId(id)}
+                  onKeyDown={keyActivate(() => setActiveId(id))}
                 >
                   <span className="vsc-tab-ic">{fileIcon(f.name)}</span>
                   {f.name}
@@ -882,8 +892,8 @@ export default function CodeDocEditor({
               </button>
               {showGit && (
                 <>
-                  <div className="vsc-git-back" onClick={() => setShowGit(false)} />
-                  <div className="vsc-git-menu" onClick={(e) => e.stopPropagation()}>
+                  <div className="vsc-git-back" role="button" tabIndex={0} aria-label="닫기" onClick={() => setShowGit(false)} onKeyDown={keyActivate(() => setShowGit(false))} />
+                  <div className="vsc-git-menu" onClick={(e) => e.stopPropagation()} onKeyDown={keyStopPropagation}>
                     <div className="vsc-git-title">GitHub 업로드 (push)</div>
                     <input
                       placeholder="원격 URL (https://github.com/유저/레포.git)"
