@@ -251,3 +251,14 @@ describe('stepEventDate / eventOccurrenceOnOrAfter 단위 검증', () => {
     expect(eventOccurrenceOnOrAfter('bad-date', 'daily', null, '2026-01-01')).toBeNull();
   });
 });
+
+describe('일정 추가 참가자 가드 (9/2 수정)', () => {
+  it('비참가자는 코드만 알아도 403, 참가자는 정상 추가', async () => {
+    const { m } = await setup('evguard');
+    const outsider = await register(app, 'evguard_out');
+    const r = await post(m.code, outsider, { title: '몰래 일정', date: D(1) });
+    expect(r.status).toBe(403);
+    expect(r.body).toEqual({ error: '회의 참가자만 일정을 추가할 수 있어요' });
+    expect(db.prepare('SELECT COUNT(*) c FROM meeting_events WHERE meeting_id = ?').get(m.id) as { c: number }).toEqual({ c: 0 });
+  });
+});

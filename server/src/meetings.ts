@@ -1158,6 +1158,11 @@ router.post('/:code/events', (req: AuthedRequest, res) => {
     .prepare('SELECT id, title FROM meetings WHERE code = ?')
     .get(code) as { id: number; title: string } | undefined;
   if (!meeting) return res.status(404).json({ error: '존재하지 않는 회의입니다' });
+  // 다른 이벤트 라우트와 동일한 가드 — 코드만 아는 비참가자의 일정 추가 차단 (9/2)
+  const isParticipant = db
+    .prepare('SELECT 1 FROM meeting_participants WHERE meeting_id = ? AND user_id = ?')
+    .get(meeting.id, req.userId);
+  if (!isParticipant) return res.status(403).json({ error: '회의 참가자만 일정을 추가할 수 있어요' });
   const hhmm = (v: unknown) => (v && /^\d{2}:\d{2}$/.test(String(v)) ? String(v) : null);
   // 여러 날 걸친 일정 — 종료일이 시작일보다 뒤일 때만 유효
   const endDate =
