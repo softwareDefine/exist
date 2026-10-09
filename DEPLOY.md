@@ -23,7 +23,8 @@ cd ../server && npm ci && npm run build  # → server/dist
 | `NODE_ENV` | `production`이면 client/dist 정적 서빙 + CORS 비활성(동일 오리진) | `production` |
 | `PORT` | HTTP 포트 | `4000` |
 | `ANNOUNCED_IP` | **필수(배포 시)** — mediasoup이 클라이언트에 알려줄 서버 공인 IP | `203.0.113.10` |
-| `RTC_MIN_PORT` / `RTC_MAX_PORT` | WebRTC UDP/TCP 포트 범위 | `40000` / `40100` |
+| `RTC_PORT` | WebRtcServer 포트. 공개 주소(LOCAL_IP·ANNOUNCED_IP)마다 하나씩 `RTC_PORT`, `RTC_PORT+1` (UDP+TCP) | `40000` |
+| `RTC_MIN_PORT` / `RTC_MAX_PORT` | 개발 환경(공개 주소 미설정)에서만 쓰는 transport별 포트 범위 | `40000` / `40100` |
 | `OPENAI_API_KEY` | AI(브리핑·recap·총무·인사이트)용 OpenAI 키 (없으면 규칙 기반 폴백) | `sk-...` |
 | `OPENAI_MODEL` | AI 모델 (기본 `gpt-4o-mini`) | `gpt-4o-mini` |
 | `LOCAL_IP` | 같은 LAN 통화용 사설 IP (헤어핀 NAT 회피) | `192.168.0.82` |
@@ -35,8 +36,8 @@ cd ../server && npm ci && npm run build  # → server/dist
 ## 방화벽
 
 - TCP 443 (HTTPS, 리버스 프록시)
-- **UDP 40000–40100** (mediasoup RTC — 이거 안 열면 영상이 안 감)
-- TCP 40000–40100 (UDP 차단 환경 폴백)
+- **UDP 40000–40001** (mediasoup WebRtcServer — 이거 안 열면 영상이 안 감. 공개 주소가 하나면 40000만)
+- TCP 40000–40001 (UDP 차단 환경 폴백)
 
 ## 실행
 

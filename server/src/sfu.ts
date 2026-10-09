@@ -3,6 +3,7 @@ import type { Server, Socket } from 'socket.io';
 import type {
   Worker,
   Router,
+  WebRtcServer,
   WebRtcTransport,
   Producer,
   Consumer,
@@ -77,6 +78,8 @@ interface Room {
 }
 
 let worker: Worker;
+/** 공개 주소(LOCAL_IP/ANNOUNCED_IP)가 있을 때만 만든다. 모든 transport 가 이 서버의 포트를 나눠 쓴다. */
+let webRtcServer: WebRtcServer | undefined;
 const rooms = new Map<string, Room>();
 
 export async function startMediasoup() {
@@ -88,6 +91,12 @@ export async function startMediasoup() {
     console.error('[sfu] mediasoup worker died — exiting');
     process.exit(1);
   });
+  const serverInfos = buildServerListenInfos();
+  if (serverInfos.length > 0) {
+    webRtcServer = await worker.createWebRtcServer({ listenInfos: serverInfos });
+    const desc = serverInfos.map((i) => `${i.protocol}:${i.port}→${i.announcedAddress}`).join(', ');
+    console.log(`[sfu] WebRtcServer ${desc}`);
+  }
   console.log('[sfu] mediasoup worker started');
 }
 
@@ -126,44 +135,52 @@ function closeRoomIfEmpty(room: Room) {
 }
 
 /**
- * ICE 후보로 알릴 주소들을 만든다.
+ * ICE 후보로 알릴 주소들.
  * - LOCAL_IP: 같은 공유기(LAN) 안에서 접속할 때 쓰는 사설 IP (예: 192.168.0.82).
  *   → 헤어핀 NAT 미지원 공유기에서도 LAN끼리는 직접 연결됨.
  * - ANNOUNCED_IP: 외부망(인터넷)에서 접속할 때 쓰는 공인 IP.
  * 둘 다 후보로 주면 클라가 ICE 연결성 검사로 되는 쪽을 자동 선택한다.
- * 개발 환경(둘 다 미설정)에서는 127.0.0.1로 폴백.
  */
-function buildListenInfos(): TransportListenInfo[] {
-  const announced = [process.env.LOCAL_IP, process.env.ANNOUNCED_IP].filter(
-    (v): v is string => !!v,
-  );
-  if (announced.length === 0) {
-    return [
-      { protocol: 'udp', ip: '127.0.0.1' },
-      { protocol: 'tcp', ip: '127.0.0.1' },
-    ];
-  }
-  const infos: TransportListenInfo[] = [];
-  for (const addr of announced) {
-    infos.push({ protocol: 'udp', ip: '0.0.0.0', announcedAddress: addr });
-    infos.push({ protocol: 'tcp', ip: '0.0.0.0', announcedAddress: addr });
-  }
-  return infos;
+function announcedAddresses(): string[] {
+  const all = [process.env.LOCAL_IP, process.env.ANNOUNCED_IP].filter((v): v is string => !!v);
+  return [...new Set(all)];
 }
 
-// Colima/Docker처럼 UDP 포워딩이 막힌 환경에선 TCP 우선(MEDIA_PREFER_TCP=1).
+/**
+ * WebRtcServer 소켓 — 주소마다 포트 하나(UDP+TCP). RTC_PORT(기본 40000)가 첫 주소, +1 이 다음 주소.
+ * transport 마다 포트를 따로 잡던 시절엔 RTC_MIN~MAX(101개 × UDP/TCP)를 전부 열어야 했고,
+ * 맥미니에서 그 200여 개를 포워딩하던 Colima(lima)가 버티지 못했다(2026-09-27~10-03 장애).
+ * WebRtcServer 는 모든 transport 가 포트를 ICE ufrag 로 나눠 쓰므로 열 포트가 주소 수만큼으로 준다.
+ * 개발 환경(공개 주소 미설정)에서는 빈 배열 → transport 별 127.0.0.1 포트로 폴백.
+ */
+function buildServerListenInfos(): TransportListenInfo[] {
+  const base = Number(process.env.RTC_PORT ?? 40000);
+  return announcedAddresses().flatMap((addr, i): TransportListenInfo[] => [
+    { protocol: 'udp', ip: '0.0.0.0', announcedAddress: addr, port: base + i },
+    { protocol: 'tcp', ip: '0.0.0.0', announcedAddress: addr, port: base + i },
+  ]);
+}
+
+// UDP 가 안 넘어오는 환경에선 TCP 우선(MEDIA_PREFER_TCP=1).
 // UDP 후보는 그대로 두되 ICE 우선순위만 TCP로 → 빠르게 TCP로 붙는다.
 const PREFER_TCP =
   process.env.MEDIA_PREFER_TCP === '1' || process.env.MEDIA_PREFER_TCP === 'true';
 
 async function createWebRtcTransport(router: Router): Promise<WebRtcTransport> {
-  return router.createWebRtcTransport({
-    listenInfos: buildListenInfos(),
+  const common = {
     enableUdp: true,
     enableTcp: true,
     preferUdp: !PREFER_TCP,
     preferTcp: PREFER_TCP,
     initialAvailableOutgoingBitrate: 1_000_000,
+  };
+  if (webRtcServer) return router.createWebRtcTransport({ ...common, webRtcServer });
+  return router.createWebRtcTransport({
+    ...common,
+    listenInfos: [
+      { protocol: 'udp', ip: '127.0.0.1' },
+      { protocol: 'tcp', ip: '127.0.0.1' },
+    ],
   });
 }
 

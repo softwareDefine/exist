@@ -28,10 +28,10 @@ services:
       ANNOUNCED_IP: ${ANNOUNCED_IP}
       # 같은 공유기(LAN) 안 통화용 사설 IP — 헤어핀 NAT 회피. 맥미니 LAN IP.
       LOCAL_IP: ${LOCAL_IP:-192.168.0.82}
-      RTC_MIN_PORT: "40000"
-      RTC_MAX_PORT: "40100"
-      # Colima는 UDP 포트포워딩을 못 함(lima는 TCP만). 미디어를 TCP로 우선 연결.
-      MEDIA_PREFER_TCP: "1"
+      # WebRtcServer — 모든 통화가 포트 2개를 나눠 쓴다 (40000=LOCAL_IP, 40001=ANNOUNCED_IP)
+      RTC_PORT: "40000"
+      # 예전엔 lima 가 UDP 를 못 넘겨 TCP 우선이었다. 이제 맥 pf 가 UDP 도 VM 으로 넘기므로 UDP 우선.
+      MEDIA_PREFER_TCP: "0"
       # 코드 실행(/exec)은 격리된 runner 컨테이너로 위임. git push(/git)만 게이트.
       RUNNER_URL: http://runner:5000
       CODE_EXEC_ENABLED: ${CODE_EXEC_ENABLED:-0}
@@ -40,10 +40,13 @@ services:
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
     ports:
-      # 4000은 nginx가 망 안에서 접근하므로 미공개. 미디어는 UDP+TCP 둘 다 publish
-      # (Colima에선 UDP가 안 넘어와서 TCP가 실제 동작 경로)
-      - "40000-40100:40000-40100/udp"
-      - "40000-40100:40000-40100/tcp"
+      # 4000은 nginx가 망 안에서 접근하므로 미공개. 미디어는 UDP+TCP 둘 다 publish.
+      # Colima VM 주소에만 바인딩 — 0.0.0.0 이면 lima 가 맥으로 포워딩하려 들고(예전 200여 개가
+      # 여기서 무너졌다), VM 주소 바인딩은 lima 가 건드리지 않는다. 바깥 → 맥 en0 → VM 은
+      # 맥의 pf 규칙(~/bin/colima-watchdog.sh 의 ensure_pf)이 넘긴다.
+      # VM 주소가 바뀌면 컨테이너가 못 뜬다 → .env 의 MEDIA_BIND_IP 로 맞출 것 (`colima list`).
+      - "${MEDIA_BIND_IP:-192.168.64.2}:40000-40001:40000-40001/udp"
+      - "${MEDIA_BIND_IP:-192.168.64.2}:40000-40001:40000-40001/tcp"
     volumes:
       - exist-data:/data
     networks:
